@@ -829,6 +829,8 @@ mod tests {
                 "stress".to_string(),
                 AnimationDef {
                     occurrence_ids: None,
+                    pose_alignment: Default::default(),
+                    pose_code_drafts: Default::default(),
                     frame_events: Vec::new(),
                     frames: frame_list,
                     fps: 12,
@@ -857,6 +859,8 @@ mod tests {
                 "run".to_string(),
                 AnimationDef {
                     occurrence_ids: None,
+                    pose_alignment: Default::default(),
+                    pose_code_drafts: Default::default(),
                     frame_events: Vec::new(),
                     frames: frame_list,
                     fps: 12,
@@ -1112,6 +1116,8 @@ mod tests {
             "walk".into(),
             crate::ugdm::components::AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: (0..27).collect(),
                 fps: 12,

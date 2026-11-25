@@ -99,8 +99,18 @@ Em 25/11, o provisionamento Linux terminou e o diagnóstico completo deu
 `f2a865e69b9ea5c9569b847afdf116de6dd08a46ee3d46eec9991b4256a21390`.
 O recibo do launcher está em
 `$HOME/RetroDevStudio-work/sessions/2026-11-25T02-35-45-526Z-303720/receipt.json`.
-Os registros do build e dos cenários nativos da revisão `8f57b4d` usam
-`$HOME/RetroDevStudio-work/sessions/native-c-K0yQzh3J/`.
+O aplicativo Linux da linha de base foi compilado em `8f57b4d`, com SHA-256
+`9dfcfe93425ca4c57932ec3cbf32e7b903f4614a865ed68a747c89e6579f5b47`.
+O binário e os registros ficam em
+`$HOME/RetroDevStudio-work/sessions/native-c-K0yQzh3J/`. O Tauri isolado
+confirmou a edição C compartilhada e por instância. A cadência de 5/3/7/2,
+o pé de apoio e o retorno da Arte passaram nas salas simples e densa.
+O cenário de rascunho salvou e reabriu o texto. Após pedir a restauração do
+código do modelo, a projeção esperada não apareceu no campo dentro do prazo
+do teste. Repetir a ação no campo específico com o recibo registrado. As
+ROMs simples e densa têm, respectivamente, os SHA-256
+`dd78de3d4edd6ec1a9ff79ae31d68bbb1edac5e5a1ee5bc82c1a99257d59210f` e
+`5a9d8c6121564bab911cb0fdb4fbd87a50e61db63e38f4121e5391480b965ad8`.
 
 ## Retomada após formatação — 2026-11-22
 

@@ -78,6 +78,7 @@ export async function reloadSceneFromDisk(projectDir: string, scope: string): Pr
       return false;
     }
 
+    useEditorStore.setState({ projectFps: sceneData.project_fps || 60 });
     setActiveScenePath(sceneData.scene_path);
     setActiveScene(hydrated.resolvedScene, hydrated.sourceScene, hydrated.graphs);
     if (selectedEntityId) {

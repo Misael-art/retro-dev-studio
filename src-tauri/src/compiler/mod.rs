@@ -8,6 +8,7 @@ pub mod mugen_runtime;
 pub mod palette_plan;
 pub mod path_runtime;
 pub mod platform_support;
+mod pose_runtime;
 pub mod runtime_link;
 pub mod sgdk_emitter;
 pub mod snes_emitter;

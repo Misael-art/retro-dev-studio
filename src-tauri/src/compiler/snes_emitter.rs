@@ -540,6 +540,9 @@ fn build_main_c_with_collision(
             AstNode::GameLoopEnd => {
                 out.push_str("    }\n");
             }
+            AstNode::AuthoredPosePlayback { .. } => {
+                // The generator produces authored pose metadata only for SGDK.
+            }
         }
     }
 

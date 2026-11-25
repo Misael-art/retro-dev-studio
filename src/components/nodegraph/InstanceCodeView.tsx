@@ -6,10 +6,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   bindingRegion,
   buildCodeEditTransaction,
+  buildPoseCodeEditTransaction,
   regionText,
   type CodeBinding,
   type CodeDocument,
   type CodeEditScope,
+  type PoseCodeBinding,
 } from "../../core/codeDocument";
 import { loadCodeDocument, submitCodeEdit } from "../../core/codeEditApply";
 import { useCodeFocusStore } from "../../core/codeFocusStore";
@@ -55,37 +57,50 @@ function RegionEditor({
   document, binding, draft, scope, onResult,
 }: {
   document: CodeDocument;
-  binding: CodeBinding;
+  binding: CodeBinding | PoseCodeBinding;
   draft: string | null;
   scope: CodeEditScope;
   onResult: (message: string) => void;
 }) {
-  const projected = regionText(document, binding) ?? "";
-  const [text, setText] = useState(draft ?? projected);
+  const poseBinding = "pose" in binding ? binding : null;
+  const region = poseBinding ? poseBinding.location : bindingRegion(binding as CodeBinding);
+  const projected = poseBinding
+    ? document.text.split("\n")[poseBinding.location.start_line - 1] ?? ""
+    : regionText(document, binding as CodeBinding) ?? "";
+  const identity = poseBinding ? [poseBinding.pose.animation, poseBinding.pose.occurrence_id] : [(binding as CodeBinding).node_id];
+  const key = JSON.stringify([document.context.project, document.context.scene_id, binding.instance_id, ...identity]);
+  const pending = useCodeFocusStore((state) => state.pendingRegions[key]);
+  const setPending = useCodeFocusStore((state) => state.setPendingRegion);
+  const text = pending?.text ?? draft ?? projected;
+  const conflict = pending !== undefined && pending.base !== projected;
   const [busy, setBusy] = useState(false);
-  // Nova projeção (ou rascunho) substitui o texto local: o modelo é a fonte.
-  useEffect(() => setText(draft ?? projected), [draft, projected]);
 
   const apply = useCallback(async () => {
-    if (busy || (text === projected && draft === null)) return;
+    if (busy || conflict || (text === projected && draft === null)) return;
     setBusy(true);
     try {
-      const outcome = await submitCodeEdit(document, buildCodeEditTransaction(document, binding, text, scope));
+      const transaction = "pose" in binding
+        ? buildPoseCodeEditTransaction(document, binding, text)
+        : buildCodeEditTransaction(document, binding, text, scope);
+      const outcome = await submitCodeEdit(document, transaction);
+      if (useCodeFocusStore.getState().pendingRegions[key] === pending
+        && (outcome.kind === "applied" || outcome.kind === "pose_applied"
+          || (outcome.kind === "unchanged" && outcome.receipt.status === "no_change"))) setPending(key, null);
       onResult(outcome.kind === "discarded" ? outcome.reason : outcome.receipt.message);
     } catch (error) {
       onResult(`Análise indisponível: ${String(error)}. O texto continua aqui; nada foi alterado no modelo.`);
     } finally {
       setBusy(false);
     }
-  }, [binding, busy, document, draft, onResult, projected, scope, text]);
+  }, [binding, busy, conflict, document, draft, key, onResult, pending, projected, scope, setPending, text]);
 
-  const region = bindingRegion(binding);
-  const id = `code-region-${binding.node_id}`;
+  const id = "pose" in binding ? "code-pose-duration" : `code-region-${binding.node_id}`;
   return (
     <section data-testid={id} className="rounded border border-[#313244] bg-[#181825]">
       <header className="flex items-center justify-between gap-2 border-b border-[#313244] px-2 py-1 text-[11px]">
         <label htmlFor={`${id}-text`} className="min-w-0 truncate font-semibold text-[#cdd6f4]">
-          {stageLabel(binding.semantic_stage)} <span className="font-mono font-normal text-[#7f849c]">{binding.node_id}</span>
+          {"pose" in binding ? <>Duração · {binding.pose.animation} · {binding.pose.occurrence_id}</>
+            : <>{stageLabel(binding.semantic_stage)} <span className="font-mono font-normal text-[#7f849c]">{binding.node_id}</span></>}
         </label>
         <span className="shrink-0 text-[#7f849c]">
           {draft !== null ? <strong className="mr-2 text-[#f9e2af]">Rascunho</strong> : null}
@@ -98,22 +113,27 @@ function RegionEditor({
         value={text}
         spellCheck={false}
         rows={Math.min(16, Math.max(2, text.split("\n").length))}
-        onChange={(event) => setText(event.target.value)}
+        onChange={(event) => setPending(key, { text: event.target.value, base: pending?.base ?? projected })}
         onKeyDown={(event) => {
           if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) { event.preventDefault(); void apply(); }
-          if (event.key === "Escape") setText(draft ?? projected);
+          if (event.key === "Escape") setPending(key, null);
         }}
         className="block w-full resize-y bg-[#11111b] px-2 py-1 font-mono text-xs text-[#cdd6f4] outline-none focus:ring-1 focus:ring-[#89b4fa]"
       />
       <footer className="flex items-center justify-end gap-2 px-2 py-1 text-[11px]">
         <span className="mr-auto text-[#7f849c]">Ctrl+Enter aplica · Esc descarta</span>
-        {draft !== null ? (
-          <button type="button" disabled={busy} onClick={() => setText(projected)}
+        {conflict ? (
+          <button type="button" disabled={busy} onClick={() => setPending(key, null)}
+            className="rounded border border-[#f9e2af] px-2 py-0.5">
+            A origem mudou · Carregar valor atual
+          </button>
+        ) : draft !== null ? (
+          <button type="button" disabled={busy} onClick={() => setPending(key, { text: projected, base: projected })}
             className="rounded border border-[#313244] px-2 py-0.5 text-[#cdd6f4] disabled:opacity-40">
             Restaurar código do modelo
           </button>
         ) : null}
-        <button type="button" data-testid={`${id}-apply`} disabled={busy || (text === projected && draft === null)} onClick={() => void apply()}
+        <button type="button" data-testid={`${id}-apply`} disabled={busy || conflict || (text === projected && draft === null)} onClick={() => void apply()}
           className="rounded border border-[#89b4fa] px-2 py-0.5 text-[#89b4fa] disabled:opacity-40">
           {busy ? "Analisando…" : "Aplicar ao modelo"}
         </button>
@@ -126,6 +146,7 @@ export function InstanceCodeView() {
   const activeScene = useEditorStore((s) => s.activeScene);
   const sceneRevision = useEditorStore((s) => s.sceneRevision);
   const selectedEntityId = useEditorStore((s) => s.selectedEntityId);
+  const studioFocus = useEditorStore((s) => s.studio.focus);
   const [document, setDocument] = useState<CodeDocument | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [scope, setScope] = useState<CodeEditScope>("instance");
@@ -164,6 +185,9 @@ export function InstanceCodeView() {
       : []),
     [document, entity],
   );
+  const poseBinding = document?.pose_bindings?.find(({ instance_id, pose }) =>
+    instance_id === selectedEntityId && instance_id === studioFocus.entityId
+    && pose.animation === studioFocus.animation && pose.occurrence_id === studioFocus.occurrenceId);
 
   return (
     <div data-testid="instance-code-view" className="flex h-full w-full flex-col overflow-hidden bg-[#11111b] text-xs text-[#cdd6f4]">
@@ -190,7 +214,15 @@ export function InstanceCodeView() {
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
         {error ? <p role="alert" data-testid="instance-code-error" className="text-[#f38ba8]">Projeção indisponível: {error}</p> : null}
         {!entity ? <p className="text-[#a6adc8]">Selecione um objeto na cena para ver o código da lógica dele.</p> : null}
-        {entity && document && regions.length === 0 ? (
+        {poseBinding && document && entity ? (
+          <RegionEditor key={JSON.stringify([poseBinding.instance_id, poseBinding.pose])}
+            document={document} binding={poseBinding} scope="instance"
+            draft={entity.components.sprite?.animations?.[poseBinding.pose.animation]?.pose_code_drafts?.[poseBinding.pose.occurrence_id] ?? null}
+            onResult={setMessage} />
+        ) : document && studioFocus.animation && studioFocus.occurrenceId && entity?.components.sprite ? (
+          <p>Esta ocorrência ainda usa a duração padrão do recurso. Edite os ticks na linha do tempo para abrir o campo C.</p>
+        ) : null}
+        {entity && document && regions.length === 0 && !poseBinding && !studioFocus.occurrenceId ? (
           <p className="text-[#a6adc8]">Esta instância não tem trechos de código próprios nesta revisão. Monte a lógica na vista Nós.</p>
         ) : null}
         {document ? regions.map((binding) => (

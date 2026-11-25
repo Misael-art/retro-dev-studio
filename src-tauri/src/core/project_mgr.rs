@@ -2614,6 +2614,8 @@ fn derive_sgdk_sprite_sheet_from_rescomp_png(
             anim_name,
             AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: frame_indices,
                 fps,
@@ -8571,6 +8573,8 @@ fn mugen_actions_to_animation_defs(
             format!("action_{}", action.action_no),
             AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames,
                 fps,
@@ -10653,6 +10657,8 @@ fn gamemaker_player_animations(frame_count: u32) -> BTreeMap<String, AnimationDe
         "idle".to_string(),
         AnimationDef {
             occurrence_ids: None,
+            pose_alignment: Default::default(),
+            pose_code_drafts: Default::default(),
             frame_events: Vec::new(),
             frames: vec![0],
             fps: 6,
@@ -10670,6 +10676,8 @@ fn gamemaker_player_animations(frame_count: u32) -> BTreeMap<String, AnimationDe
             "walk".to_string(),
             AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: walk_frames,
                 fps: 10,
@@ -12201,6 +12209,8 @@ fn godot_animation_defs<'a>(
             trimmed.to_string(),
             AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![0],
                 fps: 8,
@@ -13861,6 +13871,8 @@ fn openbor_animation_to_def(block: &OpenBorAnimationBlock) -> AnimationDef {
 
     AnimationDef {
         occurrence_ids: None,
+        pose_alignment: Default::default(),
+        pose_code_drafts: Default::default(),
         frame_events: Vec::new(),
         frames,
         fps,
@@ -16059,6 +16071,8 @@ fn reference_player_prefab() -> Entity {
         "idle".to_string(),
         AnimationDef {
             occurrence_ids: None,
+            pose_alignment: Default::default(),
+            pose_code_drafts: Default::default(),
             frame_events: Vec::new(),
             frames: vec![0, 1],
             fps: 4,
@@ -16074,6 +16088,8 @@ fn reference_player_prefab() -> Entity {
         "run".to_string(),
         AnimationDef {
             occurrence_ids: None,
+            pose_alignment: Default::default(),
+            pose_code_drafts: Default::default(),
             frame_events: Vec::new(),
             frames: vec![2, 3],
             fps: 8,
@@ -16089,6 +16105,8 @@ fn reference_player_prefab() -> Entity {
         "jump".to_string(),
         AnimationDef {
             occurrence_ids: None,
+            pose_alignment: Default::default(),
+            pose_code_drafts: Default::default(),
             frame_events: Vec::new(),
             frames: vec![4],
             fps: 1,
@@ -16228,6 +16246,8 @@ fn reference_goal_prefab() -> Entity {
                     "idle".to_string(),
                     AnimationDef {
                         occurrence_ids: None,
+                        pose_alignment: Default::default(),
+                        pose_code_drafts: Default::default(),
                         frame_events: Vec::new(),
                         frames: vec![0],
                         fps: 1,
@@ -16265,6 +16285,8 @@ fn reference_passage_prefab() -> Entity {
                     "closed".to_string(),
                     AnimationDef {
                         occurrence_ids: None,
+                        pose_alignment: Default::default(),
+                        pose_code_drafts: Default::default(),
                         frame_events: Vec::new(),
                         frames: vec![0],
                         fps: 1,
@@ -23805,6 +23827,8 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
                             "idle".to_string(),
                             AnimationDef {
                                 occurrence_ids: None,
+                                pose_alignment: Default::default(),
+                                pose_code_drafts: Default::default(),
                                 frame_events: Vec::new(),
                                 frames: vec![0],
                                 fps: 6,
@@ -23820,6 +23844,8 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
                             "run".to_string(),
                             AnimationDef {
                                 occurrence_ids: None,
+                                pose_alignment: Default::default(),
+                                pose_code_drafts: Default::default(),
                                 frame_events: Vec::new(),
                                 frames: vec![1, 2, 3],
                                 fps: 12,
@@ -23875,6 +23901,8 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
             sprite.animations.get("idle"),
             Some(&AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![0],
                 fps: 6,
@@ -23890,6 +23918,8 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
             sprite.animations.get("run"),
             Some(&AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![1, 2, 3],
                 fps: 12,

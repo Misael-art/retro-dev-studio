@@ -47,6 +47,8 @@ import {
 import { serializeNodeGraph } from "../../core/nodegraph/nodeTypes";
 import { deserializeNodeGraph } from "../../core/nodegraph/nodeDefinitions";
 import { getEntityDisplayName } from "../../core/entityDisplay";
+import { nativeAnimationNames } from "../../core/characterTimeline";
+import PoseDurationField from "../artstudio/PoseDurationField";
 import { resolveSceneWorkspaceContext } from "../../core/sceneWorkspaceContext";
 import { buildTilemapAuthoringBrush } from "../../core/entityAuthoring";
 import { openProjectSourcePath } from "../../core/ipc/projectService";
@@ -805,6 +807,7 @@ export default function InspectorPanel() {
     setActiveBrush,
     lastBuildSourceMap,
     openStudioEditor,
+    studio,
   } = useEditorStore();
 
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "error">("idle");
@@ -830,6 +833,7 @@ export default function InspectorPanel() {
   const layer = isLayer
     ? activeScene?.background_layers.find((item) => `layer::${item.layer_id}` === selectedEntityId) ?? null
     : null;
+  const nativeAnimations = nativeAnimationNames(entity?.components.sprite, activeTarget, projectSourceKind);
   const entityLogicSummary = useMemo(() => {
     const logic = entity?.components.logic;
     if (!logic) {
@@ -1357,12 +1361,23 @@ export default function InspectorPanel() {
                     <button
                       type="button"
                       data-testid="inspector-open-character"
-                      onClick={() => openStudioEditor({ focus: { task: "character", entityId: entity.entity_id } })}
+                      onClick={() => openStudioEditor({ focus: {
+                        task: "character", entityId: entity.entity_id,
+                        ...(nativeAnimations.length > 0 ? { animation: null, occurrenceId: null } : {}),
+                      } })}
                       className="rounded border border-[#89b4fa]/50 px-2 py-0.5 text-[9px] text-[#89b4fa] hover:bg-[#89b4fa]/10"
                       title="Editar o sprite e as animações deste objeto na Arte"
                     >
                       Abrir na Arte
                     </button>
+                    {nativeAnimations.length > 0 ? (
+                      <button type="button" data-testid="inspector-open-animation"
+                        onClick={() => openStudioEditor({ focus: { task: "character", entityId: entity.entity_id,
+                          animation: nativeAnimations.includes(studio.focus.animation ?? "") ? studio.focus.animation : nativeAnimations[0] } })}
+                        className="rounded border border-[#89b4fa]/50 px-2 py-0.5 text-[10px] text-[#89b4fa] hover:bg-[#89b4fa]/10">
+                        Animar
+                      </button>
+                    ) : null}
                     <AssetRenameControl asset={entity.components.sprite.asset} />
                     <button
                       type="button"
@@ -1375,6 +1390,7 @@ export default function InspectorPanel() {
                     </button>
                   </div>
                 ) : null}
+                <PoseDurationField testId="inspector-pose-duration" />
                 {entity.components.sprite ? (
                   <EntitySpriteCodeLink entityId={entity.entity_id} asset={entity.components.sprite.asset} />
                 ) : null}

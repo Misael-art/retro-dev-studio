@@ -7,6 +7,13 @@ export interface Transform {
   y: number;
 }
 
+export interface PoseAlignment {
+  /** Ponto marcado na célula original do atlas, em pixels. */
+  anchor: Transform;
+  /** Translação da ocorrência inteira, incluindo as caixas vinculadas. */
+  offset: Transform;
+}
+
 export interface AnimationDef {
   frames: number[];
   fps: number;
@@ -20,6 +27,10 @@ export interface AnimationDef {
   hitboxes?: SpriteAnimationHitbox[];
   /** Identidade estável por ocorrência (paralelo a `frames`); ausente em projetos antigos. */
   occurrence_ids?: string[];
+  /** Pontos e deslocamentos por identidade de ocorrência. */
+  pose_alignment?: Record<string, PoseAlignment>;
+  /** Texto pendente do campo C por ocorrência. O compilador usa os ticks do modelo. */
+  pose_code_drafts?: Record<string, string | null>;
   /** Eventos autorais ancorados em ocorrência + tick local. */
   frame_events?: FrameEvent[];
 }
@@ -451,6 +462,7 @@ export interface SceneDataResult {
   scene_json: string;
   project_name: string;
   target: string;
+  project_fps?: number | null;
   scene_path: string;
   source_kind: string;
   legacy_sgdk_index?: LegacySgdkIndex | null;

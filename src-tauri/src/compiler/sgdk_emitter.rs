@@ -238,6 +238,12 @@ fn build_main_c_inner(
         out.push_str("#include \"resources.h\"\n");
     }
     out.push('\n');
+    if super::pose_runtime::needs_screen_position(ast) {
+        out.push_str("static void rds_pose_screen_position(Sprite *sprite, s16 x, s16 y) { SPR_setPosition(sprite, x, y); }\n");
+    }
+    let pose_callbacks: std::collections::HashSet<_> = super::pose_runtime::distinct_actors(ast)
+        .map(|(_, sprite, _)| sprite)
+        .collect();
     let has_sprite_pages = render_sprite_page_definitions(&mut out, ast);
     render_sound_id_macros(&mut out, ast);
     let visual_camera = super::camera_runtime::find(ast).filter(|c| c.errors.is_empty());
@@ -386,6 +392,7 @@ fn build_main_c_inner(
     }
     // Resolved after the body is rendered: only declared when edge input / music guards are used.
     out.push_str(RUNTIME_STATE_DECL_MARKER);
+    super::pose_runtime::emit_declarations(&mut out, ast);
     // Perfil MUGEN (Experimental): tabelas e tick de animacao gerados a partir do modelo.
     out.push_str(&super::mugen_runtime::render_decls(ast));
     out.push_str(&render_palette_decls());
@@ -591,6 +598,11 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                 };
                 sprite_spawn_index += 1;
                 let priority = if *priority_high { "TRUE" } else { "FALSE" };
+                let callback = if pose_callbacks.contains(var_name.as_str()) {
+                    format!("rds_pose_{var_name}_change")
+                } else {
+                    "NULL".to_string()
+                };
 
                 out.push_str(&format!(
                     "    {var_name}_x = {x}; {var_name}_y = {y};\n",
@@ -599,12 +611,15 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     y = y
                 ));
                 if managed_sprites {
-                    out.push_str(&format!("    rds_register_sprite(&{var_name}, &{resource_name}, &{var_name}_x, &{var_name}_y, TILE_ATTR({palette}, {priority}, FALSE, FALSE));\n"));
+                    out.push_str(&format!("    rds_register_sprite(&{var_name}, &{resource_name}, &{var_name}_x, &{var_name}_y, TILE_ATTR({palette}, {priority}, FALSE, FALSE), {callback});\n"));
                 } else {
                     out.push_str(&format!(
                         "    {} = SPR_addSprite(&{}, {}_x, {}_y, TILE_ATTR({}, {}, FALSE, FALSE));\n",
                         var_name, resource_name, var_name, var_name, palette, priority
                     ));
+                    if callback != "NULL" {
+                        out.push_str(&format!("    if ({var_name}) SPR_setFrameChangeCallback({var_name}, {callback});\n"));
+                    }
                 }
                 out.push_str(&format!("    SPR_setVisibility({}, VISIBLE);\n", var_name));
             }
@@ -927,6 +942,7 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                         out.push_str(&format!("        SPR_setPosition({var}, {var}_x, {var}_y);\n"));
                     }
                 }
+                super::pose_runtime::emit_positions(&mut out, ast);
                 out.push_str("        SPR_update();\n");
             }
             AstNode::VSync => {
@@ -935,6 +951,9 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
             }
             AstNode::GameLoopEnd => {
                 out.push_str("    }\n");
+            }
+            AstNode::AuthoredPosePlayback { .. } => {
+                // Declarations and sprite callbacks consume this metadata.
             }
         }
     }
@@ -1169,6 +1188,7 @@ typedef struct {
     u16 attributes;
     s16 animation, visibility;
     bool looping;
+    FrameChangeCallback *on_frame_change;
 } RdsSpriteSlot;
 static RdsSpriteSlot rds_sprite_slots[RDS_SPRITE_SLOTS];
 static u16 rds_sprite_slot_count;
@@ -1189,10 +1209,11 @@ static void rds_init_sprite_residency(u32 backgroundTiles) {
     rds_residency_ready = TRUE;
 }
 static void rds_register_sprite(Sprite **instance, const SpriteDefinition *definition,
-                               s16 *x, s16 *y, u16 attributes) {
+                               s16 *x, s16 *y, u16 attributes, FrameChangeCallback *on_frame_change) {
     RdsSpriteSlot *slot = &rds_sprite_slots[rds_sprite_slot_count++];
     slot->instance = instance; slot->definition = definition;
     slot->x = x; slot->y = y; slot->attributes = attributes;
+    slot->on_frame_change = on_frame_change;
     slot->animation = 0; slot->visibility = VISIBLE; slot->looping = TRUE;
     *instance = NULL;
 }
@@ -1220,6 +1241,7 @@ static void rds_sync_sprite_residency(void) {
             Sprite *sprite = SPR_addSprite(slot->definition, *slot->x, *slot->y, slot->attributes);
             *slot->instance = sprite;
             if (!sprite) { rds_residency_error = 1; continue; }
+            if (slot->on_frame_change) SPR_setFrameChangeCallback(sprite, slot->on_frame_change);
             SPR_setAnim(sprite, slot->animation);
             SPR_setAnimationLoop(sprite, slot->looping);
             SPR_setVisibility(sprite, slot->visibility);

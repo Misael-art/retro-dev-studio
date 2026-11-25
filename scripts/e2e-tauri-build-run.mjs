@@ -25,6 +25,7 @@ import { attemptByor } from "./rex_profiles/integration_20261016/visual_copy/byo
 import { captureVisual, compareCausalPixels, identityMatches, verifyFrozenOracle } from "./rex_profiles/integration_20261016/visual_copy/visual-proof.mjs";
 import { execFile, spawn } from "node:child_process";
 import zlib from "node:zlib";
+import { isDeepStrictEqual } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   UI_LAYOUT_ORACLE_RESOLUTIONS,
@@ -3052,7 +3053,7 @@ async function sendNativeGameKey(sessionId, code, action, label) {
 }
 
 async function selectOptionByTestIdNative(sessionId, testId, value) {
-  const target = await executeScript(sessionId, `
+  const inspect = () => executeScript(sessionId, `
     const select = document.querySelector('[data-testid="' + String(arguments[0]) + '"]');
     if (!(select instanceof HTMLSelectElement)) return null;
     select.scrollIntoView({ block: "center", inline: "center" });
@@ -3066,11 +3067,16 @@ async function selectOptionByTestIdNative(sessionId, testId, value) {
       current: select.value,
       visible: rect.width > 0 && rect.height > 0,
       unobstructed: Boolean(hit && (hit === select || select.contains(hit))),
+      topTestId: hit?.closest('[data-testid]')?.getAttribute('data-testid') ?? null,
     };
   `, [testId, value]);
-  if (!target?.visible || !target.unobstructed || target.index < 0) {
+  let target;
+  await waitFor(async () => {
+    target = await inspect();
+    return target?.visible && target.unobstructed && target.index >= 0;
+  }, 5000, `Seleção nativa indisponível: ${testId}=${value}`, 100).catch(() => {
     fail(`Seleção nativa indisponível: ${JSON.stringify({ testId, value, target })}`);
-  }
+  });
   if (target.current !== value) {
     const keys = [
       { type: "keyDown", value: "\uE011" },
@@ -17051,6 +17057,10 @@ async function observePoseEditorAccess(sessionId, report, prefix) {
 async function editPoseThroughDesktop(initialSessionId, projectDir, app, report, prefix) {
   let sessionId = initialSessionId;
   const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  const enter = async (id) => {
+    const element = await findElement(sessionId, `[data-testid="${id}"]`);
+    await webdriverRequest("POST", `/session/${sessionId}/element/${element}/value`, { text: "\uE007", value: ["\uE007"] });
+  };
   const state = () => readAutomationState(sessionId);
   const read = (id, attribute) => executeScript(sessionId,
     `return document.querySelector('[data-testid="' + arguments[0] + '"]')?.getAttribute(arguments[1]);`, [id, attribute]);
@@ -17073,7 +17083,7 @@ async function editPoseThroughDesktop(initialSessionId, projectDir, app, report,
 
   await setSessionWindowRect(sessionId, 1366, 768);
   await selectPoseActorsOnCanvas(sessionId);
-  await click("inspector-open-character");
+  await click("viewport-open-animation");
   await click("character-anim-passo");
   await click("character-occurrence-o1");
   await click("character-align-poses");
@@ -17136,6 +17146,25 @@ async function editPoseThroughDesktop(initialSessionId, projectDir, app, report,
   await clickTopBarMenuAction(sessionId, "Refazer");
   await ticks(4);
   if (!(await focus()) || (await read("character-occurrence-o4", "data-ticks")) !== "2") fail("A pose em foco ou a outra ocorrência da imagem mudou.");
+  addReportStep(report, "undo_and_redo_kept_occurrence", "passed");
+
+  await click("character-open-duration-code");
+  await click("logic-view-nodes");
+  const readTicks = (testId) => executeScript(sessionId,
+    `return document.querySelector('[data-testid="' + arguments[0] + '"]')?.value;`, [testId]);
+  await waitFor(async () => (await readTicks("nodes-pose-duration")) === "4" && await focus(),
+    10000, "Nós não preservou o ator, a ocorrência e os 4 ticks.", 150);
+  const beforeNodes = await state();
+  await input("nodes-pose-duration", "5");
+  await enter("nodes-pose-duration");
+  await click("logic-view-code");
+  await waitFor(async () => (await state())?.undoDepth === beforeNodes.undoDepth + 1 && /\s=\s5;/.test(await readCode()),
+    15000, "Código não observou a edição de duração feita em Nós.", 150);
+  await click("studio-return-origin");
+  await ticks(5);
+  await clickTopBarMenuAction(sessionId, "Desfazer");
+  await ticks(4);
+  addReportStep(report, "nodes_duration_shared_with_code_and_timeline", "passed");
   await save();
   await deleteSession(sessionId);
   sessionId = await createSession(app);
@@ -17143,8 +17172,12 @@ async function editPoseThroughDesktop(initialSessionId, projectDir, app, report,
   await waitForAppWindowReady(sessionId, 30000, "O Tauri não abriu após fechar a sala.");
   await setSessionWindowRect(sessionId, 1366, 768);
   await openRoom();
-  await waitFor(focus, 15000, "A sessão reaberta não restaurou a raposa e a ocorrência o2.", 100);
-  if (!(await read("character-timeline", "data-occurrence-id"))) await click("inspector-open-character");
+  await waitFor(async () => (await focus())?.activeWorkspace === "scene"
+    && (await readTicks("inspector-pose-duration")) === "4" && (await readTicks("canvas-pose-duration")) === "4",
+  15000, "A cena reaberta não restaurou a raposa, o2 e os 4 ticks no Canvas e no Inspector.", 150);
+  await enter("viewport-open-animation");
+  await waitFor(async () => (await focus())?.activeWorkspace === "artstudio",
+    15000, "Animar não reabriu a timeline na pose o2.", 150);
   await ticks(4);
   addReportStep(report, "undo_redo_save_cold_reopen", "passed");
   return { sessionId, code: editedCode, focus };
@@ -17185,8 +17218,8 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
         || createHash("sha256").update(await readFile(path.join(projectDir, sprite("raposa").asset))).digest("hex") !== report.atlasSha256) {
         fail("A arte compartilhada foi alterada durante a prova.");
       }
-      const control = JSON.stringify(sprite("testemunha").animations.passo);
-      if (controlBefore && controlBefore !== control) fail("A edição alterou os dados da animação de controle.");
+      const control = sprite("testemunha").animations.passo;
+      if (controlBefore && !isDeepStrictEqual(controlBefore, control)) fail("A edição alterou os dados da animação de controle.");
       controlBefore = control;
       return createHash("sha256").update(bytes).digest("hex");
     };
@@ -17474,11 +17507,26 @@ async function runCodeDraftRoundtrip(initialSessionId, appPath, timeoutMs, onPro
       20000, "Rascunho não foi recuperado após reiniciar.", 200);
     addReportStep(report, "draft_reopened", "passed");
 
-    await clickButtonByText(sessionId, "Restaurar código do modelo", "exact");
-    await click(`${region}-apply`);
-    await waitFor(async () => (await read(`${region}-text`, "value")) === original
-      && !(await read(region, "textContent"))?.includes("Rascunho"),
-    20000, "A região não descartou o rascunho.", 200);
+    try {
+      const restore = await findElement(sessionId, `[data-testid="${region}"] button:not([data-testid])`);
+      await clickElement(sessionId, restore);
+      await waitFor(async () => await read(`${region}-text`, "value") === original,
+        10000, "Restaurar código do modelo não colocou a projeção no campo.", 150);
+      await click(`${region}-apply`);
+      await waitFor(async () => (await read(`${region}-text`, "value")) === original
+        && !(await read(region, "textContent"))?.includes("Rascunho"),
+      20000, "A região não descartou o rascunho.", 200);
+    } catch (error) {
+      report.draftClearFailure = {
+        expectedText: original,
+        displayedText: await read(`${region}-text`, "value"),
+        regionText: await read(region, "textContent"),
+        receipt: await read("instance-code-status", "textContent"),
+        sceneRevision: (await state())?.sceneRevision,
+        screenshot: await captureScreenshot(sessionId, `${scenario}-${artifactTimestamp()}-descarte.png`).catch(() => null),
+      };
+      throw error;
+    }
     await clickTopBarMenuAction(sessionId, "Desfazer");
     await waitFor(async () => (await read(`${region}-text`, "value")) === incomplete,
       20000, "Desfazer não restaurou o rascunho.", 200);

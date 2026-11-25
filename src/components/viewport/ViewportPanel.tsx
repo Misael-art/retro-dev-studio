@@ -46,6 +46,7 @@ import {
 } from "../../core/assetVisualState";
 import { createSpriteEntityFromAsset } from "../../core/editorEntityFactory";
 import { getEntityDisplayName } from "../../core/entityDisplay";
+import { nativeAnimationNames, occurrenceIds } from "../../core/characterTimeline";
 import { resolveImportedEntityContext } from "../../core/importedEntityContext";
 import { resolveProjectAssetPath } from "../../core/pathUtils";
 import { summarizeSceneAssetHealth } from "../../core/sceneAssetHealth";
@@ -77,6 +78,7 @@ import { paintGameFrame } from "./gameFramePresentation";
 import RuntimeInspectOverlay from "./RuntimeInspectOverlay";
 import { gameMayTakeKeyDown } from "../../core/keyboardFocus";
 import TestAdjustPanel from "./TestAdjustPanel";
+import PoseDurationField from "../artstudio/PoseDurationField";
 const GameCodeLogic = lazy(() => import("../nodegraph/GameCodeLogic").then((m) => ({ default: m.GameCodeLogic })));
 const InstanceCodeView = lazy(() => import("../nodegraph/InstanceCodeView").then((m) => ({ default: m.InstanceCodeView })));
 const LogicViewTabs = lazy(() => import("../nodegraph/InstanceCodeView").then((m) => ({ default: m.LogicViewTabs })));
@@ -624,6 +626,9 @@ export default function ViewportPanel({
     selectedEntityId && !selectedEntityId.startsWith("layer::")
       ? activeScene?.entities.find((entity) => entity.entity_id === selectedEntityId) ?? null
       : null;
+  const nativeAnimations = nativeAnimationNames(selectedEntity?.components.sprite, activeTarget, projectSourceKind);
+  const showNativePoses = studio.focus.entityId === selectedEntityId
+    && nativeAnimations.includes(studio.focus.animation ?? "");
   const compositionLayer = activeScene?.layers?.find((layer) => layer.id === activeLayerId) ?? null;
   const compositionMembers = compositionLayer && activeScene
     ? layerCompositionEntities(compositionLayer, activeScene.entities)
@@ -2529,16 +2534,27 @@ export default function ViewportPanel({
           }
 
           const bounds = getEntityBounds(entity, activeTarget, activeScene.entities);
-          const sourceWidth = Math.min(sprite.frame_width, spriteAsset.width ?? sprite.frame_width);
-          const sourceHeight = Math.min(sprite.frame_height, spriteAsset.height ?? sprite.frame_height);
+          const sheetWidth = spriteAsset.width ?? sprite.frame_width;
+          const sheetHeight = spriteAsset.height ?? sprite.frame_height;
+          const definition = showNativePoses && entity.entity_id === studio.focus.entityId && studio.focus.animation
+            ? sprite.animations?.[studio.focus.animation] : null;
+          const index = definition ? Math.max(0, occurrenceIds(definition).indexOf(studio.focus.occurrenceId ?? "")) : 0;
+          const columns = Math.max(1, Math.ceil(sheetWidth / sprite.frame_width));
+          const imageIndex = definition?.frames[index] ?? 0;
+          const sourceX = imageIndex % columns * sprite.frame_width;
+          const sourceY = Math.floor(imageIndex / columns) * sprite.frame_height;
+          if (sourceX >= sheetWidth || sourceY >= sheetHeight) return;
+          const sourceWidth = Math.min(sprite.frame_width, sheetWidth - sourceX);
+          const sourceHeight = Math.min(sprite.frame_height, sheetHeight - sourceY);
+          const offset = studio.focus.occurrenceId ? definition?.pose_alignment?.[studio.focus.occurrenceId]?.offset : null;
           context.drawImage(
             spriteAsset.source,
-            0,
-            0,
+            sourceX,
+            sourceY,
             sourceWidth,
             sourceHeight,
-            bounds.x,
-            bounds.y,
+            bounds.x + (offset?.x ?? 0),
+            bounds.y + (offset?.y ?? 0),
             bounds.width,
             bounds.height
           );
@@ -2816,6 +2832,8 @@ export default function ViewportPanel({
     showBackground,
     showSprites,
     showTilemaps,
+    showNativePoses,
+    studio.focus,
     paletteFilteredOut,
   ]);
 
@@ -4940,6 +4958,15 @@ export default function ViewportPanel({
               >
                 Mover objeto
               </button>
+              {selectedEntity && nativeAnimations.length > 0 ? (
+                <button type="button" data-testid="viewport-open-animation"
+                  className="rounded border border-[#89b4fa]/50 px-2 py-1 text-[10px] font-semibold text-[#89b4fa]"
+                  onClick={() => openStudioEditor({ focus: { task: "character", entityId: selectedEntity.entity_id,
+                    animation: showNativePoses ? studio.focus.animation : nativeAnimations[0] } })}>
+                  Animar
+                </button>
+              ) : null}
+              {editorMode === "select" && showNativePoses ? <PoseDurationField testId="canvas-pose-duration" /> : null}
               <button
                 type="button"
                 data-testid="viewport-move-layer"
@@ -6069,6 +6096,11 @@ export default function ViewportPanel({
             ) : activeProjectDir ? (
               <LogicViewTabs />
             ) : null}
+            {!nativeCProject && logicView === "nodes" && showNativePoses ? (
+              <div className="flex shrink-0 items-center border-b border-[#313244] px-2 py-1">
+                <PoseDurationField testId="nodes-pose-duration" />
+              </div>
+            ) : null}
             <div className="relative min-h-0 flex-1">
               {nativeCProject && activeProjectDir && logicSource === "code" ? (
                 <Suspense fallback={<WorkspaceViewportFallback label="Carregando código..." />}>
@@ -6097,12 +6129,10 @@ export default function ViewportPanel({
 
         {activeViewportTab === "artstudio" && (
           <div className="h-full w-full">
-            {selectedEntity?.components.sprite &&
-            Object.values(selectedEntity.components.sprite.animations ?? {}).some((animation) =>
-              Array.isArray(animation.mugen_frames)
-            ) ? (
+            {selectedEntity?.components.sprite && (showNativePoses ||
+              Object.values(selectedEntity.components.sprite.animations ?? {}).some((animation) => Array.isArray(animation.mugen_frames))) ? (
               <Suspense fallback={<WorkspaceViewportFallback label="Carregando Personagem..." />}>
-                <CharacterTimelinePanel key={selectedEntity.entity_id} entity={selectedEntity} />
+                <CharacterTimelinePanel key={selectedEntity.entity_id} entity={selectedEntity} authored={showNativePoses} />
               </Suspense>
             ) : (
               <Suspense fallback={<WorkspaceViewportFallback label="Carregando ArtStudio..." />}>

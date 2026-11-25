@@ -65,6 +65,7 @@ export interface StudioContextState {
   cameras: Partial<Record<EditorWorkspace, WorkspaceCamera>>;
   /** Incrementa a cada retorno; editores reaplicam a câmera lembrada quando muda. */
   restoreSeq: number;
+  savedScenePath?: string | null;
 }
 
 export const STUDIO_RETURN_STACK_LIMIT = 16;
@@ -181,12 +182,12 @@ export function rememberWorkspaceCamera(
 const STORAGE_PREFIX = "rds.studioContext.v1:";
 
 /** Serialização por projeto (conveniência do usuário; falha silenciosa sem armazenamento). */
-export function saveStudioContext(projectDir: string, state: StudioContextState): void {
+export function saveStudioContext(projectDir: string, state: StudioContextState, scenePath?: string | null): void {
   if (!projectDir) return;
   try {
     globalThis.localStorage?.setItem(
       STORAGE_PREFIX + projectDir,
-      JSON.stringify({ schema: 1, focus: state.focus, cameras: state.cameras })
+      JSON.stringify({ schema: 1, focus: state.focus, cameras: state.cameras, scenePath })
     );
   } catch {
     // armazenamento indisponível: contexto continua só em memória
@@ -199,7 +200,7 @@ export function loadStudioContext(projectDir: string): StudioContextState {
   try {
     const raw = globalThis.localStorage?.getItem(STORAGE_PREFIX + projectDir);
     if (!raw) return fallback;
-    const parsed = JSON.parse(raw) as { schema?: number; focus?: Partial<StudioFocus>; cameras?: StudioContextState["cameras"] };
+    const parsed = JSON.parse(raw) as { schema?: number; focus?: Partial<StudioFocus>; cameras?: StudioContextState["cameras"]; scenePath?: unknown };
     if (parsed.schema !== 1 || !parsed.focus) return fallback;
     const task = parsed.focus.task && parsed.focus.task in STUDIO_TASK_LABEL ? parsed.focus.task : "scene";
     return {
@@ -207,6 +208,7 @@ export function loadStudioContext(projectDir: string): StudioContextState {
       returnStack: [],
       cameras: parsed.cameras ?? {},
       restoreSeq: 0,
+      ...(typeof parsed.scenePath === "string" ? { savedScenePath: parsed.scenePath } : {}),
     };
   } catch {
     return fallback;

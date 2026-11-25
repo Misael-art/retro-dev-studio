@@ -20,14 +20,16 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::compiler::ast_generator::generate_ast;
+use crate::compiler::ast_generator::{animation_occurrence_ids, generate_ast};
 use crate::compiler::build_provenance::{
     graph_revision_hash, parse_marker, BuildMappingStatus, CodeBinding, GeneratedSourceLocation,
     ProvenanceMarker,
 };
+use crate::compiler::pose_runtime::duration_marker;
 use crate::compiler::sgdk_emitter::emit_sgdk_with_collision;
 use crate::core::project_mgr::{load_project, resolve_prefabs};
 use crate::core::rom_mastering::sha256_hex;
+use crate::ugdm::components::AnimationDef;
 use crate::ugdm::entities::Scene;
 
 pub const CODE_DOCUMENT_SCHEMA: &str = "rds-code-document/v1";
@@ -60,6 +62,28 @@ pub struct CodeDocument {
     pub text: String,
     /// Vinculos com intervalos nas coordenadas de `text`.
     pub bindings: Vec<CodeBinding>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pose_bindings: Vec<PoseCodeBinding>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PoseCodeTarget {
+    pub animation: String,
+    pub occurrence_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PoseCodeBinding {
+    pub instance_id: String,
+    pub pose: PoseCodeTarget,
+    pub location: GeneratedSourceLocation,
+    pub ticks: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PoseCodeChange {
+    pub animation: String,
+    pub definition: AnimationDef,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -81,6 +105,8 @@ pub struct CodeEditTransaction {
     /// Novo texto completo da regiao do node.
     pub new_text: String,
     pub scope: CodeEditScope,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pose: Option<PoseCodeTarget>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -91,6 +117,7 @@ pub enum CodeEditStatus {
     CodeNode,
     Draft,
     DraftCleared,
+    PoseDuration,
     Stale,
     Rejected,
 }
@@ -119,6 +146,8 @@ pub struct CodeEditReceipt {
     /// Outras instancias que usam a mesma definicao compartilhada (`graph_ref`).
     pub shared_uses: Vec<String>,
     pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pose_change: Option<PoseCodeChange>,
 }
 
 // ── Utilitarios de texto ─────────────────────────────────────────────────────
@@ -418,6 +447,53 @@ pub fn project_document(project: &str, scene: &Scene, target: &str, main_c: &str
         }
     }
 
+    let markers: std::collections::HashMap<_, _> = out_lines
+        .iter()
+        .enumerate()
+        .filter(|(_, line)| line.starts_with("// RDS_POSE_DURATION "))
+        .map(|(index, &line)| (line, index + 1))
+        .collect();
+    let mut pose_bindings = Vec::new();
+    for entity in &scene.entities {
+        let Some(sprite) = &entity.components.sprite else {
+            continue;
+        };
+        let mut animations: Vec<_> = sprite.animations.iter().collect();
+        animations.sort_by_key(|(name, _)| *name);
+        for (animation, def) in animations {
+            let Ok(ids) = animation_occurrence_ids(def) else {
+                continue;
+            };
+            for occurrence_id in ids {
+                let marker = duration_marker(&entity.entity_id, animation, &occurrence_id);
+                let Some(&index) = markers.get(marker.as_str()) else {
+                    continue;
+                };
+                let Some(line) = out_lines.get(index) else {
+                    continue;
+                };
+                let Some((_, ticks)) = pose_duration_statement(line) else {
+                    continue;
+                };
+                pose_bindings.push(PoseCodeBinding {
+                    instance_id: entity.entity_id.clone(),
+                    pose: PoseCodeTarget {
+                        animation: animation.clone(),
+                        occurrence_id,
+                    },
+                    location: GeneratedSourceLocation {
+                        file: "src/main.c".into(),
+                        start_line: index + 1,
+                        start_column: 1,
+                        end_line: index + 1,
+                        end_column: line.chars().count() + 1,
+                    },
+                    ticks,
+                });
+            }
+        }
+    }
+
     CodeDocument {
         schema: CODE_DOCUMENT_SCHEMA.to_string(),
         context: CodeContext {
@@ -431,7 +507,20 @@ pub fn project_document(project: &str, scene: &Scene, target: &str, main_c: &str
         file: "src/main.c".to_string(),
         text,
         bindings,
+        pose_bindings,
     }
+}
+
+fn pose_duration_statement(text: &str) -> Option<(&str, u8)> {
+    let (declaration, ticks) = text.trim().strip_suffix(';')?.rsplit_once('=')?;
+    let ticks = ticks.trim();
+    if ticks.len() > 3
+        || (ticks.len() > 1 && ticks.starts_with('0'))
+        || !ticks.bytes().all(|byte| byte.is_ascii_digit())
+    {
+        return None;
+    }
+    Some((declaration.trim(), ticks.parse().ok()?))
 }
 
 fn graph_nodes(graph: &Value) -> &[Value] {
@@ -587,6 +676,7 @@ impl Analysis<'_> {
             absorbed_node_ids: Vec::new(),
             shared_uses: shared_uses(self.scene, &self.tx.instance_id),
             message: message.into(),
+            pose_change: None,
         }
     }
 
@@ -601,6 +691,154 @@ impl Analysis<'_> {
         receipt.graph = Some(graph.to_string());
         receipt
     }
+}
+
+fn analyze_pose_duration(
+    analysis: &Analysis<'_>,
+    document: &CodeDocument,
+    pose: &PoseCodeTarget,
+) -> CodeEditReceipt {
+    let tx = analysis.tx;
+    let reject = |message| analysis.receipt(CodeEditStatus::Rejected, message);
+    if tx.scope != CodeEditScope::Instance {
+        return reject("A duração da pose pertence à instância selecionada.");
+    }
+    let Some(binding) = document
+        .pose_bindings
+        .iter()
+        .find(|binding| binding.instance_id == tx.instance_id && binding.pose == *pose)
+    else {
+        return reject("A ocorrência não tem uma duração vinculada nesta revisão.");
+    };
+    let Some(definition) = analysis
+        .scene
+        .entities
+        .iter()
+        .find(|entity| entity.entity_id == tx.instance_id)
+        .and_then(|entity| entity.components.sprite.as_ref())
+        .and_then(|sprite| sprite.animations.get(&pose.animation))
+    else {
+        return reject("A animação vinculada está indisponível.");
+    };
+    let original = region_text(document, &binding.location);
+    let mut next = definition.clone();
+    let finish = |definition, status, message| {
+        let mut receipt = analysis.receipt(status, message);
+        receipt.pose_change = Some(PoseCodeChange {
+            animation: pose.animation.clone(),
+            definition,
+        });
+        receipt.shared_uses.clear();
+        receipt
+    };
+    if same_tokens(&lex(&original), &lex(&tx.new_text)) {
+        if next
+            .pose_code_drafts
+            .get(&pose.occurrence_id)
+            .is_some_and(Option::is_some)
+        {
+            next.pose_code_drafts
+                .insert(pose.occurrence_id.clone(), None);
+            return finish(
+                next,
+                CodeEditStatus::DraftCleared,
+                "Rascunho da duração descartado.",
+            );
+        }
+        return analysis.receipt(
+            CodeEditStatus::NoChange,
+            "A ocorrência já tem esta duração.",
+        );
+    }
+    let ticks = pose_duration_statement(&tx.new_text)
+        .zip(pose_duration_statement(&original))
+        .and_then(|((declaration, ticks), (expected, _))| {
+            (ticks > 0 && same_tokens(&lex(declaration), &lex(expected))).then_some(ticks)
+        });
+    let draft = |mut next: AnimationDef, message| {
+        next.pose_code_drafts
+            .insert(pose.occurrence_id.clone(), Some(tx.new_text.clone()));
+        finish(next, CodeEditStatus::Draft, message)
+    };
+    let Some(ticks) = ticks else {
+        return draft(
+            next,
+            "Rascunho guardado. Edite a duração com um inteiro de 1 a 255 ticks.",
+        );
+    };
+    if next
+        .frame_events
+        .iter()
+        .any(|event| event.occurrence == pose.occurrence_id && event.tick >= u32::from(ticks))
+    {
+        return draft(
+            next,
+            "Rascunho guardado. Reposicione o evento antes de encurtar a ocorrência.",
+        );
+    }
+    let Ok(ids) = animation_occurrence_ids(&next) else {
+        return reject("As identidades das ocorrências da animação são inválidas.");
+    };
+    let times = ids
+        .iter()
+        .map(|id| {
+            if *id == pose.occurrence_id {
+                return Some(i32::from(ticks));
+            }
+            document
+                .pose_bindings
+                .iter()
+                .find(|item| {
+                    item.instance_id == tx.instance_id
+                        && item.pose.animation == pose.animation
+                        && item.pose.occurrence_id == *id
+                })
+                .map(|item| i32::from(item.ticks))
+        })
+        .collect::<Option<Vec<_>>>();
+    let Some(times) = times.filter(|times| times.iter().all(|time| *time > 0)) else {
+        return draft(
+            next,
+            "Rascunho guardado. A animação precisa ter durações positivas em todas as ocorrências.",
+        );
+    };
+    next.occurrence_ids = Some(ids);
+    next.frame_durations = Some(times);
+    if next.pose_code_drafts.contains_key(&pose.occurrence_id) {
+        next.pose_code_drafts
+            .insert(pose.occurrence_id.clone(), None);
+    }
+    let mut proposed = analysis.scene.clone();
+    if let Some(sprite) = proposed
+        .entities
+        .iter_mut()
+        .find(|entity| entity.entity_id == tx.instance_id)
+        .and_then(|entity| entity.components.sprite.as_mut())
+    {
+        sprite
+            .animations
+            .insert(pose.animation.clone(), next.clone());
+    }
+    let emitted = (analysis.emit)(&proposed);
+    let projected = project_document(analysis.project, &proposed, analysis.target, &emitted);
+    if !projected.pose_bindings.iter().any(|item| {
+        item.instance_id == tx.instance_id
+            && item.pose == *pose
+            && same_tokens(
+                &lex(&region_text(&projected, &item.location)),
+                &lex(&tx.new_text),
+            )
+    }) {
+        return draft(
+            definition.clone(),
+            "A projeção do compilador divergiu do campo editado.",
+        );
+    }
+    finish(
+        next,
+        CodeEditStatus::PoseDuration,
+        "Duração atualizada nesta instância.",
+    )
 }
 
 /// Analisa uma transacao sobre a regiao de um node de uma instancia. `emit` devolve o C
@@ -631,6 +869,9 @@ pub fn analyze_code_edit(
             CodeEditStatus::Stale,
             "A transacao pertence a outro projeto, cena ou revisao; nada foi alterado.",
         );
+    }
+    if let Some(pose) = &tx.pose {
+        return analyze_pose_duration(&analysis, &document, pose);
     }
     let Some(serialized) = instance_graph(scene, &tx.instance_id) else {
         return analysis.receipt(CodeEditStatus::Rejected, "Instancia sem grafo de logica.");
@@ -1185,11 +1426,75 @@ mod tests {
             graph_sha256: graph_revision_hash(&instance_graph(scene, instance).unwrap()),
             new_text,
             scope: CodeEditScope::Instance,
+            pose: None,
         }
     }
 
     fn analyze(scene: &Scene, tx: &CodeEditTransaction) -> CodeEditReceipt {
         analyze_code_edit("proj", "megadrive", scene, &emit, tx)
+    }
+
+    #[test]
+    fn authored_pose_duration_reemits_only_the_bound_occurrence_and_keeps_its_control() {
+        let mut scene = twin_scene();
+        for entity in &mut scene.entities {
+            entity
+                .components
+                .sprite
+                .as_mut()
+                .unwrap()
+                .animations
+                .insert(
+                    "passo".into(),
+                    serde_json::from_value(json!({
+                        "frames": [0, 1, 2, 1], "fps": 12, "loop": true,
+                        "frame_durations": [5, 6, 7, 2]
+                    }))
+                    .unwrap(),
+                );
+        }
+        let document = document(&scene);
+        let instance = &scene.entities[0].entity_id;
+        let binding = document
+            .pose_bindings
+            .iter()
+            .find(|binding| &binding.instance_id == instance && binding.pose.occurrence_id == "o2")
+            .unwrap();
+        let original = region_text(&document, &binding.location);
+        assert!(original.ends_with(" = 6;"));
+        let mut tx = CodeEditTransaction {
+            schema: CODE_EDIT_SCHEMA.into(),
+            context: document.context.clone(),
+            instance_id: instance.clone(),
+            node_id: String::new(),
+            graph_sha256: String::new(),
+            new_text: original.replace(" = 6;", " = 4;"),
+            scope: CodeEditScope::Instance,
+            pose: Some(binding.pose.clone()),
+        };
+        let applied = analyze(&scene, &tx);
+        assert_eq!(
+            applied.status,
+            CodeEditStatus::PoseDuration,
+            "{}",
+            applied.message
+        );
+        let change = applied.pose_change.unwrap();
+        assert_eq!(change.definition.frame_durations, Some(vec![5, 4, 7, 2]));
+        let control_id = &scene.entities[1].entity_id;
+        let control = document
+            .pose_bindings
+            .iter()
+            .find(|item| &item.instance_id == control_id && item.pose == binding.pose)
+            .unwrap();
+        assert_eq!(control.ticks, 6);
+        tx.new_text = original.replace(" = 6;", " = ");
+        let draft = analyze(&scene, &tx);
+        assert_eq!(draft.status, CodeEditStatus::Draft);
+        assert_eq!(
+            draft.pose_change.unwrap().definition.frame_durations,
+            Some(vec![5, 6, 7, 2])
+        );
     }
 
     #[test]

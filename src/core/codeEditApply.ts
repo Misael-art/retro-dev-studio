@@ -61,6 +61,7 @@ export async function loadCodeDocument(): Promise<CodeDocument | null> {
 
 export type CodeEditOutcome =
   | { kind: "applied"; receipt: CodeEditReceipt; plan: CodeEditPlan }
+  | { kind: "pose_applied"; receipt: CodeEditReceipt }
   | { kind: "unchanged"; receipt: CodeEditReceipt }
   | { kind: "discarded"; reason: string };
 
@@ -102,6 +103,21 @@ export async function submitCodeEdit(
     documentRevision: document.context.revision,
   })) {
     return { kind: "discarded", reason: "Resposta de outra revisão descartada." };
+  }
+  if (transaction.pose && receipt.pose_change) {
+    const state = useEditorStore.getState();
+    const { animation, definition } = receipt.pose_change;
+    const entity = state.activeScene?.entities.find((item) => item.entity_id === transaction.instance_id);
+    const sprite = entity?.components.sprite;
+    if (!sprite?.animations?.[animation] || animation !== transaction.pose.animation
+      || receipt.instance_id !== transaction.instance_id || state.selectedEntityId !== transaction.instance_id
+      || state.studio.focus.animation !== animation || state.studio.focus.occurrenceId !== transaction.pose.occurrence_id) {
+      return { kind: "discarded", reason: "Volte à ocorrência que abriu este campo C para aplicar a alteração." };
+    }
+    state.updateEntity(transaction.instance_id, { components: { sprite: {
+      ...sprite, animations: { ...sprite.animations, [animation]: definition },
+    } } });
+    return { kind: "pose_applied", receipt };
   }
   const scene = useEditorStore.getState().activeScene;
   const plan = scene ? planCodeEdit(receipt, scene) : null;

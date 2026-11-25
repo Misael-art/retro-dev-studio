@@ -8,7 +8,7 @@
  * aplica é o owner existente (`editorStore`), em `codeEditApply.ts`.
  */
 import type { CodeBinding, GeneratedSourceLocation } from "./nodegraph/buildProvenance";
-import type { Entity, LogicComponent, Scene } from "./ipc/sceneService";
+import type { AnimationDef, Entity, LogicComponent, Scene } from "./ipc/sceneService";
 
 export type { CodeBinding };
 
@@ -33,6 +33,19 @@ export interface CodeDocument {
   file: string;
   text: string;
   bindings: CodeBinding[];
+  pose_bindings?: PoseCodeBinding[];
+}
+
+export interface PoseCodeTarget {
+  animation: string;
+  occurrence_id: string;
+}
+
+export interface PoseCodeBinding {
+  instance_id: string;
+  pose: PoseCodeTarget;
+  location: GeneratedSourceLocation;
+  ticks: number;
 }
 
 /** `instance` (padrão): só a instância selecionada. `shared`: todos os usos da definição. */
@@ -46,9 +59,10 @@ export interface CodeEditTransaction {
   graph_sha256: string;
   new_text: string;
   scope: CodeEditScope;
+  pose?: PoseCodeTarget;
 }
 
-export type CodeEditStatus = "no_change" | "node_params" | "code_node" | "draft" | "draft_cleared" | "stale" | "rejected";
+export type CodeEditStatus = "no_change" | "node_params" | "code_node" | "draft" | "draft_cleared" | "pose_duration" | "stale" | "rejected";
 
 export interface CodeEditReceipt {
   schema: string;
@@ -62,6 +76,7 @@ export interface CodeEditReceipt {
   absorbed_node_ids: string[];
   shared_uses: string[];
   message: string;
+  pose_change?: { animation: string; definition: AnimationDef };
 }
 
 export function sameCodeContext(left: CodeContext, right: CodeContext): boolean {
@@ -96,6 +111,23 @@ export function regionText(document: CodeDocument, binding: CodeBinding): string
   const region = bindingRegion(binding);
   if (!region) return null;
   return document.text.split("\n").slice(region.start_line - 1, region.end_line).join("\n");
+}
+
+export function buildPoseCodeEditTransaction(
+  document: CodeDocument,
+  binding: PoseCodeBinding,
+  newText: string,
+): CodeEditTransaction {
+  return {
+    schema: CODE_EDIT_SCHEMA,
+    context: { ...document.context },
+    instance_id: binding.instance_id,
+    node_id: "",
+    graph_sha256: "",
+    new_text: newText,
+    scope: "instance",
+    pose: binding.pose,
+  };
 }
 
 export function buildCodeEditTransaction(

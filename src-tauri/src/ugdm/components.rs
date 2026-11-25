@@ -67,6 +67,12 @@ pub struct SpriteAnimationHitbox {
     pub height: i32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PoseAlignment {
+    pub anchor: Pivot,
+    pub offset: Pivot,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AnimationDef {
     pub frames: Vec<u32>,
@@ -94,6 +100,10 @@ pub struct AnimationDef {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub occurrence_ids: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub pose_alignment: BTreeMap<String, PoseAlignment>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub pose_code_drafts: BTreeMap<String, Option<String>>,
     /// Eventos autorais ancorados em ocorrencia + tick local (0 = primeiro tick do quadro).
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -213,6 +223,8 @@ mod sprite_command_tests {
     fn animation_def_round_trips_artstudio_frame_authoring_metadata() {
         let animation = AnimationDef {
             occurrence_ids: None,
+            pose_alignment: Default::default(),
+            pose_code_drafts: Default::default(),
             frame_events: Vec::new(),
             frames: vec![0, 1],
             fps: 12,

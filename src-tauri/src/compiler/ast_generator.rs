@@ -37,6 +37,11 @@ pub enum AstNode {
         y: i32,
         priority_high: bool,
     },
+    AuthoredPosePlayback {
+        entity_id: String,
+        var_name: String,
+        animations: Result<Vec<AuthoredPoseAnimation>, String>,
+    },
     DrawTilemap {
         resource_name: String,
         x: i32,
@@ -174,6 +179,19 @@ pub struct SpriteAnimation {
     /// Tabela de runtime MUGEN (perfil `mugen.character.v1`), quando a animacao veio de
     /// um AIR. `Err` = dados do modelo fora do que o runtime representa: bloqueia o build.
     pub mugen: Option<Result<MugenAnimTable, String>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuthoredPoseAnimation {
+    pub name: String,
+    pub frames: Vec<AuthoredPoseFrame>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuthoredPoseFrame {
+    pub occurrence_id: String,
+    pub ticks: u8,
+    pub offset: (i16, i16),
 }
 
 /// Animacao dirigida pelo runtime gerado (`compiler/mugen_runtime.rs`) em vez da
@@ -723,6 +741,26 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
         std::collections::HashMap::new();
     let mut input_state_vars: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
+    let authored_pose_assets: std::collections::HashSet<_> = if project.target == "megadrive" {
+        scene
+            .entities
+            .iter()
+            .filter_map(|entity| {
+                let sprite = entity.components.sprite.as_ref()?;
+                sprite
+                    .animations
+                    .values()
+                    .any(|animation| {
+                        animation.mugen_frames.is_none()
+                            && (animation.frame_durations.is_some()
+                                || !animation.pose_alignment.is_empty())
+                    })
+                    .then_some(sprite.asset.as_str())
+            })
+            .collect()
+    } else {
+        Default::default()
+    };
 
     nodes.push(AstNode::SpriteSystemInit);
     nodes.push(AstNode::DrawText {
@@ -895,6 +933,30 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
             y: entity.transform.y,
             priority_high: sprite.priority == "foreground",
         });
+        if authored_pose_assets.contains(sprite.asset.as_str())
+            && !sprite.animations.is_empty()
+            && sprite
+                .animations
+                .values()
+                .all(|animation| animation.mugen_frames.is_none())
+        {
+            let asset = sprite_assets
+                .iter()
+                .find(|asset| asset.resource_name == resource_name);
+            let authored_animations = match asset {
+                Some(asset) if asset.frame_width == sprite.frame_width
+                    && asset.frame_height == sprite.frame_height
+                    && asset.animations.iter().map(|anim| (&anim.name, &anim.frames))
+                        .eq(animations.iter().map(|anim| (&anim.name, &anim.frames))) =>
+                    authored_pose_animations(project.fps, sprite, &animations),
+                _ => Err("os usos desse atlas precisam ter as mesmas células e sequência para editar poses por instância".into()),
+            };
+            nodes.push(AstNode::AuthoredPosePlayback {
+                entity_id: entity.entity_id.clone(),
+                var_name: var_name.clone(),
+                animations: authored_animations,
+            });
+        }
 
         if let Some(path) = &entity.components.path {
             if crate::ugdm::components::path_issue(path).is_none() {
@@ -1186,6 +1248,49 @@ fn sprite_animations(project_fps: u32, sprite: &SpriteComponent) -> Vec<SpriteAn
         .collect::<Vec<_>>();
     animations.sort_by(|left, right| left.name.cmp(&right.name));
     animations
+}
+
+fn authored_pose_animations(
+    project_fps: u32,
+    sprite: &SpriteComponent,
+    ordered: &[SpriteAnimation],
+) -> Result<Vec<AuthoredPoseAnimation>, String> {
+    ordered.iter().map(|projected| {
+        let def = &sprite.animations[&projected.name];
+        let ids = animation_occurrence_ids(def)?;
+        if ids.len() > 255 || (ids.is_empty() && !def.pose_alignment.is_empty()) {
+            return Err(format!("animação '{}': limite de 255 ocorrências", projected.name));
+        }
+        if def.pose_alignment.keys().any(|id| !ids.contains(id)) {
+            return Err(format!("animação '{}': ponto associado a uma ocorrência inexistente", projected.name));
+        }
+        let times = match &def.frame_durations {
+            Some(times) => {
+                if times.len() != ids.len() || times.iter().any(|ticks| !(1..=255).contains(ticks)) {
+                    return Err(format!("animação '{}': use 1 a 255 ticks por ocorrência", projected.name));
+                }
+                times.iter().map(|&ticks| ticks as u8).collect()
+            }
+            None => {
+                let fallback = u8::try_from(animation_frame_time(project_fps, def.fps))
+                    .map_err(|_| format!("animação '{}': duração excede 255 ticks", projected.name))?;
+                vec![fallback; ids.len()]
+            }
+        };
+        let frames = ids.into_iter().zip(times).map(|(occurrence_id, ticks)| {
+            let offset = if let Some(pose) = def.pose_alignment.get(&occurrence_id) {
+                let in_cell = pose.anchor.x >= 0 && pose.anchor.y >= 0
+                    && pose.anchor.x.cast_unsigned() < sprite.frame_width
+                    && pose.anchor.y.cast_unsigned() < sprite.frame_height;
+                if !in_cell || !(-511..=511).contains(&pose.offset.x) || !(-511..=511).contains(&pose.offset.y) {
+                    return Err(format!("animação '{}', ocorrência '{occurrence_id}': ponto ou deslocamento fora dos limites", projected.name));
+                }
+                (pose.offset.x as i16, pose.offset.y as i16)
+            } else { (0, 0) };
+            Ok(AuthoredPoseFrame { occurrence_id, ticks, offset })
+        }).collect::<Result<_, String>>()?;
+        Ok(AuthoredPoseAnimation { name: projected.name.clone(), frames })
+    }).collect()
 }
 
 /// Tabela MUGEN a partir do modelo do produto (`frame_durations`, `mugen_frames`,
@@ -4075,6 +4180,8 @@ mod tests {
     ) -> (SpriteComponent, AnimationDef) {
         let animation = AnimationDef {
             occurrence_ids: None,
+            pose_alignment: Default::default(),
+            pose_code_drafts: Default::default(),
             frame_events: Vec::new(),
             frames: (0..frames as u32).collect(),
             fps: 4,
@@ -4254,6 +4361,8 @@ mod tests {
             "walk".to_string(),
             AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![1, 2, 3, 4],
                 fps: 10,
@@ -5216,6 +5325,8 @@ mod tests {
             "idle".to_string(),
             AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![0],
                 fps: 6,
@@ -5231,6 +5342,8 @@ mod tests {
             "run".to_string(),
             AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![1, 2, 3],
                 fps: 12,
@@ -6556,6 +6669,8 @@ mod tests {
             "idle".to_string(),
             AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![0],
                 fps: 6,
@@ -6571,6 +6686,8 @@ mod tests {
             "run".to_string(),
             AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![1, 2, 3],
                 fps: 12,
@@ -7286,6 +7403,8 @@ mod tests {
             "idle".to_string(),
             AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![0, 1],
                 fps: 8,
@@ -7301,6 +7420,8 @@ mod tests {
             "run".to_string(),
             AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![2, 3],
                 fps: 15,

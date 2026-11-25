@@ -288,6 +288,7 @@ export interface StoreState {
   projectSessionId: number;
   activeProjectName: string;
   activeTarget: "megadrive" | "snes";
+  projectFps: number;
   activeScenePath: string;
   emulatorLoaded: boolean;
   /** Identidade observada da ROM realmente carregada no core canônico. */
@@ -774,6 +775,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   projectSessionId: 0,
   activeProjectName: "",
   activeTarget: "megadrive",
+  projectFps: 60,
   setActiveProject: (dir, name) =>
     set((state) => ({
       activeProjectDir: dir,
@@ -909,7 +911,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       };
     });
     const { activeProjectDir, studio } = get();
-    saveStudioContext(activeProjectDir, studio);
+    saveStudioContext(activeProjectDir, studio, get().activeScenePath);
   },
   returnToStudioOrigin: () => {
     const state = get();
@@ -925,7 +927,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       selectedEntityId: result.state.focus.entityId,
       ...(camera ? { viewportZoom: camera.zoom } : {}),
     });
-    saveStudioContext(state.activeProjectDir, result.state);
+    saveStudioContext(state.activeProjectDir, result.state, state.activeScenePath);
     return result;
   },
   refineStudioFocus: (patch) => {
@@ -937,7 +939,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       };
     });
     const { activeProjectDir, studio } = get();
-    saveStudioContext(activeProjectDir, studio);
+    saveStudioContext(activeProjectDir, studio, get().activeScenePath);
   },
   rememberWorkspaceCamera: (workspace, camera) =>
     set((state) => ({ studio: rememberWorkspaceCameraState(state.studio, workspace, camera) })),

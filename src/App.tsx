@@ -129,6 +129,7 @@ import {
   createTilemapEntityFromAsset,
 } from "./core/editorEntityFactory";
 import { getEntityDisplayName } from "./core/entityDisplay";
+import { nativeAnimationNames } from "./core/characterTimeline";
 import {
   getPreferredSceneEntity,
   resolveSceneWorkspaceContext,
@@ -2900,6 +2901,7 @@ export default function App() {
     }
 
     setActiveProject(projectDir, projectName);
+    const remembered = useEditorStore.getState().studio;
     setSelectedEntityId(null);
     setHwStatus(hw);
     setActiveScenePath(sceneData.scene_path);
@@ -2909,12 +2911,27 @@ export default function App() {
     if (sceneData.target === "megadrive" || sceneData.target === "snes") {
       setActiveTarget(sceneData.target);
     }
+    useEditorStore.setState({ projectFps: sceneData.project_fps || 60 });
     setActiveWorkspace("scene");
     setActiveViewportTab("scene");
     setRightPanelMode("inspector");
 
-    const focusedEntity = getPreferredSceneEntity(hydrated.resolvedScene);
+    const rememberedEntity = remembered.savedScenePath === sceneData.scene_path
+      ? hydrated.resolvedScene.entities.find((entity) => entity.entity_id === remembered.focus.entityId)
+      : null;
+    const focusedEntity = rememberedEntity ?? getPreferredSceneEntity(hydrated.resolvedScene);
     setSelectedEntityId(focusedEntity?.entity_id ?? null);
+    if (rememberedEntity) {
+      const focus = { ...remembered.focus, task: "scene" as const };
+      const animation = focus.animation ? rememberedEntity.components.sprite?.animations?.[focus.animation] : null;
+      const ids = animation?.occurrence_ids ?? animation?.frames.map((_, index) => `o${index + 1}`);
+      if (!animation) focus.animation = null;
+      if (!focus.occurrenceId || !ids?.includes(focus.occurrenceId)) focus.occurrenceId = null;
+      useEditorStore.setState((state) => ({
+        studio: { ...state.studio, focus, restoreSeq: state.studio.restoreSeq + 1 },
+        viewportZoom: remembered.cameras.scene?.zoom ?? state.viewportZoom,
+      }));
+    }
 
     const openReason =
       normalizedPreferredScene && sceneData.scene_path === normalizedPreferredScene
@@ -3992,8 +4009,17 @@ export default function App() {
       trackProductMetric({ kind: "rom_loaded" });
       logMessage("success", "ROM carregada no emulador.");
       setEmulPaused(false);
-      setActiveViewportTab("game");
-      setActiveWorkspace("game");
+      const current = useEditorStore.getState();
+      const focus = current.studio.focus;
+      const focusedActor = current.activeScene?.entities.find((entity) => entity.entity_id === focus.entityId);
+      if (current.activeWorkspace !== "game" && focus.entityId === current.selectedEntityId
+        && focus.animation && focus.occurrenceId
+        && nativeAnimationNames(focusedActor?.components.sprite, current.activeTarget, current.projectSourceKind).includes(focus.animation)) {
+        current.openStudioEditor({ focus: { ...focus, task: "test" } });
+      } else {
+        setActiveViewportTab("game");
+        setActiveWorkspace("game");
+      }
     } catch (error) {
       if (!isBuildContextCurrent()) return;
       recordBuildFailure([describeError(error)]);

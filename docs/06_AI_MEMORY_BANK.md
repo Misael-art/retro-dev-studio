@@ -29,7 +29,16 @@ congela os controles para as 24 capacidades, cinco tratamentos e nove
 ferramentas. Em `74672bf`, o cenário de cadência registra o acesso pelo
 Canvas e compara o pé de cada ator com o atlas. A sonda encontrou os oito
 deslocamentos ensaiados com a imagem de referência e recusou a pose trocada
-e o recorte vazio. A leitura da ROM e o aceite humano permanecem abertos.
+e o recorte vazio. O Windows em `8f57b4d` passou no rascunho C, na edição
+individual e compartilhada, e na cadência e apoio iniciais de ambas as salas.
+No BigLinux, o binário de linha de base passou nas duas salas e no escopo C.
+O rascunho foi salvo e reaberto. A confirmação do descarte atingiu o tempo
+limite em duas tentativas. O [handoff do host](handoffs/NOVO_HOST_INICIO.md#qualificacao-autoria-20261124)
+registra as identidades e onde repetir. Na sala simples, a primeira edição
+3→6→4 passou no Tauri Linux e no core. Duração, apoio das poses, controle e
+retorno ao ator estão registrados na [matriz da jornada](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#conferência-por-item-da-autoria-de-fase).
+Repetir no novo candidato, incluindo sala densa, Windows, casos do editor C
+e uso com participantes.
 
 ### Continuidade antes da formatação — 2026-11-22
 

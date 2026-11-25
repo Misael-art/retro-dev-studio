@@ -17,6 +17,8 @@ interface CodeFocusState {
   logicView: "nodes" | "code";
   setLogicView: (view: "nodes" | "code") => void;
   focusCode: (focus: CodeFocus) => void;
+  pendingRegions: Record<string, { text: string; base: string }>;
+  setPendingRegion: (key: string, draft: { text: string; base: string } | null) => void;
 }
 
 export const useCodeFocusStore = create<CodeFocusState>((set) => ({
@@ -26,4 +28,11 @@ export const useCodeFocusStore = create<CodeFocusState>((set) => ({
   logicView: "nodes",
   setLogicView: (logicView) => set({ logicView }),
   focusCode: (focus) => set({ focus, logicSource: "code" }),
+  pendingRegions: {},
+  setPendingRegion: (key, draft) => set(({ pendingRegions }) => {
+    const next = { ...pendingRegions };
+    if (draft) next[key] = draft;
+    else delete next[key];
+    return { pendingRegions: next };
+  }),
 }));
