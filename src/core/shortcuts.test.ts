@@ -13,6 +13,8 @@ import {
   resolveShortcutCommand,
   saveShortcutCustomizations,
   searchCommands,
+  assetPathFromCommand,
+  projectAssetCommands,
   updateShortcutBinding,
   type ShortcutCommand,
 } from "./shortcuts";
@@ -158,6 +160,16 @@ describe("shortcut registry", () => {
     expect(searchCommands("art", getPaletteCommands(DEFAULT_SHORTCUTS))[0]?.command.id).toBe(
       "workspace.artstudio"
     );
+  });
+
+  it("finds project files by their full path without confusing equally named assets", () => {
+    const paths = ["assets/sprites/Bosque/raposa.png", "assets/sprites/Porto/raposa.png", "assets/sprites/Porto/raposa.png"];
+    const entries = projectAssetCommands(paths);
+    expect(entries).toHaveLength(2);
+    const result = searchCommands("Porto raposa", entries)[0];
+    expect(result.command.label).toBe("raposa.png");
+    expect(assetPathFromCommand(result.command.id)).toBe(paths[1]);
+    expect(assetPathFromCommand("workspace.logic")).toBeNull();
   });
 
   it("resolves shortcut execution and blocks ambiguous conflicts in the active scope", () => {

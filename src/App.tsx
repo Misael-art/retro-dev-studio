@@ -107,6 +107,7 @@ import {
   detectRomDependency,
   getThirdPartyStatus,
   installThirdPartyDependency,
+  listProjectAssets,
   type ThirdPartyDependencyId,
 } from "./core/ipc/toolsService";
 import {
@@ -139,6 +140,7 @@ import {
 import { resolveSceneWorldMetrics } from "./core/sceneWorldModel";
 import {
   DEFAULT_SHORTCUTS,
+  assetPathFromCommand,
   getPaletteCommands,
   findShortcutConflicts,
   formatShortcutKeys,
@@ -146,6 +148,7 @@ import {
   getShortcutTitle,
   groupShortcutsByGroup,
   loadShortcutCustomizations,
+  projectAssetCommands,
   resetShortcutCustomizations,
   resolveShortcutCommand,
   saveShortcutCustomizations,
@@ -1245,6 +1248,7 @@ export function CommandPaletteDialog({
   onExecute,
   onClose,
   isCommandDisabled,
+  fileStatus,
 }: {
   results: CommandSearchResult[];
   query: string;
@@ -1253,8 +1257,10 @@ export function CommandPaletteDialog({
   onExecute: (commandId: string) => void;
   onClose: () => void;
   isCommandDisabled: (commandId: string) => boolean;
+  fileStatus?: string;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const activeResults = results.filter((result) => !isCommandDisabled(result.command.id));
   const activeResultCount = activeResults.length;
@@ -1277,6 +1283,10 @@ export function CommandPaletteDialog({
     });
   }, [activeResultCount]);
 
+  useEffect(() => {
+    listRef.current?.querySelector('[data-selected="true"]')?.scrollIntoView?.({ block: "nearest" });
+  }, [selectedIndex]);
+
   function executeSelected() {
     if (activeResultCount === 0) {
       return;
@@ -1294,12 +1304,18 @@ export function CommandPaletteDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="command-palette-title"
+        onKeyDown={(event) => {
+          if (event.key !== "Escape") return;
+          event.stopPropagation();
+          event.preventDefault();
+          onClose();
+        }}
         className="flex w-[min(720px,calc(100vw-24px))] max-h-[72vh] flex-col overflow-hidden rounded border border-[#313244] bg-[#111827] shadow-2xl"
       >
         <div className="border-b border-[#313244] p-3">
           <div className="mb-2 flex items-center justify-between gap-3">
             <h2 id="command-palette-title" className="text-xs font-bold uppercase tracking-[0.16em] text-[#cba6f7]">
-              Command Palette
+              Comandos e arquivos
             </h2>
             <kbd className="rounded border border-[#334155] bg-[#020617] px-1.5 py-0.5 font-mono text-[10px] text-[#94a3b8]">
               Esc
@@ -1311,10 +1327,7 @@ export function CommandPaletteDialog({
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                event.preventDefault();
-                onClose();
-              } else if (event.key === "Enter") {
+              if (event.key === "Enter") {
                 event.preventDefault();
                 executeSelected();
               } else if (event.key === "ArrowDown") {
@@ -1325,14 +1338,16 @@ export function CommandPaletteDialog({
                 setSelectedIndex((current) => Math.max(current - 1, 0));
               }
             }}
-            placeholder="Buscar comando..."
+            aria-label="Buscar comando ou arquivo do projeto"
+            placeholder="Buscar comando ou arquivo..."
             className="h-9 w-full rounded border border-[#334155] bg-[#020617] px-3 text-sm text-[#e2e8f0] outline-none focus:border-[#89b4fa]"
           />
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-2">
+        {fileStatus && <p role="status" className="px-3 pt-2 text-xs text-[#94a3b8]">{fileStatus}</p>}
+        <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto p-2">
           {results.length === 0 ? (
             <div className="rounded border border-[#313244] bg-[#0b1020] px-3 py-4 text-xs text-[#94a3b8]">
-              Nenhum comando real encontrado.
+              Nenhum comando ou arquivo encontrado.
             </div>
           ) : (
             <div className="grid gap-1">
@@ -1946,6 +1961,8 @@ export default function App() {
   const [projectSettingsError, setProjectSettingsError] = useState("");
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
+  const [commandAssets, setCommandAssets] = useState<{ project: string; entries: ShortcutCommand[]; failed?: boolean } | null>(null);
+  const commandPaletteOrigin = useRef<HTMLElement | null>(null);
   const [showShortcutEditor, setShowShortcutEditor] = useState(false);
   const [shortcuts, setShortcuts] = useState(() =>
     loadShortcutCustomizations(DEFAULT_SHORTCUTS, localStorage)
@@ -2057,10 +2074,32 @@ export default function App() {
   }, [activeWorkspace, compactShell, shellConfig.showRight]);
   const defaultRightMode = shellConfig.defaultRightMode;
   const shortcutConflicts = findShortcutConflicts(shortcuts);
-  const paletteCommands = getPaletteCommands(shortcuts).filter((command) =>
+  const paletteCommands = useMemo(() => getPaletteCommands(shortcuts).filter((command) =>
     EXECUTABLE_COMMAND_IDS.has(command.id)
-  );
-  const commandPaletteResults = searchCommands(commandPaletteQuery, paletteCommands);
+  ), [shortcuts]);
+  const searchProjectAssets = showCommandPalette && commandPaletteQuery.trim().length > 1;
+  useEffect(() => {
+    if (!searchProjectAssets || !activeProjectDir || commandAssets?.project === activeProjectDir) return;
+    let cancelled = false;
+    const pending = window.setTimeout(() => {
+      void listProjectAssets(activeProjectDir).then((assets) => {
+        if (!cancelled) setCommandAssets({ project: activeProjectDir, entries: projectAssetCommands(assets.map(({ relative_path }) => relative_path)) });
+      }).catch(() => {
+        if (!cancelled) setCommandAssets({ project: activeProjectDir, entries: [], failed: true });
+      });
+    }, 180);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(pending);
+    };
+  }, [activeProjectDir, commandAssets?.project, searchProjectAssets]);
+  const files = searchProjectAssets && commandAssets?.project === activeProjectDir ? commandAssets : null;
+  const commandPaletteResults = useMemo(() => {
+    const commands = searchCommands(commandPaletteQuery, paletteCommands);
+    if (!files?.entries.length) return commands;
+    const matchingFiles = searchCommands(commandPaletteQuery, files.entries).slice(0, 12);
+    return [...commands, ...matchingFiles].sort((a, b) => b.score - a.score);
+  }, [commandPaletteQuery, files, paletteCommands]);
 
   useLiveValidationController();
 
@@ -2122,8 +2161,30 @@ export default function App() {
   }
 
   function openCommandPalette() {
+    if (showCommandPalette) return;
+    commandPaletteOrigin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setCommandPaletteQuery("");
+    setCommandAssets(null);
     setShowCommandPalette(true);
+  }
+
+  function closeCommandPalette() {
+    setShowCommandPalette(false);
+    const origin = commandPaletteOrigin.current;
+    requestAnimationFrame(() => { if (origin?.isConnected) origin.focus({ preventScroll: true }); });
+  }
+
+  function executeCommandPaletteEntry(commandId: string) {
+    setShowCommandPalette(false);
+    const path = assetPathFromCommand(commandId);
+    if (path === null) {
+      executeAppCommand(commandId);
+      return;
+    }
+    const state = useEditorStore.getState();
+    if (!path || files?.project !== state.activeProjectDir || !files?.entries.some(({ id }) => id === commandId)) return;
+    state.setExplorerAssetPath(path);
+    state.openStudioEditor({ focus: { ...state.studio.focus, task: "files" } });
   }
 
   function updateShortcut(commandId: string, value: string) {
@@ -2913,10 +2974,10 @@ export default function App() {
       title: "Comandos",
       actions: [
         {
-          label: "Command Palette",
+          label: "Comandos e arquivos",
           onClick: openCommandPalette,
           shortcut: getShortcutLabel("commandPalette.open", shortcuts),
-          title: getShortcutTitle("commandPalette.open", "Buscar e executar comandos reais", shortcuts),
+          title: getShortcutTitle("commandPalette.open", "Buscar comandos e arquivos do projeto", shortcuts),
         },
         {
           label: "Atalhos",
@@ -5529,12 +5590,12 @@ export default function App() {
           query={commandPaletteQuery}
           shortcuts={shortcuts}
           onQueryChange={setCommandPaletteQuery}
-          onExecute={(commandId) => {
-            setShowCommandPalette(false);
-            executeAppCommand(commandId);
-          }}
-          onClose={() => setShowCommandPalette(false)}
+          onExecute={executeCommandPaletteEntry}
+          onClose={closeCommandPalette}
           isCommandDisabled={isCommandDisabled}
+          fileStatus={searchProjectAssets && activeProjectDir
+            ? !files ? "Procurando arquivos do projeto…" : files.failed ? "A busca de arquivos está indisponível." : undefined
+            : undefined}
         />
       )}
 

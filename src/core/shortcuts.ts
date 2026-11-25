@@ -552,6 +552,23 @@ export function eventMatchesShortcut(
   return shortcut.keys.some((key) => normalizeShortcutChord(key) === eventKey);
 }
 
+const PROJECT_ASSET_COMMAND_PREFIX = "project.asset:";
+
+export function projectAssetCommands(paths: string[]): ShortcutCommand[] {
+  return [...new Set(paths)].map((path) => ({
+    id: PROJECT_ASSET_COMMAND_PREFIX + path,
+    label: path.split("/").pop() ?? path,
+    description: path,
+    group: "Arquivos",
+    keys: [],
+  }));
+}
+
+export function assetPathFromCommand(commandId: string): string | null {
+  return commandId.startsWith(PROJECT_ASSET_COMMAND_PREFIX)
+    ? commandId.slice(PROJECT_ASSET_COMMAND_PREFIX.length) : null;
+}
+
 function normalizeSearchText(value: string): string {
   return value
     .normalize("NFD")

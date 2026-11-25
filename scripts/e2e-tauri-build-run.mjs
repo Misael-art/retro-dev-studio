@@ -17608,6 +17608,29 @@ async function verifyAuthoringDesk(sessionId, report, prefix) {
   }
   const retained = await waitFor(async () => await codeValue() === draft, 15000, "O texto pendente mudou após dez trocas de área.", 100);
   if (!retained) fail("O código pendente não foi preservado.");
+  const search = '[data-testid="command-palette-search"]';
+  const openSearch = async () => {
+    await webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [{
+      type: "key", id: "palette-control", actions: [{ type: "keyDown", value: "\uE009" }, { type: "keyDown", value: "p" },
+        { type: "keyUp", value: "p" }, { type: "keyUp", value: "\uE009" }],
+    }] });
+    await check(`return document.activeElement?.matches(arguments[0]);`, "A busca global não recebeu o foco pelo teclado.", [search]);
+  };
+  if (!await focus("logic-view-divider")) fail("O divisor não recebeu foco para abrir e cancelar a busca.");
+  await openSearch();
+  await fillInputBySelector(sessionId, search, "diagnosticos");
+  await key("\uE00C");
+  await check(`return document.activeElement?.id === 'logic-view-divider';`, "Escape não devolveu o foco ao painel de origem.");
+  await openSearch();
+  await fillInputBySelector(sessionId, search, "fox-five-frame-32-runtime.png");
+  await check(`return [...document.querySelectorAll('[data-testid^="command-palette-item-project.asset:"]')].some((row) => row.dataset.selected === 'true');`,
+    "A busca não encontrou o atlas do projeto no teclado.");
+  await key("\uE007");
+  await waitFor(async () => (await readAutomationState(sessionId))?.activeWorkspace === "explorer", 10000, "A busca não abriu Arquivos.", 100);
+  await click("studio-return-origin");
+  await waitFor(async () => await codeValue() === draft && isDeepStrictEqual(tracked(await readAutomationState(sessionId)), before),
+    15000, "A busca de arquivo perdeu ator, rascunho ou revisão no retorno.", 100);
+  addReportStep(report, "search_project_file_and_return_to_pending_code", "passed", { path: "assets/sprites/fox-five-frame-32-runtime.png" });
   await click("logic-view-nodes");
   await check(`return document.querySelector('[data-testid="nodes-pose-duration"]')?.value === '4';`,
     "O texto pendente foi aplicado sem confirmação.");
