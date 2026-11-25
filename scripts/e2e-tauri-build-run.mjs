@@ -16988,6 +16988,7 @@ async function observePoseEditorAccess(sessionId, report, prefix) {
   const start = Date.now();
   const access = { steps: [] };
   report.editorAccess = access;
+  await setSessionWindowRect(sessionId, 1366, 768);
   access.window = await executeScript(sessionId,
     "return { cssWidth: innerWidth, cssHeight: innerHeight, scale: devicePixelRatio };");
   const capture = async (label) => {
@@ -17001,11 +17002,25 @@ async function observePoseEditorAccess(sessionId, report, prefix) {
   const before = await capture("sala");
   if (before.activeWorkspace !== "scene") await clickButtonByTestIdNativeWhenReady(sessionId, "workspace-rail-scene");
   if (before.editorMode !== "select") await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-tool-select");
-  const bounds = (await readAutomationState(sessionId)).activeScene.worldBounds;
-  await clickCanvasPointNatively(sessionId, '[data-testid="viewport-scene-overlay"]',
-    (80 - bounds.minX) / bounds.width, (152 - bounds.minY) / bounds.height, "Selecionar a raposa da esquerda");
-  await waitFor(async () => (await readAutomationState(sessionId))?.selectedEntityId === "raposa",
-    10000, "O clique no Canvas não selecionou a raposa da esquerda.", 100);
+  const fit = await findElement(sessionId, 'button[title="Resetar vista (zoom + pan)"]');
+  await clickElement(sessionId, fit);
+  const overlay = '[data-testid="viewport-scene-overlay"]';
+  // A sala pode abrir com a raposa selecionada. Visitar a testemunha primeiro
+  // exige que o ponteiro altere a seleção nas duas vezes.
+  for (const [entityId, worldX] of [["testemunha", 224], ["raposa", 80]]) {
+    const point = await waitFor(async () => executeScript(sessionId, `
+      const canvas = document.querySelector(arguments[0]);
+      if (!canvas) return null;
+      const x = (arguments[1] - Number(canvas.dataset.worldMinX)) / Number(canvas.dataset.worldWidth);
+      const y = (152 - Number(canvas.dataset.worldMinY)) / Number(canvas.dataset.worldHeight);
+      const rect = canvas.getBoundingClientRect();
+      const hit = document.elementFromPoint(Math.round(rect.left + x * rect.width), Math.round(rect.top + y * rect.height));
+      return hit === canvas ? { x, y } : null;
+    `, [overlay, worldX]), 10000, `Ator ${entityId} fora da área clicável depois de enquadrar a cena.`, 100);
+    await clickCanvasPointNatively(sessionId, overlay, point.x, point.y, `Selecionar ${entityId} na cena`);
+    await waitFor(async () => (await readAutomationState(sessionId))?.selectedEntityId === entityId,
+      10000, `O clique no Canvas não selecionou ${entityId}.`, 100);
+  }
   const selected = await capture("selecao-canvas");
   await clickButtonByTestIdNativeWhenReady(sessionId, "inspector-open-character");
   const surface = await waitFor(async () => executeScript(sessionId, `

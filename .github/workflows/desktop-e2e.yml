@@ -310,10 +310,12 @@ jobs:
           $projects = @(node scripts/qa/create-pose-authoring-demo.mjs)
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if ($projects.Count -ne 2) { throw "Expected the two pose authoring fixtures" }
+          $failedRooms = @()
           foreach ($project in $projects) {
             node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            if ($LASTEXITCODE -ne 0) { $failedRooms += $project }
           }
+          if ($failedRooms.Count) { throw ("Pose authoring failed in " + ($failedRooms -join ", ")) }
           Add-Content -Path $env:RDS_E2E_LEDGER -Value 'pose_baseline'
 
       - name: Report step outcomes before verification
