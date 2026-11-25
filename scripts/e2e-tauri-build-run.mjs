@@ -19098,7 +19098,9 @@ async function observeAdvancedAuthoringRom(sessionId, projectDir, build) {
     if (!result?.ok) fail("O core recusou entrada do controle: " + JSON.stringify(result));
   };
   const advance = async (frames = 1) => {
-    const result = await invokeCoreObserveCommand(sessionId, "emulator_run_frames", { frames });
+    const result = frames === 1
+      ? await invokeCoreObserveCommand(sessionId, "emulator_run_frame")
+      : await invokeCoreObserveCommand(sessionId, "emulator_run_frames", { frames });
     if (!result?.ok) fail("O core recusou o avanço de quadros.");
   };
   await input();
@@ -19126,7 +19128,7 @@ async function observeAdvancedAuthoringRom(sessionId, projectDir, build) {
     if (!frame?.ok || frame.rom_sha256 !== build.rom_sha256 || !frame.disk_matches_loaded
         || frame.framebuffer_width !== 320 || frame.framebuffer_height !== 224) fail("O core mostrou uma ROM diferente.");
     if (!core) core = await collectCoreIdentity(frame);
-    magenta.push({ attached: marker(frame, 76, 130, 33, 29), parked: marker(frame, 270, 100, 12, 12) });
+    magenta.push({ attached: marker(frame, 76, 130, 44, 29), parked: marker(frame, 270, 100, 12, 12) });
     const hash = createHash("sha256");
     for (let y = 136; y < 168; y += 1) {
       const pixel = (y * 320 + 208) * 4;
@@ -19157,7 +19159,10 @@ async function observeAdvancedAuthoringRom(sessionId, projectDir, build) {
     await input({ y: true });
     for (let tick = 0; tick < 16; tick += 1) {
       await advance();
-      event.push({ first: await ram("logic_var_marca_inicio", 4), sound: await ram("logic_var_marca_som", 4), ...(await audio()) });
+      const frame = await invokeCoreObserve(sessionId);
+      const colorAt = (x, y) => frame.framebuffer_rgba.slice(4 * (y * frame.framebuffer_width + x), 4 * (y * frame.framebuffer_width + x) + 3);
+      event.push({ first: await ram("logic_var_marca_inicio", 4), sound: await ram("logic_var_marca_som", 4),
+        runner: colorAt(30, 170), control: colorAt(10, 110), ...(await audio()) });
       if (tick === 0) await input();
     }
     for (let tick = 0; tick < 10; tick += 1) {
@@ -19223,6 +19228,7 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
   await input("pose-socket-y", "1");
   await click("pose-socket-save");
   await selectOptionByTestIdNative(sessionId, "pose-socket-child", "Lanterna");
+  await input("pose-socket-offset-x", "12");
   await click("pose-socket-attach");
   await click("character-occurrence-o2");
   await summary("pose-socket-editor");
@@ -19238,7 +19244,8 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
   const points = actor(attached, "raposa")?.components.sprite.animations.passo.pose_sockets;
   const binding = actor(attached, "Lanterna")?.components.pose_attachment;
   if (!isDeepStrictEqual(points, { o1: [{ name: "mao", point: { x: 27, y: 1 } }], o2: [{ name: "mao", point: { x: 20, y: 8 } }] })
-      || binding?.actor !== "raposa" || binding?.socket !== "mao") fail("A cena não preservou os dois pontos e o vínculo.");
+      || binding?.actor !== "raposa" || binding?.socket !== "mao"
+      || !isDeepStrictEqual(binding?.offset, { x: 12, y: 0 })) fail("A cena não preservou os dois pontos, o vínculo e o ajuste.");
   addReportStep(report, "animated_sockets_author_preview_save", "passed", { points, binding });
 
   await click("workspace-rail-scene");
@@ -19285,13 +19292,21 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
   await summary("event-sequence-composer");
   await input("event-sequence-ticks-1", "6");
   await activateByTestIdWithEnter(sessionId, "event-sequence-ticks-1");
+  const withFlash = report.revision === "advanced-flash";
+  if (withFlash) {
+    await selectOptionByTestIdNative(sessionId, "event-sequence-action-2", "palette_swap");
+    await selectOptionByTestIdNative(sessionId, "event-sequence-light-target-2", "corredor");
+    await selectOptionByTestIdNative(sessionId, "event-sequence-palette-2", "brilho_resposta");
+    await input("event-sequence-ticks-2", "1");
+    await activateByTestIdWithEnter(sessionId, "event-sequence-ticks-2");
+  }
   await shot("compositor", "Eventos editados no grafo");
   await save();
   const composed = await scene();
   const getGraph = (value) => JSON.parse(actor(value, "raposa").components.logic.graph);
   const graph = getGraph(composed);
   if (graph.nodes.find(({ id }) => id === "tempo")?.params.slot_1_delay !== 6
-      || !isDeepStrictEqual(graph.edges, getGraph(original).edges)
+      || getGraph(original).edges.some((edge) => !graph.edges.some((item) => isDeepStrictEqual(item, edge)))
       || !isDeepStrictEqual(actor(composed, "testemunha"), actor(original, "testemunha"))) fail("A edição do tempo alterou o grafo ou o ator de controle.");
   addReportStep(report, "event_sequence_precision_same_graph", "passed");
 
@@ -19305,14 +19320,24 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
   }));
   if (baseline.magenta.some(({ attached, parked }) => attached || !isDeepStrictEqual(parked, [272, 101, 64]))
       || edited.magenta.some(({ parked }) => parked) || !present.some((point) => point === null)
-      || !present.some((point) => isDeepStrictEqual(point, [91, 137, 64]))
-      || !present.some((point) => isDeepStrictEqual(point, [84, 144, 64]))) fail("O core não mostrou a lanterna nos dois pontos e a ausência nas demais poses.");
+      || !present.some((point) => isDeepStrictEqual(point, [103, 137, 64]))
+      || !present.some((point) => isDeepStrictEqual(point, [96, 144, 64]))) fail("O core não mostrou a lanterna nos dois pontos e a ausência nas demais poses.");
   if (!isDeepStrictEqual(edited.control.hashesByPose, baseline.control.hashesByPose)) fail("O ator de controle mudou na ROM editada.");
   addReportStep(report, "socket_pixels_matched_in_rom", "passed", { control: edited.control });
   if (baseline.neutral !== 0 || edited.neutral !== 0 || spans[0].first < 0 || spans[0].first !== spans[1].first
       || spans[0].sound - spans[0].first !== 2 || spans[1].sound - spans[1].first !== 4
       || spans.some(({ pcm, sound }) => pcm < sound || pcm > sound + 8)) fail("O tempo do grafo ou a emissão do PCM ficou fora da janela: " + JSON.stringify(spans));
   addReportStep(report, "trigger_relative_ticks_and_pcm_in_rom", "passed", { spans });
+  if (withFlash) {
+    const white = ([r, g, b]) => Math.min(r, g, b) > 220;
+    const lit = edited.event.flatMap(({ runner }, tick) => white(runner) ? [tick] : []);
+    if (baseline.event.some(({ runner }) => white(runner)) || lit.length !== 12 || lit[0] >= spans[1].sound
+        || lit.some((tick, i) => tick !== lit[0] + i)
+        || edited.event.some(({ control }, tick) => !isDeepStrictEqual(control, baseline.event[tick].control))) {
+      fail("O brilho temporário, a restauração ou a região de controle divergiu: " + JSON.stringify(lit));
+    }
+    addReportStep(report, "event_palette_flash_and_restore_in_rom", "passed", { lit });
+  }
   const offsets = [baseline, edited].map(({ ground }) => [ground[3].x - ground[1].x,
     ground[15].x - ground[9].x, ground[35].x - ground[32].x]);
   if (offsets[0][0] !== offsets[1][0] || offsets[0][1] <= offsets[1][1] || offsets[1][1] <= 0
@@ -19403,7 +19428,7 @@ async function verifyFloatingStudioPanels(sessionId, projectDir, report, prefix)
 async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
   const revision = process.env.RDS_POSE_PROOF || "baseline";
   const occlusionModes = ["occlusion", "occlusion-region", "occlusion-motion"];
-  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace", "linked-atlas", "asset-replace", "terrain", "seam", "wave", "hud", "guides", "lighting", "advanced", "floating", ...occlusionModes, ...indexedEffectModes].includes(revision)) {
+  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace", "linked-atlas", "asset-replace", "terrain", "seam", "wave", "hud", "guides", "lighting", "advanced", "advanced-flash", "floating", ...occlusionModes, ...indexedEffectModes].includes(revision)) {
     fail(`RDS_POSE_PROOF desconhecido: ${revision}.`);
   }
   const prefix = `pose-cadence-${artifactTimestamp()}`;
@@ -19421,11 +19446,11 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
     if (report.atlasSha256 !== "8f104172610518705021450603f04bfd4d2fc0ed997e7c71de21cdb54874c735") fail("O atlas da prova mudou.");
     const atlas = decodeWindowPng(atlasBytes);
     report.executableSha256 = createHash("sha256").update(await readFile(app)).digest("hex");
-    if (revision === "advanced" || revision === "floating") {
+    if (revision === "advanced" || revision === "advanced-flash" || revision === "floating") {
       await openSavedProjectWizard(sessionId, projectDir);
       await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir,
         60000, "A sala de autoria avançada não abriu.", 200);
-      const verify = revision === "advanced" ? verifyAdvancedAuthoring : verifyFloatingStudioPanels;
+      const verify = revision === "floating" ? verifyFloatingStudioPanels : verifyAdvancedAuthoring;
       await verify(sessionId, projectDir, report, prefix, timeoutMs);
       report.status = "passed";
       return;

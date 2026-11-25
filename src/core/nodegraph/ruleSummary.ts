@@ -114,7 +114,7 @@ function describeAction(graph: NodeGraph, node: GraphNode): string | null {
     case "authored_strike":
       return `golpe autoral de ${node.params.attacker} em ${node.params.target} (dano ${node.params.damage})`;
     case "palette_swap":
-      return `paleta ${node.params.palette} em ${node.params.target} por ${node.params.frames} quadros a cada acerto`;
+      return `paleta ${node.params.palette} em ${node.params.target} por ${node.params.frames} quadros ${node.params.trigger_mode === "flow" ? "ao executar este nó" : "a cada acerto"}`;
     case "var_set": {
       const value = dataSource(graph, node.id, "value") ?? String(node.params.value ?? "0");
       return `${node.params.var_name} = ${value}`;

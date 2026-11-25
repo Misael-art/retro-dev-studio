@@ -346,7 +346,7 @@ async function writeGuidesProject(directory) {
   return projectPath;
 }
 
-async function writeAdvancedAuthoringProject(directory) {
+async function writeAdvancedAuthoringProject(directory, withFlash) {
   const projectPath = await writeProject(directory, false);
   const project = JSON.parse(await readFile(projectPath, "utf8"));
   const scenePath = path.join(directory, project.entry_scene);
@@ -364,6 +364,9 @@ async function writeAdvancedAuthoringProject(directory) {
   const runner = await sprite("corredor", [0, 7, 7], 3, 28, 168);
   runner.components.physics = { gravity: true, gravity_strength: 12, max_velocity: { x: 96, y: 64 }, friction: 0 };
   scene.entities.push(runner);
+  if (withFlash) {
+    scene.palettes.push({ slot: 3, id: "brilho_resposta", name: "Brilho da resposta", colors: ["#000000", "#FFFFFF"] });
+  }
   scene.collision_map = { tile_width: 8, tile_height: 8, width: 40, height: 28,
     data: Array.from({ length: 40 * 28 }, (_, i) => Number(Math.floor(i / 40) === 22)) };
 
@@ -417,7 +420,7 @@ if (process.argv.includes("--atlas-replacement")) {
 } else if (process.argv.includes("--guides")) {
   console.log(await writeGuidesProject(path.join(root, "guias")));
 } else if (process.argv.includes("--advanced-authoring")) {
-  console.log(await writeAdvancedAuthoringProject(path.join(root, "autoria-avancada")));
+  console.log(await writeAdvancedAuthoringProject(path.join(root, "autoria-avancada"), process.argv.includes("--with-flash")));
 } else if (process.argv.includes("--indexed-effects")) {
   const moving = process.argv.includes("--moving-camera");
   for (const effect of ["transparent", "ghost", "rotation"]) {

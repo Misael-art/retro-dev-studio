@@ -510,9 +510,9 @@ jobs:
         id: advanced_authoring
         if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'advanced-authoring' }}
         env:
-          RDS_POSE_PROOF: advanced
+          RDS_POSE_PROOF: advanced-flash
         run: |
-          $project = node scripts/qa/create-pose-authoring-demo.mjs --advanced-authoring
+          $project = node scripts/qa/create-pose-authoring-demo.mjs --advanced-authoring --with-flash
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

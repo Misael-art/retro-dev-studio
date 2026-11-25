@@ -6720,11 +6720,25 @@ pub fn run() {
                     .ok_or("Configuração da janela principal ausente")?;
                 let main = WebviewWindowBuilder::from_config(app, config)?
                     .on_new_window(move |url, features| {
-                        let (label, title) = match url.as_str() {
-                            "about:blank#rds-timeline" => {
+                        let Some(origin) = handle
+                            .get_webview_window("main")
+                            .and_then(|main| main.url().ok())
+                        else {
+                            return NewWindowResponse::Deny;
+                        };
+                        if url.scheme() != origin.scheme()
+                            || url.host_str() != origin.host_str()
+                            || url.port_or_known_default() != origin.port_or_known_default()
+                            || url.path() != "/src/studio-panel.html"
+                            || url.fragment().is_some()
+                        {
+                            return NewWindowResponse::Deny;
+                        }
+                        let (label, title) = match url.query() {
+                            Some("panel=timeline") => {
                                 ("studio-floating-timeline", "Timeline · RetroDev Studio")
                             }
-                            "about:blank#rds-properties" => (
+                            Some("panel=properties") => (
                                 "studio-floating-properties",
                                 "Propriedades · RetroDev Studio",
                             ),

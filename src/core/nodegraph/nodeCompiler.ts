@@ -544,7 +544,7 @@ function emitLinearNodeC(node: GraphNode, graph: NodeGraph, target: "megadrive" 
 
     case "palette_swap":
       // Previa: banco, cores e alcance vem do plano de paletas (compiler/palette_plan.rs).
-      return `    // troca de paleta ${p.palette} em ${p.target} a cada acerto de ${p.strike} (${p.frames} quadros)\n`;
+      return `    // troca de paleta ${p.palette} em ${p.target} ${p.trigger_mode === "flow" ? "ao executar este nó" : "a cada acerto de " + p.strike} (${p.frames} quadros)\n`;
 
     case "var_set":
       return `    logic_var_${p.var_name} = ${resolveMathInput(graph, node.id, "value")};\n`;

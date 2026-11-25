@@ -118,7 +118,7 @@ export const NODE_CATALOG: Record<NodeType, NodeCatalogEntry> = {
   camera_follow: entry("camera_follow", "camera", "Camera", "Câmera segue (legado)", "camera", "Seguimento imediato legado. Damping não é executado por este nó; para suavidade e limites, remova o nó e converta em Configurar câmera.", ["target"]),
   camera_control: entry("camera_control", "camera", "Camera", "Controlar câmera", "camera", "Câmera visual: selecionar, devolver às regiões, travar/liberar, tremor, deslocamento temporário ou reiniciar. Uma atualização após o movimento.", ["target", "action", "frames", "x", "y"]),
   authored_strike: entry("authored_strike", "collision", "Combate", "Golpe autoral", "fork", "Autoral (nao vem do CNS): quando a caixa de ataque do quadro atual do atacante encosta na caixa de corpo do alvo, tira dano uma vez por golpe.", ["attacker", "target", "damage", "health"]),
-  palette_swap: entry("palette_swap", "action", "Combate", "Trocar paleta ao sofrer golpe", "film", "A cada acerto do golpe indicado, as cores do alvo viram as da paleta escolhida por alguns quadros e depois voltam. O alcance (so o alvo ou o grupo do banco) e conferido pelo plano de paletas.", ["strike", "target", "palette", "frames", "scope"]),
+  palette_swap: entry("palette_swap", "action", "Combate", "Trocar paleta temporariamente", "film", "Aplique as cores de uma paleta do projeto por alguns quadros. O plano de paletas confere o alcance.", ["trigger_mode", "strike", "target", "palette", "frames", "scope"]),
   camera_bounds: entry("camera_bounds", "error_unsupported", "Camera", "Limites legados (indisponível)", "camera", "Este nó não tem execução. Remova-o e desenhe a área em Configurar câmera. Projetos com o nó recebem diagnóstico de compilação.", ["min_x", "max_x"]),
   timer: entry("timer", "timer", "Fluxo", "Timer", "clock", "Conta quadros e avisa a cada passo e ao terminar.", ["frames", "repeat"]),
   set_tile: entry("set_tile", "tilemap", "Tilemap", "Definir Tile", "grid", "Troca um bloco do cenario.", ["layer", "tile", "x", "y"]),
@@ -337,7 +337,7 @@ export function describeNodeAction(node: GraphNode): string {
     case "authored_strike":
       return `Se o ataque de ${num(p.attacker)} acertar ${num(p.target)}: tirar ${num(p.damage)} de vida (uma vez por golpe)`;
     case "palette_swap":
-      return `Quando o golpe acertar ${num(p.target)}: usar a paleta ${num(p.palette)} por ${num(p.frames)} quadros (${p.scope === "grupo" ? "todo o grupo do banco" : "so esta instancia"})`;
+      return `${p.trigger_mode === "flow" ? "Ao executar este nó em" : "Quando o golpe acertar"} ${num(p.target)}: usar a paleta ${num(p.palette)} por ${num(p.frames)} quadros (${p.scope === "grupo" ? "todo o grupo do banco" : "só esta instância"})`;
     case "timer":
       return `Esperar ${num(p.frames)} quadros`;
     default:

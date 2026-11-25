@@ -4278,7 +4278,9 @@ export default function NodeGraphEditor() {
               onGraphChange={(next) => setGraph(next, "Trocar som")}
             />
             {activeTarget === "megadrive" && !isRecoveredRegionGraph(graph) && (
-              <EventSequencePanel graph={graph} selected={selectedNode}
+              <EventSequencePanel graph={graph} palettes={activeScene?.palettes ?? []} selected={selectedNode}
+                targets={(activeScene?.entities ?? []).filter((entity) => entity.components.sprite)
+                  .map((entity) => ({ id: entity.entity_id, name: getEntityDisplayName(entity) }))}
                 onSelectNode={(id) => { setSelectedId(id); setSelectedIds(new Set([id])); }}
                 onCreate={(trigger, port) => {
                   if (!canEditGraphNode(trigger)) return;
@@ -4294,14 +4296,15 @@ export default function NodeGraphEditor() {
                 onParam={(id, key, value) => setGraph((current) => {
                   const node = current.nodes.find((item) => item.id === id);
                   if (!node || !canEditGraphNode(node) || node.params[key] === value) return current;
-                  const outputs = node.outputs.some((port) => port.id === "slot_3")
+                  const outputs = node.type !== "timeline_sequence" || node.outputs.some((port) => port.id === "slot_3")
                     ? node.outputs : clonePorts(NODE_DEFS.timeline_sequence.outputs);
                   return { ...current, nodes: current.nodes.map((item) => item.id === id
                     ? { ...item, outputs, params: { ...item.params, [key]: value } } : item) };
-                }, "Editar tempo da resposta")}
+                }, "Editar resposta a eventos")}
                 onAddAction={(sequence, slot, type) => {
                   if (!canEditGraphNode(sequence)) return;
                   const node = makeNode(type, sequence.x + 265, sequence.y + 170 * slot);
+                  if (type === "palette_swap") node.params = { ...node.params, trigger_mode: "flow", target: "self" };
                   const port = "slot_" + slot;
                   setGraph((current) => {
                     if (current.edges.some((edge) => edge.fromNode === sequence.id && edge.fromPort === port)) return current;

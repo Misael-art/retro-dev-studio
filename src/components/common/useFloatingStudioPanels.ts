@@ -90,20 +90,22 @@ export function useFloatingStudioPanels(reportFailure: () => void) {
       windows.current[name]?.focus();
       return;
     }
-    const popup = window.open("about:blank#rds-" + name, "rds-" + name, "popup,resizable,width=750,height=524");
+    const url = new URL("/src/studio-panel.html", window.location.href);
+    url.searchParams.set("panel", name);
+    const popup = window.open(url.href, "rds-" + name, "popup,resizable,width=750,height=524");
     if (!popup) { reportFailure(); return; }
     windows.current[name] = popup;
     let attempts = 0;
     const mount = () => {
       if (windows.current[name] !== popup) return;
       try {
-        if (!popup.closed && popup.location.hash === "#rds-" + name && popup.document.body) {
+        if (!popup.closed && popup.location.href === url.href && popup.document.readyState !== "loading" && popup.document.body) {
           mountPopup(popup, name, hosts[name], () => dockPanel(name));
           setOpen((current) => ({ ...current, [name]: true }));
           return;
         }
       } catch {
-        // The native WebView is still loading the initial about:blank document.
+        // O WebView nativo ainda está carregando a página do painel.
       }
       if (++attempts < 40 && !popup.closed) window.setTimeout(mount, 50);
       else { dockPanel(name); reportFailure(); }

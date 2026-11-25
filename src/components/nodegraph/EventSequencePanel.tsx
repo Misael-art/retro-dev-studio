@@ -4,6 +4,7 @@ import type { GraphNode, NodeGraph, NodeType } from "../../core/nodegraph/nodeTy
 const field = "min-w-0 rounded border border-[#45475a] bg-[#11111b] px-1 py-1";
 const slotTypes: Array<{ type: NodeType; label: string }> = [
   { type: "action_sound", label: "Som" },
+  { type: "palette_swap", label: "Brilho por paleta" },
   { type: "sprite_anim", label: "Animação" },
   { type: "var_set", label: "Contador" },
   { type: "set_animation_state", label: "Estado da animação" },
@@ -11,6 +12,8 @@ const slotTypes: Array<{ type: NodeType; label: string }> = [
 
 type Props = {
   graph: NodeGraph;
+  palettes: readonly { id?: string; name?: string }[];
+  targets: readonly { id: string; name: string }[];
   selected: GraphNode | null;
   onCreate: (trigger: GraphNode, port: string) => void;
   onSelectNode: (node: string) => void;
@@ -48,7 +51,7 @@ function Delay({ value, axis, slot, onEdit }: { value: number; axis: number; slo
   );
 }
 
-export default function EventSequencePanel({ graph, selected, onCreate, onSelectNode, onParam, onAddAction }: Props) {
+export default function EventSequencePanel({ graph, palettes, targets, selected, onCreate, onSelectNode, onParam, onAddAction }: Props) {
   const [sequenceId, setSequenceId] = useState("");
   const [portId, setPortId] = useState("");
   const sequences = graph.nodes.filter((node) => node.type === "timeline_sequence");
@@ -107,6 +110,24 @@ export default function EventSequencePanel({ graph, selected, onCreate, onSelect
                       <option value="">{slot + 1}. Adicionar ação</option>
                       {slotTypes.map(({ type, label }) => <option key={type} value={type}>{label}</option>)}
                     </select>
+                  )}
+                  {action?.type === "palette_swap" && action.params.trigger_mode === "flow" && (
+                    <div className="grid gap-1">
+                      <label className="grid gap-1">Alvo do brilho
+                        <select data-testid={"event-sequence-light-target-" + slot} className={field} value={action.params.target}
+                          onChange={(event) => onParam(action.id, "target", event.target.value)}>
+                          <option value="self">Este ator</option>
+                          {targets.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                        </select>
+                      </label>
+                      <label className="grid gap-1">Paleta temporária
+                        <select data-testid={"event-sequence-palette-" + slot} className={field} value={action.params.palette}
+                          onChange={(event) => onParam(action.id, "palette", event.target.value)}>
+                          <option value="">Escolha uma paleta do projeto</option>
+                          {palettes.filter((item) => item.id).map((item) => <option key={item.id} value={item.id}>{item.name ?? item.id}</option>)}
+                        </select>
+                      </label>
+                    </div>
                   )}
                   <Delay key={sequence.id + "/" + slot} value={delay} axis={axis} slot={slot}
                     onEdit={(next) => { if (next !== delay) onParam(sequence.id, "slot_" + slot + "_delay", next); }} />

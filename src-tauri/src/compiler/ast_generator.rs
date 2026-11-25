@@ -416,13 +416,12 @@ pub enum LogicOp {
         damage: u16,
         health: u16,
     },
-    /// Troca de paleta por evento (Experimental): a cada acerto aplicado do golpe autoral
-    /// `strike_id`, os indices do recurso do alvo no banco dele recebem as cores de `palette_id`
-    /// por `frames` quadros e depois voltam. Banco, alcance e valores vem do plano de paletas
+    /// Troca de paleta temporária quando a execução chega ao nó ou a cada acerto do golpe.
+    /// Banco, alcance e valores vêm do plano de paletas
     /// (`compiler/palette_plan.rs`); `scope` = `instancia` (outro uso afetado bloqueia) ou `grupo`.
-    PaletteSwapOnHit {
+    PalettePulse {
         swap_id: String,
-        strike_id: String,
+        strike_id: Option<String>,
         target_entity: String,
         palette_id: String,
         frames: u16,
@@ -2592,6 +2591,7 @@ fn compile_logic_node(
         ))),
         "palette_swap" => Some(CompiledLogicNode::Linear(palette_swap_op(
             node,
+            graph,
             runtime_entities,
         ))),
         "set_velocity" => {
@@ -3580,7 +3580,7 @@ fn collect_unsupported_from_ops(
             LogicOp::MugenSetVelocityX { .. }
             | LogicOp::MugenProgramStep { .. }
             | LogicOp::AuthoredStrike { .. }
-            | LogicOp::PaletteSwapOnHit { .. } => {}
+            | LogicOp::PalettePulse { .. } => {}
             LogicOp::SetTile { tile, x, y, .. } => {
                 collect_unsupported_from_math(tile, found);
                 collect_unsupported_from_math(x, found);
@@ -3836,6 +3836,7 @@ fn compile_mugen_program(
 
 fn palette_swap_op(
     node: &StoredNodeGraphNode,
+    graph: &StoredNodeGraph,
     runtime_entities: &HashMap<String, LogicRuntimeEntity>,
 ) -> LogicOp {
     let bridge = |why: String| LogicOp::SourceBridgeError {
@@ -3848,7 +3849,8 @@ fn palette_swap_op(
     let palette = param_string(node, "palette").unwrap_or_default();
     let scope = param_string(node, "scope").unwrap_or_else(|| "instancia".to_string());
     let frames = param_i32(node, "frames", 0);
-    if strike.is_empty() {
+    let from_flow = param_string(node, "trigger_mode").as_deref() == Some("flow");
+    if !from_flow && strike.is_empty() {
         return bridge("sem golpe que dispare a troca".to_string());
     }
     if !runtime_entities.contains_key(&target) {
@@ -3863,9 +3865,21 @@ fn palette_swap_op(
     if scope != "instancia" && scope != "grupo" {
         return bridge(format!("alcance '{scope}' (use instancia ou grupo)"));
     }
-    LogicOp::PaletteSwapOnHit {
-        swap_id: sanitize_identifier(&node.id),
-        strike_id: sanitize_identifier(&strike),
+    let swap_id = if from_flow {
+        let hex = |value: &str| {
+            value
+                .as_bytes()
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect::<String>()
+        };
+        format!("flow_{}_{}", hex(&graph.instance_id), hex(&node.id))
+    } else {
+        sanitize_identifier(&node.id)
+    };
+    LogicOp::PalettePulse {
+        swap_id,
+        strike_id: (!from_flow).then(|| sanitize_identifier(&strike)),
         target_entity: target,
         palette_id: palette,
         frames: frames as u16,
@@ -4098,7 +4112,7 @@ fn collect_logic_sound_names_from_ops(
             | LogicOp::MugenSetVelocityX { .. }
             | LogicOp::MugenProgramStep { .. }
             | LogicOp::AuthoredStrike { .. }
-            | LogicOp::PaletteSwapOnHit { .. }
+            | LogicOp::PalettePulse { .. }
             | LogicOp::SetAnimationState { .. }
             | LogicOp::SetTile { .. }
             | LogicOp::CameraFollow { .. }

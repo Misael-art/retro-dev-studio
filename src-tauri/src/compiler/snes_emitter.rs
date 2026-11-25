@@ -1232,7 +1232,7 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], context: &SnesContext, in
                     indent = indent_str
                 ));
             }
-            LogicOp::PaletteSwapOnHit { .. } => {
+            LogicOp::PalettePulse { .. } => {
                 out.push_str(&format!(
                     "{indent}#error \"RetroDev: troca de paleta por evento so tem adaptador Mega Drive nesta versao\"\n",
                     indent = indent_str

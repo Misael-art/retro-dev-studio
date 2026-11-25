@@ -1086,19 +1086,32 @@ fn render_palette_decls() -> String {
             ));
         }
         for swap in p.plan.swaps.iter().filter(|s| s.ok) {
-            let (Some(bank), Some(strike)) = (swap.bank, swap.trigger.strip_prefix("golpe:")) else { continue };
+            let Some(bank) = swap.bank else { continue };
             let id = &swap.id;
+            let (state, condition, consume) = if let Some(strike) = swap.trigger.strip_prefix("golpe:") {
+                (
+                    format!("static u16 rds_palswap_{id}_seen = 0;"),
+                    format!("rds_strike_{strike}_hits != rds_palswap_{id}_seen"),
+                    format!("rds_palswap_{id}_seen = rds_strike_{strike}_hits;"),
+                )
+            } else if swap.trigger == "fluxo" {
+                (
+                    format!("static bool rds_palswap_{id}_requested;"),
+                    format!("rds_palswap_{id}_requested"),
+                    format!("rds_palswap_{id}_requested = FALSE;"),
+                )
+            } else { continue };
             out.push_str(&format!(
                 "static const u16 rds_palswap_{id}_on[16] = {{{on}}};\n\
                  static const u16 rds_palswap_{id}_off[16] = {{{off}}};\n\
                  static volatile u16 rds_palswap_{id}_count = 0;\n\
                  static volatile u16 rds_palswap_{id}_restores = 0;\n\
                  static volatile u16 rds_palswap_{id}_left = 0;\n\
-                 static u16 rds_palswap_{id}_seen = 0;\n\
+                 {state}\n\
                  /* Troca '{id}': banco {bank}, indices {idx:?}, {frames} quadros; fila DMA aplicada no proximo VBlank. */\n\
                  static void rds_palswap_{id}_update(void) {{\n\
-                 \x20   if (rds_strike_{strike}_hits != rds_palswap_{id}_seen) {{\n\
-                 \x20       rds_palswap_{id}_seen = rds_strike_{strike}_hits;\n\
+                 \x20   if ({condition}) {{\n\
+                 \x20       {consume}\n\
                  \x20       rds_palswap_{id}_count++;\n\
                  \x20       rds_palswap_{id}_left = {frames};\n\
                  \x20       PAL_setColors({base}, rds_palswap_{id}_on, 16, DMA);\n\
@@ -2095,8 +2108,15 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
                     indent = indent_str
                 ));
             }
-            LogicOp::PaletteSwapOnHit { .. } => {
-                // A troca e atualizada uma vez por quadro depois dos golpes (rds_palswap_*_update).
+            LogicOp::PalettePulse {
+                swap_id,
+                strike_id: None,
+                ..
+            } => {
+                writeln!(out, "{indent_str}rds_palswap_{swap_id}_requested = TRUE;").unwrap();
+            }
+            LogicOp::PalettePulse { .. } => {
+                // O plano de paletas emite a observação dos acertos do golpe.
             }
             LogicOp::SetVelocity {
                 target_name,
@@ -2466,7 +2486,7 @@ fn collect_logic_velocity_targets_from_ops(
             LogicOp::MugenSetVelocityX { .. }
             | LogicOp::MugenProgramStep { .. }
             | LogicOp::AuthoredStrike { .. }
-            | LogicOp::PaletteSwapOnHit { .. } => {}
+            | LogicOp::PalettePulse { .. } => {}
             LogicOp::SetVelocity {
                 target_name,
                 runtime_var,
