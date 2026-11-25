@@ -19179,9 +19179,10 @@ async function observeAdvancedAuthoringRom(sessionId, projectDir, build) {
     await input({ y: true });
     for (let tick = 0; tick < 16; tick += 1) {
       await advance();
-      const { crops } = await observeRegions([[30, 170, 1, 1], [10, 110, 1, 1]]);
+      const { crops } = await observeRegions([[30, 170, 1, 1], [10, 110, 1, 1], [64, 136, 32, 32]]);
       event.push({ first: await ram("logic_var_marca_inicio", 4), sound: await ram("logic_var_marca_som", 4),
-        runner: crops[0].slice(0, 3), control: crops[1].slice(0, 3), ...(await audio()) });
+        runner: crops[0].slice(0, 3), control: crops[1].slice(0, 3),
+        pose: createHash("sha256").update(Buffer.from(crops[2])).digest("hex"), ...(await audio()) });
     }
     await input();
     for (let tick = 0; tick < 10; tick += 1) {
@@ -19361,6 +19362,7 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
   await input("event-sequence-ticks-1", "6");
   await activateByTestIdWithEnter(sessionId, "event-sequence-ticks-1");
   const withFlash = report.revision === "advanced-flash";
+  const withPose = withFlash && Boolean(actor(original, "raposa").components.sprite.animations.reacao);
   if (withFlash) {
     await selectOptionByTestIdNative(sessionId, "event-sequence-action-2", "palette_swap", {
       confirm: false,
@@ -19371,6 +19373,15 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
     await input("event-sequence-ticks-2", "1");
     await activateByTestIdWithEnter(sessionId, "event-sequence-ticks-2");
   }
+  if (withPose) {
+    await selectOptionByTestIdNative(sessionId, "event-sequence-action-3", "set_animation_state", {
+      confirm: false,
+      afterSelect: () => executeScript(sessionId, `return !!document.querySelector('[data-testid="event-sequence-animation-3"]');`),
+    });
+    await selectOptionByTestIdNative(sessionId, "event-sequence-animation-3", "reacao");
+    await input("event-sequence-ticks-3", "8");
+    await activateByTestIdWithEnter(sessionId, "event-sequence-ticks-3");
+  }
   await shot("compositor", "Eventos editados no grafo");
   await save();
   const composed = await scene();
@@ -19379,6 +19390,12 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
   if (graph.nodes.find(({ id }) => id === "tempo")?.params.slot_1_delay !== 6
       || getGraph(original).edges.some((edge) => !graph.edges.some((item) => isDeepStrictEqual(item, edge)))
       || !isDeepStrictEqual(actor(composed, "testemunha"), actor(attached, "testemunha"))) fail("A edição do tempo alterou o grafo ou o ator de controle.");
+  if (withPose) {
+    const destination = graph.edges.find(({ fromNode, fromPort }) => fromNode === "tempo" && fromPort === "slot_3")?.toNode;
+    const action = graph.nodes.find(({ id }) => id === destination);
+    if (action?.type !== "set_animation_state" || action.params.target !== "raposa" || action.params.state !== "reacao"
+        || graph.nodes.find(({ id }) => id === "tempo")?.params.slot_3_delay !== 8) fail("A pose da resposta não foi gravada no grafo.");
+  }
   addReportStep(report, "event_sequence_precision_same_graph", "passed");
 
   await click("workspace-rail-scene");
@@ -19424,6 +19441,15 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
       fail("O brilho temporário, a restauração ou a região de controle divergiu: " + JSON.stringify(lit));
     }
     addReportStep(report, "event_palette_flash_and_restore_in_rom", "passed", { lit });
+  }
+  if (withPose) {
+    const normal = new Set(baseline.event.map(({ pose }) => pose));
+    const changed = edited.event.flatMap(({ pose }, tick) => normal.has(pose) ? [] : [tick]);
+    if (!isDeepStrictEqual(changed, [8, 9, 10, 11, 12, 13, 14, 15])
+        || new Set(edited.event.slice(8).map(({ pose }) => pose)).size !== 1) {
+      fail("A resposta não manteve a pose alternativa a partir do tick 8: " + JSON.stringify(changed));
+    }
+    addReportStep(report, "event_timed_pose_and_control_in_rom", "passed", { changed, pose: edited.event[8].pose });
   }
   const offsets = [baseline, edited].map(({ ground }) => [ground[3].x - ground[1].x,
     ground[15].x - ground[9].x, ground[35].x - ground[32].x]);

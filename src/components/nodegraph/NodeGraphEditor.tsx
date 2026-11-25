@@ -4294,7 +4294,8 @@ export default function NodeGraphEditor() {
             {activeTarget === "megadrive" && !isRecoveredRegionGraph(graph) && (
               <EventSequencePanel panelRef={eventComposerRef} graph={graph} palettes={activeScene?.palettes ?? []} selected={selectedNode}
                 targets={(activeScene?.entities ?? []).filter((entity) => entity.components.sprite)
-                  .map((entity) => ({ id: entity.entity_id, name: getEntityDisplayName(entity) }))}
+                  .map((entity) => ({ id: entity.entity_id, name: getEntityDisplayName(entity),
+                    animations: Object.keys(entity.components.sprite?.animations ?? {}).sort() }))}
                 onSelectNode={(id) => { setSelectedId(id); setSelectedIds(new Set([id])); }}
                 onCreate={(trigger, port) => {
                   if (!canEditGraphNode(trigger)) return;
@@ -4312,8 +4313,15 @@ export default function NodeGraphEditor() {
                   if (!node || !canEditGraphNode(node) || node.params[key] === value) return current;
                   const outputs = node.type !== "timeline_sequence" || node.outputs.some((port) => port.id === "slot_3")
                     ? node.outputs : clonePorts(NODE_DEFS.timeline_sequence.outputs);
+                  const params = { ...node.params, [key]: value };
+                  if (node.type === "set_animation_state" && key === "target") {
+                    const target = activeScene?.entities.find((entity) => entity.entity_id === value);
+                    const animations = Object.keys(target?.components.sprite?.animations ?? {}).sort();
+                    if (animations.length === 0) return current;
+                    if (!animations.includes(String(params.state))) params.state = animations[0];
+                  }
                   return { ...current, nodes: current.nodes.map((item) => item.id === id
-                    ? { ...item, outputs, params: { ...item.params, [key]: value } } : item) };
+                    ? { ...item, outputs, params } : item) };
                 }, "Editar resposta a eventos")}
                 onAddAction={(sequence, slot, type) => {
                   if (!canEditGraphNode(sequence)) return;
@@ -4321,6 +4329,11 @@ export default function NodeGraphEditor() {
                   if (type === "palette_swap") {
                     node.label = "Brilho por paleta";
                     node.params = { ...node.params, trigger_mode: "flow", target: "self" };
+                  }
+                  if (type === "set_animation_state") {
+                    const state = Object.keys(selectedEntity.components.sprite?.animations ?? {}).sort()[0];
+                    node.label = "Trocar animação";
+                    node.params = { ...node.params, target: state ? selectedEntity.entity_id : "", state: state ?? "" };
                   }
                   const port = "slot_" + slot;
                   node.id = sequence.id + "_" + port + "_" + Date.now().toString(36) + "_" + node.id;

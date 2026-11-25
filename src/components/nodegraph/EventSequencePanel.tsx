@@ -5,16 +5,15 @@ const field = "min-w-0 rounded border border-[#45475a] bg-[#11111b] px-1 py-1";
 const slotTypes: Array<{ type: NodeType; label: string }> = [
   { type: "action_sound", label: "Som" },
   { type: "palette_swap", label: "Brilho por paleta" },
-  { type: "sprite_anim", label: "Animação" },
+  { type: "set_animation_state", label: "Trocar animação" },
   { type: "var_set", label: "Contador" },
-  { type: "set_animation_state", label: "Estado da animação" },
 ];
 
 type Props = {
   panelRef: Ref<HTMLDetailsElement>;
   graph: NodeGraph;
   palettes: readonly { id?: string; name?: string }[];
-  targets: readonly { id: string; name: string }[];
+  targets: readonly { id: string; name: string; animations: string[] }[];
   selected: GraphNode | null;
   onCreate: (trigger: GraphNode, port: string) => void;
   onSelectNode: (node: string) => void;
@@ -97,6 +96,8 @@ export default function EventSequencePanel({ panelRef, graph, palettes, targets,
             {delays.map((delay, slot) => {
               const edge = graph.edges.find((item) => item.fromNode === sequence.id && item.fromPort === "slot_" + slot);
               const action = graph.nodes.find((node) => node.id === edge?.toNode);
+              const animationTarget = action?.type === "set_animation_state"
+                ? targets.find(({ id }) => id === action.params.target) : undefined;
               return (
                 <div key={slot} className="grid gap-1 rounded border border-[#313244] p-1">
                   {action ? (
@@ -128,6 +129,24 @@ export default function EventSequencePanel({ panelRef, graph, palettes, targets,
                           {palettes.filter((item) => item.id).map((item) => <option key={item.id} value={item.id}>{item.name ?? item.id}</option>)}
                         </select>
                       </label>
+                    </div>
+                  )}
+                  {action?.type === "set_animation_state" && (
+                    <div className="grid gap-1">
+                      <label className="grid gap-1">Ator da animação
+                        <select data-testid={"event-sequence-animation-target-" + slot} className={field} value={animationTarget?.id ?? ""}
+                          onChange={(event) => onParam(action.id, "target", event.target.value)}>
+                          <option value="" disabled>Escolha um ator</option>
+                          {targets.filter((item) => item.animations.length > 0).map((item) =>
+                            <option key={item.id} value={item.id}>{item.name}</option>)}
+                        </select>
+                      </label>
+                      {animationTarget && <label className="grid gap-1">Animação da resposta
+                        <select data-testid={"event-sequence-animation-" + slot} className={field} value={String(action.params.state ?? "")}
+                          onChange={(event) => onParam(action.id, "state", event.target.value)}>
+                          {animationTarget.animations.map((name) => <option key={name} value={name}>{name}</option>)}
+                        </select>
+                      </label>}
                     </div>
                   )}
                   <Delay key={sequence.id + "/" + slot} value={delay} axis={axis} slot={slot}
