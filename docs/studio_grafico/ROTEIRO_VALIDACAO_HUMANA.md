@@ -26,6 +26,24 @@ tempo de conclusão para tentativas que chegaram ao resultado esperado.
 | Código e perfil | Revisão e sala | Tarefa | Concluiu sem ajuda? | Tempo até prévia / ROM | Trocas de painel | Seleções incorretas | Ajuda, recuperação e palavras da pessoa |
 |---|---|---|---|---|---|---|---|
 
+### Autoria avançada e painéis destacados
+
+Abra uma cópia da sala de controle do Porto das Lanternas por pessoa e revisão.
+`node scripts/qa/create-pose-authoring-demo.mjs --advanced-authoring --with-flash`
+cria uma sala nova. Registre os resultados na mesma tabela, com pelo menos uma
+pessoa iniciante e uma experiente. Identifique o sistema, a revisão e, se
+houver duas telas, a escala de cada uma.
+
+| Pedido à pessoa | O que quem conduz deve observar |
+|---|---|
+| Prenda a lanterna à mão da raposa em duas poses e ajuste a distância entre elas. Confira o que acontece na terceira pose. | Encontrou o ponto de encaixe e o alcance por ocorrência. Ajustou o deslocamento com controle numérico e localizou a lanterna ao trocar de pose e direção. |
+| Faça o corredor perder velocidade e emitir passos numa faixa de oito células. Desfaça o traço e refaça. | Encontrou a regra e explicou a quais células ela se aplica. Confirmou que o restante do piso conservou a solidez e repetiu a travessia na ROM. |
+| Faça o som da resposta tocar dois ticks mais tarde e dê à raposa uma pose própria depois do som. | Encontrou a sequência em Nós, confirmou a nova ordem e voltou ao grafo com as conexões anteriores. Percebeu o momento da pose e do som ao testar. |
+| Destaque a Timeline, edite uma duração pelo teclado e desfaça em Propriedades. Salve, reencaixe as janelas e volte ao ator. | Confira o histórico, o rascunho, a seleção e o foco. Com duas telas em escalas diferentes, repita após mover e fechar a janela auxiliar e após desconectar a segunda tela. |
+
+Sessões com participantes pendentes. A automação técnica já fornece as
+revisões, ROMs e medidas para preparar as tarefas. [Matriz e fase de demonstração](JORNADA_MEGA_DRIVE_2026-11-05.md#encaixes-materiais-respostas-e-janelas-nativas)
+
 ## Rodadas anteriores do Studio Gráfico Integrado
 
 Preparação (feita por quem conduz, não pelo participante): app do binário final, Ken BYOR em

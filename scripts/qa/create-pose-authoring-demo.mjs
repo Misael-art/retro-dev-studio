@@ -368,7 +368,10 @@ async function writeAdvancedAuthoringProject(directory, withFlash) {
   if (withFlash) {
     const colors = Array.from({ length: 16 }, (_, index) => index === 1 ? "#FFFFFF" : "#000000");
     scene.palettes.push({ slot: 3, id: "brilho_resposta", name: "Brilho da resposta", colors });
-    actor.components.sprite.animations.reacao = { frames: [4], occurrence_ids: ["reacao"], frame_durations: [1], fps: 12, loop: true };
+    const reaction = { frames: [4], occurrence_ids: ["reacao"], frame_durations: [1], fps: 12, loop: true };
+    for (const subject of scene.entities.filter(({ entity_id }) => ["raposa", "testemunha"].includes(entity_id))) {
+      subject.components.sprite.animations.reacao = structuredClone(reaction);
+    }
   }
   scene.collision_map = { tile_width: 8, tile_height: 8, width: 40, height: 28,
     data: Array.from({ length: 40 * 28 }, (_, i) => Number(Math.floor(i / 40) === 22)) };
