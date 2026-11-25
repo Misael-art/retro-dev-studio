@@ -11096,11 +11096,14 @@ async function verifyReferenceMotionTrace(sessionId, projectDir, timeoutMs, repo
     await clickElement(sessionId, await findElement(sessionId, `${section} button`));
   }
   await fillInputBySelector(sessionId, gravity, "9");
+  await activateByTestIdWithEnter(sessionId, "movement-input-physics:gravity");
+  await waitFor(() => executeScript(sessionId, `return document.querySelector(arguments[0])?.defaultValue === "9";`, [gravity]),
+    10000, "A alteração não foi confirmada no Inspector.", 100);
   await clickTopBarMenuAction(sessionId, "Salvar");
-  const disk = JSON.parse(await readFile(path.join(projectDir, "scenes", "main.json"), "utf8"));
-  if (disk.entities.find(({ entity_id }) => entity_id === "player")?.components.physics.gravity_strength !== 9) {
-    fail("O ajuste numérico da gravidade não chegou à cena salva.");
-  }
+  await waitFor(async () => {
+    const disk = JSON.parse(await readFile(path.join(projectDir, "scenes", "main.json"), "utf8"));
+    return disk.entities.find(({ entity_id }) => entity_id === "player")?.components.physics?.gravity_strength === 9;
+  }, 10000, "O ajuste numérico da gravidade não chegou à cena salva.", 100);
   const changedRom = await pauseBuild("traco-gravidade");
   if (!(await core("emulator_run_frames", { frames: 1 }))?.ok) fail("A nova ROM não atingiu o quadro inicial.");
   const changed = await capture("b", changedRom);
@@ -18397,6 +18400,7 @@ async function verifyWaveBand(sessionId, projectDir, report, prefix, timeoutMs) 
   const state = () => readAutomationState(sessionId);
   const readScene = async () => JSON.parse(await readFile(path.join(projectDir, "scenes", "main.json"), "utf8"));
   const readWave = async () => (await readScene()).retrofx?.wave;
+  const phaseWindows = [[176, 177, 178], [193, 194, 195], [209, 210, 211]];
   const take = async (label) => {
     const built = await runBuildRunAndCollect(sessionId, label, timeoutMs, report, `${prefix}-${label}`, { nativeClick: true });
     await click("viewport-pause");
@@ -18405,7 +18409,7 @@ async function verifyWaveBand(sessionId, projectDir, report, prefix, timeoutMs) 
     if (!link.camera || link.rom_sha256 !== built.rom_sha256) fail("O core da onda perdeu o vínculo com a câmera.");
     let last = await invokeCoreObserve(sessionId);
     const samples = [];
-    for (const frame of [176, 193, 209]) {
+    for (const frame of phaseWindows.flat()) {
       const delta = frame - last.frames_run;
       if (delta < 1 || !(await invokeCoreObserveCommand(sessionId, "emulator_run_frames", {frames: delta}))?.ok) fail("O core não alcançou a janela da onda.");
       last = await invokeCoreObserve(sessionId);
@@ -18460,31 +18464,38 @@ async function verifyWaveBand(sessionId, projectDir, report, prefix, timeoutMs) 
   const proofs = edited.samples.map((sample, index) => {
     const before = baseline.samples[index];
     if (sample.x !== before.x || sample.frame !== before.frame) fail("As duas ROMs seguiram câmeras diferentes.");
-    const dry = 82 - sample.x;
-    const sameLine = rgba(sample, dry, 146).equals(rgba(before, dry, 146));
+    const dry = 83 - sample.x;
+    const sameLine = [151, 155].every((y) =>
+      [0, 1].every((dx) => rgba(sample, dry + dx, y).equals(rgba(before, dry + dx, y))));
     const outside = [144, 156].every((y) => sample.pixels.subarray(y*1280,(y+1)*1280).equals(before.pixels.subarray(y*1280,(y+1)*1280)));
     const water = Array.from({ length: 44 }, (_, i) => 104 + i);
-    const correlation = Array.from({ length: 81 }, (_, index) => {
-      const dx = index - 40;
-      return { dx, equal: water.filter((x) => rgba(sample, x, 146).equals(rgba(before, x - dx, 146))).length };
+    const rows = [151, 155].map((y) => {
+      const correlation = Array.from({ length: 81 }, (_, index) => {
+        const dx = index - 40;
+        return { dx, equal: water.filter((x) => rgba(sample, x, y).equals(rgba(before, x - dx, y))).length };
+      });
+      const matches = correlation.filter(({ dx, equal }) => Math.abs(dx) <= values.amplitude && equal === water.length);
+      return { y, matches, correlation: correlation.sort((a, b) => b.equal - a.equal).slice(0, 5) };
     });
-    const matches = correlation.filter(({ dx, equal }) => Math.abs(dx) <= values.amplitude && equal === water.length);
     const strip = (image, y) => Array.from({ length: 256 }, (_, i) => rgba(image, 32 + i, y).readUInt32BE(0));
-    return {frame:sample.frame, cameraX:sample.x, sameLine, outside, matches,
-      correlation: correlation.sort((a, b) => b.equal - a.equal).slice(0, 5),
+    return {frame:sample.frame, cameraX:sample.x, sameLine, outside, rows,
       lines: [144, 145, 146, 151, 155, 156].map((y) => ({ y, before: strip(before, y), after: strip(sample, y) })),
-      control:{x:dry,y:146,rgb:[...rgba(sample,dry,146)]}};
+      control:{x:dry,y:151,rgb:[...rgba(sample,dry,151)]}};
   });
   report.waveDiagnostic = { baseline: baseline.rom, edited: edited.rom, proofs };
-  const failed = proofs.find(({ sameLine, outside, matches }) => !sameLine || !outside || matches.length !== 1);
-  if (failed) fail(`A onda saiu do alcance em ${failed.frame}: ${JSON.stringify({
-    sameLine: failed.sameLine, outside: failed.outside, correlation: failed.correlation,
-  })}`);
-  if (baseline.rom === edited.rom || new Set(proofs.map(({ matches }) => matches[0].dx)).size < 2
-      || new Set(proofs.map(({ cameraX }) => cameraX)).size < 2) fail("Faltou ver a fase da onda mudar com a câmera em movimento.");
+  // The DMA line tables and the plane register become visible on different
+  // frames at a camera step. Anchor each phase window on identical control rows.
+  const aligned = phaseWindows.map((window) => proofs.find(({ frame, outside }) => window.includes(frame) && outside));
+  if (aligned.some((proof) => !proof)) fail("Uma janela de fase ficou sem o mesmo quadro apresentado da câmera nos dois controles.");
+  const failed = aligned.find(({ sameLine, rows }) => !sameLine || rows.some(({ matches }) => matches.length !== 1));
+  if (failed) fail(`A onda saiu do alcance em ${failed.frame}: ${JSON.stringify({ sameLine: failed.sameLine, rows: failed.rows })}`);
+  if (baseline.rom === edited.rom || new Set(aligned.map(({ rows }) => rows[0].matches[0].dx)).size < 2
+      || new Set(aligned.map(({ cameraX }) => cameraX)).size < 2) fail("Faltou ver a fase da onda mudar com a câmera em movimento.");
   addReportStep(report,"wave_rows_motion_camera_and_priority_control","passed", {
     baseline:baseline.rom, edited:edited.rom, core:edited.core, values,
-    proofs: proofs.map(({ frame, cameraX, matches, control }) => ({ frame, cameraX, offset: matches[0].dx, control })),
+    proofs: aligned.map(({ frame, cameraX, rows, control }) => ({
+      frame, cameraX, offsets: rows.map(({ y, matches }) => [y, matches[0].dx]), control,
+    })),
   });
 }
 
