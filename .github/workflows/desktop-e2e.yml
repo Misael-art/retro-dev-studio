@@ -26,6 +26,9 @@ on:
       - "package-lock.json"
       - "scripts/build.mjs"
       - "scripts/e2e-tauri-build-run.mjs"
+      - "scripts/qa/verify-desktop-scenarios.mjs"
+      - "scripts/qa/pose-cadence.mjs"
+      - "scripts/qa/create-pose-authoring-demo.mjs"
       - "src/**"
       - "src-tauri/**"
   pull_request:
@@ -39,6 +42,9 @@ on:
       - "package-lock.json"
       - "scripts/build.mjs"
       - "scripts/e2e-tauri-build-run.mjs"
+      - "scripts/qa/verify-desktop-scenarios.mjs"
+      - "scripts/qa/pose-cadence.mjs"
+      - "scripts/qa/create-pose-authoring-demo.mjs"
       - "src/**"
       - "src-tauri/**"
 
@@ -336,48 +342,11 @@ jobs:
       - name: Verify all E2E scenarios passed
         if: always()
         shell: pwsh
+        env:
+          RDS_E2E_STEPS: ${{ toJSON(steps) }}
         run: |
-          $scenarioOutcomes = [ordered]@{
-            code_draft = '${{ steps.code_draft.outcome }}'
-            code_scope = '${{ steps.code_scope.outcome }}'
-            pose_baseline = '${{ steps.pose_baseline.outcome }}'
-            smoke_md = '${{ steps.smoke_md.outcome }}'
-            reference_goal = '${{ steps.reference_goal.outcome }}'
-            smoke_snes = '${{ steps.smoke_snes.outcome }}'
-            live_overflow_md = '${{ steps.live_overflow_md.outcome }}'
-            live_overflow_snes = '${{ steps.live_overflow_snes.outcome }}'
-            live_vram_overflow_md = '${{ steps.live_vram_overflow_md.outcome }}'
-            live_vram_overflow_snes = '${{ steps.live_vram_overflow_snes.outcome }}'
-            live_vram_warning_md = '${{ steps.live_vram_warning_md.outcome }}'
-            live_vram_warning_snes = '${{ steps.live_vram_warning_snes.outcome }}'
-            live_sprite_warning_md = '${{ steps.live_sprite_warning_md.outcome }}'
-            live_sprite_warning_snes = '${{ steps.live_sprite_warning_snes.outcome }}'
-            live_ok_md = '${{ steps.live_ok_md.outcome }}'
-            live_ok_snes = '${{ steps.live_ok_snes.outcome }}'
-            live_error_md = '${{ steps.live_error_md.outcome }}'
-            live_error_snes = '${{ steps.live_error_snes.outcome }}'
-            live_stale_md = '${{ steps.live_stale_md.outcome }}'
-            live_stale_snes = '${{ steps.live_stale_snes.outcome }}'
-          }
-
-          if ($env:RDS_E2E_TARGET -in @('all', 'megadrive')) {
-            foreach ($step in @('code_draft', 'code_scope', 'pose_baseline')) {
-              if ($scenarioOutcomes[$step] -ne 'success') {
-                throw "Required Mega Drive editor scenario $step ended with $($scenarioOutcomes[$step])"
-              }
-            }
-          }
-          $failed = @(
-            $scenarioOutcomes.GetEnumerator() | Where-Object {
-              $_.Value -ne 'success' -and $_.Value -ne 'skipped'
-            }
-          )
-
-          if ($failed.Count -gt 0) {
-            $labels = $failed | ForEach-Object { "$($_.Key)=$($_.Value)" }
-            Write-Host "::error::E2E scenarios failed ($($failed.Count)): $($labels -join ', ')"
-            exit 1
-          }
+          node scripts/qa/verify-desktop-scenarios.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           $ledgerPath = Join-Path $env:RUNNER_TEMP 'desktop-e2e-passed.txt'
           if (Test-Path $ledgerPath) {
