@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
 import { describeSceneHistory } from "../../core/sceneHistory";
 import { useEditorStore, type UndoEntry } from "../../core/store/editorStore";
 import type { Scene } from "../../core/ipc/sceneService";
+import Dialog from "./Dialog";
 
 const rowLimit = 8;
 const button = "rounded border border-[var(--rds-border-default)] px-2 py-1 disabled:opacity-40";
@@ -17,7 +18,6 @@ function steps(stack: readonly UndoEntry[], current: Scene | null, redo = false)
 }
 
 export default function SceneHistoryDialog({ onClose }: { onClose: () => void }) {
-  const dialog = useRef<HTMLDialogElement>(null);
   const undoStack = useEditorStore((state) => state.undoStack);
   const redoStack = useEditorStore((state) => state.redoStack);
   const undo = useEditorStore((state) => state.undo);
@@ -25,19 +25,8 @@ export default function SceneHistoryDialog({ onClose }: { onClose: () => void })
   const scene = useEditorStore((state) => state.activeSceneSource ?? state.activeScene);
   const undoRows = useMemo(() => steps(undoStack, scene), [undoStack, scene]);
   const redoRows = useMemo(() => steps(redoStack, scene, true), [redoStack, scene]);
-  useEffect(() => {
-    const surface = dialog.current;
-    if (surface?.showModal) surface.showModal();
-    return () => { if (surface?.open) surface.close(); };
-  }, []);
-
-  return <dialog ref={dialog} data-testid="scene-history" aria-labelledby="scene-history-title"
-    onCancel={(event) => { event.preventDefault(); onClose(); }}
-    className="max-h-[75vh] w-[min(38rem,96vw)] rounded-lg border border-[var(--rds-border-default)] bg-[var(--rds-surface-panel)] p-4 text-[var(--rds-text-primary)] backdrop:bg-black/60">
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <h2 id="scene-history-title" className="font-semibold">Histórico da cena</h2>
-      <button type="button" className={button} onClick={onClose} autoFocus>Fechar</button>
-    </div>
+  return <Dialog open title="Histórico da cena" onClose={onClose} testId="scene-history"
+    className="w-[min(38rem,96vw)]">
     <div className="mt-3 flex flex-wrap gap-2">
       <button type="button" data-testid="scene-history-undo" className={button} disabled={!undoStack.length} onClick={undo}>Desfazer</button>
       <button type="button" data-testid="scene-history-redo" className={button} disabled={!redoStack.length} onClick={redo}>Refazer</button>
@@ -53,5 +42,5 @@ export default function SceneHistoryDialog({ onClose }: { onClose: () => void })
         </ol> : <p className="text-[var(--rds-text-secondary)]">Nenhuma alteração nesta direção.</p>}
       </section>)}
     </div>
-  </dialog>;
+  </Dialog>;
 }

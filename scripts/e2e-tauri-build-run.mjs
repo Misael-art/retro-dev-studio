@@ -17578,7 +17578,7 @@ async function verifyAuthoringDesk(sessionId, report, prefix) {
   addReportStep(report, "named_desk_and_keyboard_layout", "passed", { narrow, timeline });
 
   await menu("menu-action-scene-history");
-  await check(`return document.querySelector('[data-testid="scene-history"][open]')?.textContent.includes('o2 · 3 → 4 ticks');`,
+  await check(`return document.querySelector('[data-testid="scene-history"]')?.textContent.includes('o2 · 3 → 4 ticks');`,
     "O histórico visual não encontrou o campo alterado por teclado.");
   await click("scene-history-undo");
   await check(`return document.querySelector('[data-testid="character-occurrence-o2"]')?.dataset.ticks === '3';`,
