@@ -19290,19 +19290,37 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
     actions: [moves[0], { type: "pointerDown", button: 0 }, ...moves.slice(1), { type: "pointerUp", button: 0 }],
   }] });
   const cellsLabel = () => executeScript(sessionId, `return document.querySelector('[data-testid="material-brush-scope"]')?.textContent;`);
-  await waitFor(async () => /8 células/.test(await cellsLabel()) && (await state())?.undoDepth === beforeStroke.undoDepth + 1,
-    8000, "O traço não aplicou as oito células em uma edição.", 100);
-  await clickTopBarMenuAction(sessionId, "Desfazer");
-  await waitFor(async () => /0 células/.test(await cellsLabel()), 8000, "Desfazer não removeu a pintura.", 100);
-  await clickTopBarMenuAction(sessionId, "Refazer");
-  await waitFor(async () => /8 células/.test(await cellsLabel()), 8000, "Refazer não restaurou a pintura.", 100);
+  let strokeError;
+  const expectedCells = targets.map((_, i) => 22 * 40 + 6 + i);
+  try {
+    await waitFor(async () => /^8 células/.test(await cellsLabel()) && (await state())?.undoDepth === beforeStroke.undoDepth + 1,
+      8000, "O traço não aplicou as oito células em uma edição.", 100);
+    await clickTopBarMenuAction(sessionId, "Desfazer");
+    await waitFor(async () => /^0 células/.test(await cellsLabel()), 8000, "Desfazer não removeu a pintura.", 100);
+    await clickTopBarMenuAction(sessionId, "Refazer");
+    await waitFor(async () => /^8 células/.test(await cellsLabel()), 8000, "Refazer não restaurou a pintura.", 100);
+  } catch (error) {
+    strokeError = String(error);
+    await save();
+    const actual = (await scene()).collision_map.materials?.[0]?.cells ?? [];
+    addReportStep(report, "material_native_stroke_history", "failed", { strokeError, actual, expectedCells, pointerSamples });
+    const apply = async (index) => {
+      await input("material-column", String(index % 40));
+      await input("material-row", String(Math.floor(index / 40)));
+      await click("material-paint-cell");
+    };
+    await click("material-erase");
+    for (const index of actual.filter((cell) => !expectedCells.includes(cell))) await apply(index);
+    await click("material-paint");
+    for (const index of expectedCells.filter((cell) => !actual.includes(cell))) await apply(index);
+  }
   await shot("materiais", "Pincel de materiais na malha de colisão");
   await save();
   const painted = await scene();
   const rule = painted.collision_map.materials?.[0];
-  if (rule?.friction !== 16 || rule.step_sound !== "passo" || !isDeepStrictEqual(rule.cells, targets.map((_, i) => 22 * 40 + 6 + i))
+  if (rule?.friction !== 16 || rule.step_sound !== "passo" || !isDeepStrictEqual(rule.cells, expectedCells)
       || !isDeepStrictEqual(painted.collision_map.data, original.collision_map.data)) fail("O pincel alterou a malha base ou salvou outra regra.");
-  addReportStep(report, "material_native_stroke_history_solidity", "passed", { rule });
+  addReportStep(report, strokeError ? "material_numeric_cells_and_solidity" : "material_native_stroke_history_solidity", "passed", { rule });
 
   await click("workspace-rail-logic");
   await click("logic-view-nodes");
@@ -19372,6 +19390,7 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
       || offsets[0][2] !== offsets[1][2] || baseline.ground.some(({ rms }) => rms > 100)
       || !edited.ground.some(({ rms }) => rms > 100)) fail("O material não diferenciou a velocidade e o som em relação ao controle: " + JSON.stringify(offsets));
   addReportStep(report, "material_motion_and_footsteps_in_rom", "passed", { offsets });
+  if (strokeError) fail("A ROM foi verificada. O traço nativo continuou em aberto: " + strokeError);
 }
 
 async function verifyFloatingStudioPanels(sessionId, projectDir, report, prefix, timeoutMs) {

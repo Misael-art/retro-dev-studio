@@ -54,6 +54,7 @@ function mountPopup(popup: Window, panel: FloatingStudioPanel, host: HTMLElement
     const state = useEditorStore.getState();
     if (key === "s" && state.activeProjectDir) {
       event.preventDefault();
+      (page.activeElement as HTMLElement | null)?.blur();
       void persistActiveScene(state.activeProjectDir, "Painel", undefined, { onlyIfChanged: true });
       return;
     }
@@ -99,7 +100,7 @@ export function useFloatingStudioPanels(reportFailure: () => void) {
     const mount = () => {
       if (windows.current[name] !== popup) return;
       try {
-        if (!popup.closed && popup.location.href === url.href && popup.document.readyState !== "loading" && popup.document.body) {
+        if (!popup.closed && popup.document.body?.hasAttribute("data-studio-panel-ready")) {
           mountPopup(popup, name, hosts[name], () => dockPanel(name));
           setOpen((current) => ({ ...current, [name]: true }));
           return;
@@ -107,7 +108,7 @@ export function useFloatingStudioPanels(reportFailure: () => void) {
       } catch {
         // O WebView nativo ainda está carregando a página do painel.
       }
-      if (++attempts < 40 && !popup.closed) window.setTimeout(mount, 50);
+      if (++attempts < 100 && !popup.closed) window.setTimeout(mount, 50);
       else { dockPanel(name); reportFailure(); }
     };
     window.setTimeout(mount, 0);

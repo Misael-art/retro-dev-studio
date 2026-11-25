@@ -726,6 +726,7 @@ mod tests {
             logic_scripts: vec![LogicScript {
                 ops: vec![LogicOp::TimelineSequence {
                     counter_var: "delay".into(),
+                    triggered: false,
                     slots: vec![LogicTimelineSlot {
                         delay_frames: 12,
                         actions: vec![LogicOp::AuthoredStrike {

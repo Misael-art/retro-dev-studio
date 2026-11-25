@@ -6756,7 +6756,11 @@ pub fn run() {
                         match WebviewWindowBuilder::new(
                             &handle,
                             label,
-                            WebviewUrl::External(url.clone()),
+                            // The runtime skips initial navigation for exactly about:blank.
+                            // WebView2 can then attach the unopened view to the opener's request.
+                            WebviewUrl::External(
+                                "about:blank".parse().expect("URL de painel estática"),
+                            ),
                         )
                         .window_features(features)
                         .title(title)

@@ -481,6 +481,7 @@ export default function ViewportPanel({
     /** 1 = paint solid, 0 = erase */
     value: 0 | 1;
     material?: string | null;
+    pointerFrame: ReturnType<typeof canvasPointerFrame>;
   } | null>(null);
   const tileDragRef = useRef<{
     entityId: string;
@@ -4110,7 +4111,7 @@ export default function ViewportPanel({
       const revision = useEditorStore.getState().sceneRevision;
       updateCollisionMap(tileIndex, tileValue, material);
       collisionDragRef.current = { lastPaintTile: tileIndex,
-        paintedInDrag: useEditorStore.getState().sceneRevision !== revision, value: tileValue, material };
+        paintedInDrag: useEditorStore.getState().sceneRevision !== revision, value: tileValue, material, pointerFrame };
       return;
     }
 
@@ -4370,24 +4371,26 @@ export default function ViewportPanel({
     }
 
     // Collision drag — paint/erase tiles along mouse path with cell dedup
-    if (editorMode === "collision" && collisionDragRef.current && event.buttons !== 0) {
+    const collisionDrag = collisionDragRef.current;
+    if (editorMode === "collision" && collisionDrag && event.buttons !== 0) {
       const latestCmap = useEditorStore.getState().activeScene?.collision_map;
       const tw = latestCmap?.tile_width ?? GRID_SNAP_SIZE;
       const th = latestCmap?.tile_height ?? GRID_SNAP_SIZE;
       const mapW = latestCmap?.width ?? (activeTarget === "snes" ? 32 : 40);
-      const tileX = Math.floor(mx / tw);
-      const tileY = Math.floor(my / th);
+      const point = canvasCoords(event, collisionDrag.pointerFrame);
+      const tileX = Math.floor(point.mx / tw);
+      const tileY = Math.floor(point.my / th);
       if (tileX < 0 || tileY < 0 || tileX >= mapW || tileY >= (latestCmap?.height ?? 28)) return;
       const tileIndex = tileY * mapW + tileX;
-      if (tileIndex !== collisionDragRef.current.lastPaintTile) {
-        const last = collisionDragRef.current.lastPaintTile;
+      if (tileIndex !== collisionDrag.lastPaintTile) {
+        const last = collisionDrag.lastPaintTile;
         const revision = useEditorStore.getState().sceneRevision;
         for (const cell of cellsOnLine(last % mapW, Math.floor(last / mapW), tileX, tileY)) {
           const index = cell.row * mapW + cell.col;
-          if (index !== last) updateCollisionMap(index, collisionDragRef.current.value, collisionDragRef.current.material);
+          if (index !== last) updateCollisionMap(index, collisionDrag.value, collisionDrag.material);
         }
-        collisionDragRef.current.lastPaintTile = tileIndex;
-        collisionDragRef.current.paintedInDrag ||= useEditorStore.getState().sceneRevision !== revision;
+        collisionDrag.lastPaintTile = tileIndex;
+        collisionDrag.paintedInDrag ||= useEditorStore.getState().sceneRevision !== revision;
       }
       return;
     }
@@ -5737,6 +5740,15 @@ export default function ViewportPanel({
                 data-world-height={sceneHeight}
                 width={sceneScaleWidth}
                 height={sceneScaleHeight}
+                onPointerDown={(event) => {
+                  if (editorMode === "collision" && !drawingPriority && !gameViewLight && !sceneProbeArmed
+                      && ((event.button === 0 && !spacePressed) || event.button === 2)) {
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                  }
+                }}
+                onLostPointerCapture={() => {
+                  if (collisionDragRef.current) void handleMouseUp();
+                }}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}

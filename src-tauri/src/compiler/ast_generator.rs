@@ -7644,6 +7644,7 @@ mod tests {
                 components: Components {
                     hud: None,
                     path: None,
+                    pose_attachment: None,
                     sprite: Some(SpriteComponent {
                         asset: "assets/sprites/hero.png".to_string(),
                         frame_width: 16,
