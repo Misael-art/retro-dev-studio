@@ -206,6 +206,9 @@ async function writeLinkedAtlasProject(directory, { effect = false, moving = fal
     await writeFile(path.join(directory, repeatedBackdrop), indexedAtlasPng(384, 224,
       [[0, 0, 0], [1, 2, 6], [2, 7, 3], [4, 2, 6]], [background]));
     scene.entities.find(({ entity_id }) => entity_id === "paisagem").components.tilemap.tileset = repeatedBackdrop;
+    scene.entities.find(({ entity_id }) => entity_id === "camera_root").components.camera.visual.advanced = {
+      parallax: [{ entity_id: "paisagem", ratio_x: 50, ratio_y: 100 }],
+    };
     const markerPath = "assets/sprites/marcador-apresentacao.png";
     const marker = Buffer.alloc(64);
     for (let y = 2; y <= 3; y++) {

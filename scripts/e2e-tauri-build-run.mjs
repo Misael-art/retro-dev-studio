@@ -18777,28 +18777,39 @@ async function verifyHudExtremes(sessionId, projectDir, report, prefix, timeoutM
     await click("viewport-pause");
     await waitFor(async () => (await state())?.emulPaused, 15000, "A ROM do HUD não pausou.", 100);
     const link = JSON.parse(await readFile(path.join(projectDir, "build", "megadrive", "rds-runtime-link.v1.json"), "utf8"));
+    const elf = await readFile(path.join(projectDir, "build", "megadrive", "out", "rom.out"));
+    const symbols = parseElf32Symbols(elf);
     const hud = link.hud.find(({ entity_id }) => entity_id === "hud_vida");
     const bar = link.hud.find(({ entity_id }) => entity_id === "hud_barra");
     if (!link.camera || link.rom_sha256 !== build.rom_sha256 || !hud?.shown_symbol || hud.x !== 16 || hud.y !== 200 || hud.width_px !== 80) {
       fail(`Vínculo inesperado do HUD: ${JSON.stringify(hud)}.`);
     }
     if (!bar?.shown_symbol || bar.x !== 16 || bar.y !== 208 || bar.width_px !== 88) fail(`Vínculo inesperado da barra: ${JSON.stringify(bar)}.`);
-    let last = await invokeCoreObserve(sessionId);
+    const clock = symbols.get("logic_var_timeline_marcos");
+    const counter = symbols.get("logic_var_contador");
+    if (!clock || !counter) fail("A ROM do HUD não contém o relógio e o contador do grafo.");
+    const diagnostics = [];
+    report.hudSamples = { ...report.hudSamples, [label]: diagnostics };
+    let tick = await word(clock + 2);
+    let last;
     const samples = [];
-    for (const [frame, expected, hp] of [[75, 0, 99], [103, 1, 99], [123, 9, 0], [150, 99, 0]]) {
-      const frames = frame - last.frames_run;
-      if (frames < 1 || !(await invokeCoreObserveCommand(sessionId, "emulator_run_frames", { frames }))?.ok) {
-        fail(`O core não alcançou o quadro ${frame} do HUD.`);
+    for (const [target, expected, hp] of [[40, 0, 99], [97, 1, 99], [117, 9, 0], [142, 99, 0]]) {
+      for (let batch = 0; tick < target && batch < 90; batch++) {
+        const frames = Math.min(8, target - tick);
+        if (!(await invokeCoreObserveCommand(sessionId, "emulator_run_frames", { frames }))?.ok) fail("O core não avançou até o tick do HUD.");
+        tick = await word(clock + 2);
       }
       last = await invokeCoreObserve(sessionId);
       const shown = await word(hud.shown_symbol);
+      const logical = await word(counter + 2);
       const barValue = await word(bar.shown_symbol);
-      if (!last.ok || !last.disk_matches_loaded || last.rom_sha256 !== link.rom_sha256 || last.frames_run !== frame
-          || last.framebuffer_width !== 320 || last.framebuffer_height !== 224 || shown !== expected || barValue !== hp) {
-        fail(`HUD no quadro ${frame}: número ${shown}/${expected}, barra ${barValue}/${hp}.`);
+      diagnostics.push({ tick, frame: last.frames_run, logical, shown, barValue, expected, hp });
+      if (!last.ok || !last.disk_matches_loaded || last.rom_sha256 !== link.rom_sha256 || tick !== target
+          || last.framebuffer_width !== 320 || last.framebuffer_height !== 224 || logical !== expected || shown !== expected || barValue !== hp) {
+        fail(`HUD fora do tick ou dos valores esperados: ${JSON.stringify(diagnostics.at(-1))}.`);
       }
       const pixels = Buffer.from(last.framebuffer_rgba);
-      samples.push({ frame, shown, barValue, camera: await word(link.camera.x),
+      samples.push({ frame: last.frames_run, tick, shown, barValue, camera: await word(link.camera.x),
         label: digest(crop(pixels, 16, 200, 40, 8)), digits: digest(crop(pixels, 56, 200, 40, 8)),
         left: digest(crop(pixels, 0, 200, 16, 8)), right: digest(crop(pixels, 96, 200, 224, 8)),
         barTiles: digest(crop(pixels, 40, 208, 64, 8)), barLabel: digest(crop(pixels, 16, 208, 24, 8)),
@@ -18887,8 +18898,8 @@ async function verifyHudExtremes(sessionId, projectDir, report, prefix, timeoutM
     fail("O HUD reabriu com configuração diferente.");
   }
   const edited = await capture("hud-publicado");
-  if (baseline.rom === edited.rom || baseline.samples.some(({ label: beforeLabel, ...control }, index) => {
-    const { label: afterLabel, ...changed } = edited.samples[index];
+  if (baseline.rom === edited.rom || baseline.samples.some(({ frame: _beforeFrame, label: beforeLabel, ...control }, index) => {
+    const { frame: _afterFrame, label: afterLabel, ...changed } = edited.samples[index];
     return beforeLabel === afterLabel || !isDeepStrictEqual(control, changed);
   })) fail("Trocar o texto do HUD alterou os dígitos, a câmera ou a região de controle.");
   addReportStep(report, "hud_extreme_values_and_fixed_core_controls", "passed", { variants, baseline, edited });
