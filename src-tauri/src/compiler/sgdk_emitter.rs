@@ -294,10 +294,12 @@ fn build_main_c_inner(
             let horizontal = if wave_band.is_some() {
                 "rds_wave_scroll"
             } else {
-                "VDP_setHorizontalScroll"
+                "VDP_setHorizontalScrollVSync"
             };
+            // The wave tables reach VRAM in VBlank. Commit ordinary camera
+            // scroll there as well so both modes present the same camera step.
             out.push_str(&format!(
-                " {horizontal}({plane}, {x} - ((s32)rds_camera_x * rds_camera_ratio_x[{layer}]) / 100); VDP_setVerticalScroll({plane}, ((s32)rds_camera_y * rds_camera_ratio_y[{layer}]) / 100 - {y});", x=origin.0,y=origin.1
+                " {horizontal}({plane}, {x} - ((s32)rds_camera_x * rds_camera_ratio_x[{layer}]) / 100); VDP_setVerticalScrollVSync({plane}, ((s32)rds_camera_y * rds_camera_ratio_y[{layer}]) / 100 - {y});", x=origin.0,y=origin.1
             ));
         }
         out.push_str(" }\n#define RDS_CAMERA_SCREEN_X rds_camera_x\n#define RDS_CAMERA_SCREEN_Y rds_camera_y\n");
