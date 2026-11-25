@@ -17164,15 +17164,21 @@ async function selectPoseActorsOnCanvas(sessionId, actors = [["testemunha", 224]
   // A sala pode abrir com a raposa selecionada. Visitar a testemunha primeiro
   // exige que o ponteiro altere a seleção nas duas vezes.
   for (const [entityId, worldX] of actors) {
-    const point = await waitFor(async () => executeScript(sessionId, `
-      const canvas = document.querySelector(arguments[0]);
-      if (!canvas) return null;
-      const x = (arguments[1] - Number(canvas.dataset.worldMinX)) / Number(canvas.dataset.worldWidth);
-      const y = (152 - Number(canvas.dataset.worldMinY)) / Number(canvas.dataset.worldHeight);
-      const rect = canvas.getBoundingClientRect();
-      const hit = document.elementFromPoint(Math.round(rect.left + x * rect.width), Math.round(rect.top + y * rect.height));
-      return hit === canvas ? { x, y } : null;
-    `, [overlay, worldX]), 10000, `Ator ${entityId} fora da área clicável depois de enquadrar a cena.`, 100);
+    let previous = null;
+    const point = await waitFor(async () => {
+      const current = await executeScript(sessionId, `
+        const canvas = document.querySelector(arguments[0]);
+        if (!canvas) return null;
+        const x = (arguments[1] - Number(canvas.dataset.worldMinX)) / Number(canvas.dataset.worldWidth);
+        const y = (152 - Number(canvas.dataset.worldMinY)) / Number(canvas.dataset.worldHeight);
+        const rect = canvas.getBoundingClientRect();
+        const hit = document.elementFromPoint(Math.round(rect.left + x * rect.width), Math.round(rect.top + y * rect.height));
+        return hit === canvas ? { x, y, rect: rect.toJSON() } : null;
+      `, [overlay, worldX]);
+      const stable = current && isDeepStrictEqual(current, previous);
+      previous = current;
+      return stable ? current : null;
+    }, 10000, `A projeção clicável do ator ${entityId} não estabilizou.`, 150);
     await clickCanvasPointNatively(sessionId, overlay, point.x, point.y, `Selecionar ${entityId} na cena`);
     await waitFor(async () => (await readAutomationState(sessionId))?.selectedEntityId === entityId,
       10000, `O clique no Canvas não selecionou ${entityId}.`, 100);
