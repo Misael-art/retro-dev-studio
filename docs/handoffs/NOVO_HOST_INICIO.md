@@ -1,3 +1,58 @@
+<a id="qualificacao-autoria-20261124"></a>
+
+## Qualificação da autoria no BigLinux restaurado — 24/11/2026
+
+O checkout registrado na coleção começou em `b434ede`. A revisão
+`a37a0b1` acrescentou as referências visuais no mesmo checkout. Os 12 PNGs,
+a prancha, a galeria e o ZIP conferiram com o manifesto. O plano inicial do
+launcher encontrou Node ausente. O primeiro diagnóstico do perfil Full
+registrou `DRIFTED` no BigLinux x64.
+
+Os dez artefatos Linux x64 ou comuns do lock estão em
+`toolchains/.cache/artifacts/`, verificados por tamanho e SHA-256.
+Nove vieram do cartão de recuperação. O ZIP do Ghidra 12.1 veio da URL
+oficial do lock. O launcher usa Node 24.18.0 e Rust 1.97.0. O Bison 3.8.2-8
+do repositório da distribuição foi conferido por hash e assinatura e gerou um
+parser de teste. O binário e seus dados residem no cache de bootstrap deste
+host. Os comandos do launcher neste ambiente usam estas variáveis de sessão.
+
+```bash
+export PATH="$HOME/.cache/retrodevstudio/bootstrap/bison-3.8.2-8/usr/bin:$HOME/.cargo/bin:$PATH"
+export BISON_PKGDATADIR="$HOME/.cache/retrodevstudio/bootstrap/bison-3.8.2-8/usr/share/bison"
+export RDS_BUILD_JOBS=1
+```
+
+O provisionamento usa o launcher sob o Fôlego. O monitor da operação grava em
+`$HOME/RetroDevStudio-work/sessions/full-provision-20261125T003251Z-303717.jsonl`
+(data do arquivo em UTC). Consulte a última amostra e a sessão ativa antes
+de iniciar outra carga. Houve suspensão da compilação por temperatura durante
+uma auditoria npm concorrente.
+
+O [Windows institucional da revisão inicial](https://github.com/Misael-art/retro-dev-studio/actions/runs/45515665354)
+produziu host `READY`, smoke MD/SNES e a fase de referência com o executável
+`f0f3674167beeabe3bb16951fcb986dea7cc14453cd609a0ba197040eeb42785`.
+Os dois cenários específicos do editor C têm aceite próprio. A receita para
+preparar as salas de autoria e as medições a fazer com participantes estão
+no [roteiro de uso](../studio_grafico/ROTEIRO_VALIDACAO_HUMANA.md#autoria-de-uma-fase-mega-drive).
+
+Após o build debug, com um display de QA, a prova `pose-cadence` recebe o
+diretório que contém o `project.rds` de cada sala. Em uma sala recém-gerada,
+rode o comando abaixo substituindo o caminho pelo diretório impresso pela
+receita. Repita com a sala densa.
+
+```bash
+RDS_POSE_PROOF=baseline bash scripts/new-host.sh --run node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project "/caminho/para/simples"
+```
+
+O cenário clona a entrada, aciona Build & Run, pausa e avança o core quadro a
+quadro. O recibo `pose-cadence-*-report.json` em
+`src-tauri/target-test/validation/` contém as identidades do app, da cena, da
+ROM e do core, os 48 quadros consecutivos e os hashes dos recortes do ator,
+do controle e de uma região do fundo. Depois da edição do pé e dos quatro
+ticks, o mesmo comando aceita `RDS_POSE_PROOF=aligned-4` para conferir a
+cadência esperada da revisão salva. O alinhamento em pixels, a interação
+pelas vistas e o retorno ao ator têm provas próprias.
+
 ## Retomada após formatação — 2026-11-22
 
 O checkout oficial é [Misael-art/retro-dev-studio](https://github.com/Misael-art/retro-dev-studio),

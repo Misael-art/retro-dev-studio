@@ -6,6 +6,24 @@ Na [CI de b434ede](https://github.com/Misael-art/retro-dev-studio/actions/runs/4
 
 O plano inicial encontrou `DRIFTED`. Durante o provisionamento do BigLinux, o recibo full de 21h33 registrou `BLOCKED`. Obter o novo `READY`, certificar e repetir no aplicativo as duas jornadas e a identidade da ROM carregada. A [ferramenta de conferência](../scripts/qa/review-workspace.mjs) organiza os pares de imagens e os hashes por rodada. A mesa inicial está em `sessions/conferencia-workspace-LvfmHo/index.html`, com 12 referências e zero capturas do candidato. O aceite do editor permanece aberto.
 
+### Qualificação da autoria — 24/11/2026
+
+A retomada foi feita sobre `b434ede` na raiz registrada. As referências de
+`a37a0b1` foram incorporadas à conferência. O [handoff do host](handoffs/NOVO_HOST_INICIO.md#qualificacao-autoria-20261124)
+registra o cache verificado, o ambiente do launcher e a telemetria. A
+[corrida Windows da revisão inicial](https://github.com/Misael-art/retro-dev-studio/actions/runs/45515665354)
+passou no smoke MD/SNES. A fase de referência e a qualificação específica do
+editor C têm provas distintas.
+
+As [salas de prova](../scripts/qa/create-pose-authoring-demo.mjs) partem da
+fixture Mega Drive e da arte autoral do repositório. As duas raposas usam o
+mesmo atlas com ocorrências de 5, 3, 7 e 2 ticks. A segunda e a quarta
+referenciam a mesma imagem. A sala densa acrescenta 24 objetos, incluindo
+um elevador com trajeto de ida e volta. O
+[roteiro para participantes](studio_grafico/ROTEIRO_VALIDACAO_HUMANA.md#autoria-de-uma-fase-mega-drive)
+fixa a região de controle, o ponto de apoio e os resultados de Undo/Redo.
+O aceite humano permanece aberto.
+
 ### Continuidade antes da formatação — 2026-11-22
 
 Retomar na branch `codex/new-host-cohesion-20261024`, pelo
