@@ -2,6 +2,32 @@
 
 Status: **não executado**. Nenhum resultado humano foi registrado; inspeção técnica não certifica usabilidade.
 
+## Autoria de uma fase Mega Drive
+
+Use uma cópia nova da sala por pessoa e por revisão. A partir do checkout,
+`node scripts/qa/create-pose-authoring-demo.mjs` imprime os caminhos dos dois
+`project.rds`. Guarde a pasta de cada sessão junto da revisão, do SHA-256 do
+executável e do tamanho e escala da janela. As atividades abaixo independem
+dos insumos BYOR das rodadas anteriores.
+
+| Pedido à pessoa | O que quem conduz deve observar |
+|---|---|
+| Na sala simples, faça a raposa da esquerda apoiar o pé no mesmo ponto nas duas primeiras poses. Mantenha a raposa da direita como está. | Qual ator, ocorrência e alcance escolheu? Na arte, o ponto de referência é (14, 27) na primeira imagem e (13, 26) na segunda, em pixels a partir do canto superior esquerdo de cada célula de 32×32. O deslocamento esperado da segunda pose é (+1, +1). |
+| Faça a segunda pose durar seis ticks. Abra sua origem no código e reduza para quatro. Desfaça, refaça e salve. | A pessoa deve conseguir conferir 3 → 6 → 4 → 6 → 4. A quarta ocorrência usa a mesma imagem e conserva 2 ticks. A outra raposa conserva 5, 3, 7 e 2 ticks. |
+| Feche, reabra, jogue esta revisão e volte ao ponto em que estava editando. Mostre como você reconhece a revisão em execução. | Cronometre até a primeira prévia e até a ROM. Anote o ator e a pose encontrados no retorno, tentativas de recuperação e recursos consultados para identificar a revisão. |
+| Na sala densa, encontre a mesma pose, abra uma ferramenta avançada pelo teclado e volte à edição. Reorganize os painéis e restaure sua disposição. | Anote perda de foco, seleção, zoom ou rascunho, e se a pessoa reencontra a ferramenta depois de restaurar o layout. |
+
+Faça a rodada de linha de base e a do candidato com participantes iniciantes
+e experientes. Alterne a ordem das revisões entre pessoas do mesmo perfil.
+Leia somente o pedido da primeira coluna. Registre a ajuda quando solicitada.
+Se a revisão não oferecer a ação, anote a etapa indisponível. Só calcule o
+tempo de conclusão para tentativas que chegaram ao resultado esperado.
+
+| Código e perfil | Revisão e sala | Tarefa | Concluiu sem ajuda? | Tempo até prévia / ROM | Trocas de painel | Seleções incorretas | Ajuda, recuperação e palavras da pessoa |
+|---|---|---|---|---|---|---|---|
+
+## Rodadas anteriores do Studio Gráfico Integrado
+
 Preparação (feita por quem conduz, não pelo participante): app do binário final, Ken BYOR em
 `/home/misael/.retrodev/mugen-real-2026-09-30/source/ken8`, um WAV curto qualquer, Sonic 1 BYOR para a tarefa 6.
 Tela de pelo menos 1280×800. Não ajudar; anotar onde travou, quanto tempo levou e se pediu ajuda.
