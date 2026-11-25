@@ -6040,6 +6040,7 @@ export default function App() {
           orientation="horizontal"
           groupRef={panelGroupRef}
           elementRef={panelGroupElement}
+          defaultLayout={workspaceDefaultLayout}
           className="min-w-0 flex flex-1 overflow-hidden"
           onPointerDownCapture={(event) => {
             if (event.target instanceof Element && event.target.closest("[data-separator]")?.closest("[data-group]") === event.currentTarget) {
