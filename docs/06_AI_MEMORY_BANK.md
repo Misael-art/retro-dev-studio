@@ -89,7 +89,13 @@ A execução Windows de referência avançou da árvore ao arraste de camada e
 parou no hit-test do palco. As provas e a fase regional estão na
 [matriz da jornada](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#conferência-por-item-da-autoria-de-fase).
 O frontend focal do lote de atlas e densidade passou em árvore, lint, tipos
-e 95 testes. A prova Tauri/ROM do atlas reordenado ainda está aberta.
+e 95 testes. No Tauri Linux de `81279f6`, a reordenação e a recusa de
+exclusão passaram, com os recortes dos dois atores idênticos antes e depois
+no core. O mesmo candidato refez a mesa densa estreita. Na pilastra, o
+ensaio com câmera avançou 24 px e confirmou o ponto projetado, o vão e os
+controles. A prova regional Windows e os oito cenários SNES passaram em
+`924cf2d`. O arraste de camada na fase de referência e a substituição
+direta em Arquivos continuam abertos.
 
 ### Continuidade antes da formatação — 2026-11-22
 
