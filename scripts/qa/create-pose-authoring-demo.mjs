@@ -192,6 +192,17 @@ async function writeLinkedAtlasProject(directory, { effect = false, moving = fal
   await mkdir(path.dirname(path.join(directory, asset)), { recursive: true });
   await writeFile(path.join(directory, asset), indexedAtlasPng(width, height, palette, frames));
   await writeFile(path.join(directory, document), JSON.stringify(pixelDoc) + "\n");
+  if (effect && moving) {
+    const markerPath = "assets/sprites/marcador-apresentacao.png";
+    const marker = Buffer.alloc(64);
+    for (let y = 2; y <= 3; y++) {
+      marker.fill(5, y * 8 + 1, y * 8 + 3);
+      marker.fill(2, y * 8 + 4, y * 8 + 6);
+    }
+    await writeFile(path.join(directory, markerPath), indexedAtlasPng(8, 8, palette, [marker]));
+    scene.entities.push({ entity_id: "marcador_apresentacao", display_name: "Marcador de apresentação", transform: { x: 112, y: 40 },
+      components: { sprite: { asset: markerPath, frame_width: 8, frame_height: 8, palette_slot: 1, priority: "foreground", animations: {} } } });
+  }
   if (replacement) {
     for (const [name, indices] of [["atlas_reordenado", [1, 0, 2]], ["atlas_incompleto", [0, 2]]]) {
       const candidate = path.posix.join(path.posix.dirname(asset), name);

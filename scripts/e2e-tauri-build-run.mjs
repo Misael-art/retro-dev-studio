@@ -11048,12 +11048,17 @@ async function verifyReferenceMotionTrace(sessionId, projectDir, timeoutMs, repo
     await setInput(false);
     const origin = await invokeCoreObserve(sessionId);
     if (!origin.ok || expectedRom !== origin.rom_sha256 || !origin.disk_matches_loaded) fail("O traço começou em outra ROM.");
-    await activateByTestIdWithEnter(sessionId, `motion-trace-start-${slot}`);
+    await click(`motion-trace-start-${slot}`);
     const points = [];
     const readSample = (frame) => waitFor(async () => {
       const sample = await trace(slot);
       return Number(sample?.lastFrame) === frame ? sample : false;
-    }, 10000, `O traço não apresentou a amostra do quadro ${frame}.`, 40);
+    }, 10000, `O traço não apresentou a amostra do quadro ${frame}.`, 40).catch(async (error) => {
+      const details = await executeScript(sessionId, `return document.querySelector('[data-testid="viewport-motion-trace"]')?.textContent;`);
+      report.traceDiagnostic = { frame, details, sample: await trace(slot), input: await core("emulator_input_observation") };
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-traco-falha.png`), "Estado da gravação do traço");
+      throw error;
+    });
     const first = await readSample(origin.frames_run);
     points.push([Number(first.lastX), Number(first.lastY)]);
     for (let i = 1; i <= 54; i += 1) {
@@ -18019,7 +18024,7 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
     const camera = await readCamera();
     if (moving && !(camera > initial && camera < 64)) fail(`Deslocamento da câmera não observado: ${initial} → ${camera}.`);
     const samples = await executeAsyncScript(sessionId, `
-      const rom = arguments[0], cameraAddress = arguments[1], done = arguments[arguments.length - 1];
+      const rom = arguments[0], cameraAddress = arguments[1], colors = arguments[2], done = arguments[arguments.length - 1];
       const invoke = window.__TAURI__?.core?.invoke ?? window.__TAURI_INTERNALS__?.invoke;
       (async () => {
         const samples = [];
@@ -18031,26 +18036,48 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
           }
           return btoa(String.fromCharCode(...bytes));
         };
+        const readCamera = async () => {
+          if (cameraAddress === null) return 0;
+          const memory = await invoke('emulator_read_memory', { region: 2, offset: cameraAddress, length: 2 });
+          if (!memory?.ok || memory.data?.length !== 2) throw Error('A posição da câmera não foi lida no quadro do efeito.');
+          return memory.data[0] | (memory.data[1] << 8);
+        };
+        const colorMatches = (rgba, expected, x) => [42,43].every(y => expected.every((value, channel) => rgba[(y * 320 + x) * 4 + channel] === value));
+        let previous = await readCamera();
         for (let i = 0; i < 40; i++) {
           const advance = await invoke('emulator_run_frames', {frames: 1});
           const frame = await invoke('emulator_observe', {});
           if (!advance?.ok || !frame?.ok || !frame.disk_matches_loaded || frame.rom_sha256 !== rom
               || frame.framebuffer_width !== 320 || frame.framebuffer_height !== 224
               || samples.length && samples.at(-1).frame + 1 !== frame.frames_run) throw Error('Amostra do efeito não consecutiva ou identidade divergente.');
-          let camera = 0;
+          const camera = await readCamera();
+          let presented = 0;
           if (cameraAddress !== null) {
-            const memory = await invoke('emulator_read_memory', { region: 2, offset: cameraAddress, length: 2 });
-            if (!memory?.ok || memory.data?.length !== 2) throw Error('A posição da câmera não foi lida no quadro do efeito.');
-            camera = memory.data[0] | (memory.data[1] << 8);
             if (camera >= 64 || (samples.length && camera < samples.at(-1).camera)) throw Error('O recorte avançou para fora do movimento previsto.');
+            const candidates = [...new Set([previous, camera])].filter((position) => {
+              const x = 112 - position, rgba = frame.framebuffer_rgba;
+              return [1,2].every(dx => colorMatches(rgba, colors[0], x + dx)) && [4,5].every(dx => colorMatches(rgba, colors[1], x + dx));
+            });
+            if (candidates.length !== 1) throw Error('Marcador do quadro ' + frame.frames_run + ' não resolve a câmera ' + previous + ' → ' + camera + ': ' + candidates);
+            [presented] = candidates;
           }
-          samples.push({ frame: frame.frames_run, camera, target: crop(frame.framebuffer_rgba, 64, camera), witness: crop(frame.framebuffer_rgba, 208, camera) });
+          samples.push({ frame: frame.frames_run, camera, presented, target: crop(frame.framebuffer_rgba, 64, presented), witness: crop(frame.framebuffer_rgba, 208, presented) });
+          previous = camera;
         }
         return samples;
       })().then(done, (error) => done({error: String(error)}));
-    `, [built.rom_sha256, moving ? link.camera.x & 0xffff : null]);
+    `, [built.rom_sha256, moving ? link.camera.x & 0xffff : null, [[3, 5, 7], [7, 6, 1]].map((color) => color.map((level, channel) => {
+      const intensity = 2 * level;
+      if (channel === 1) {
+        const value = (intensity << 2) | (intensity >> 2);
+        return (value << 2) | (value >> 4);
+      }
+      const value = (intensity << 1) | (intensity >> 3);
+      return (value << 3) | (value >> 2);
+    }))]);
     if (!Array.isArray(samples) || samples.length !== 40 || await readCamera() !== samples.at(-1).camera
         || (moving && samples.at(-1).camera <= camera)) fail(`Amostra indisponível para o efeito: ${JSON.stringify(samples?.error)}`);
+    if (moving) report.cameraObservations = { ...report.cameraObservations, [label]: samples.map(({ frame, camera, presented }) => ({ frame, camera, presented })) };
     const cycle = (name, period) => {
       const values = samples.map((sample) => sample[name]);
       if (values.slice(period).some((value, index) => value !== values[index])) fail(`Amostras fora do ciclo de ${period} quadros em ${name}.`);
@@ -18067,7 +18094,7 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
       return runs.map(({ value, length }) => [length, Buffer.from(value, "base64")]).sort(([a], [b]) => a - b);
     };
     return { rom: built.rom_sha256, core: await collectCoreIdentity(await invokeCoreObserve(sessionId)),
-      camera, initial, cameraPath: samples.map((sample) => sample.camera), target: cycle("target", 18), witness: cycle("witness", 17) };
+      camera, initial, cameraPath: samples.map(({ camera, presented }) => [camera, presented]), target: cycle("target", 18), witness: cycle("witness", 17) };
   };
 
   await setSessionWindowRect(sessionId, 1366, 768);
@@ -18157,13 +18184,22 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
   }
   addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-previa.png`), "Prévia do efeito e retângulo de controle");
   await click(apply);
+  await waitFor(() => executeScript(sessionId, `return document.querySelector('[data-testid="pixel-save"]')?.disabled === false;`),
+    10000, "O editor permaneceu na prévia após aplicar.", 100);
+  const applied = await waitFor(async () => {
+    const value = await colorAt(targetPoint.x, targetPoint.y);
+    if (mode === "effect-rotation") return isDeepStrictEqual(value, preview) ? value : false;
+    // Closing preview changes the fitted zoom. A transparent sample can switch
+    // squares in the checkerboard without changing the authored pixel.
+    return [[30, 36, 51, 255], [39, 46, 64, 255]].some((checker) => isDeepStrictEqual(value, checker)) ? value : false;
+  }, 10000, "Aplicar não produziu o pixel previsto.", 100);
   const undo = await findElement(sessionId, 'button[title="Desfazer (Ctrl+Z)"]');
   await clickElement(sessionId, undo);
   await waitFor(async () => isDeepStrictEqual(await colorAt(targetPoint.x, targetPoint.y), normal),
     10000, "Desfazer não recuperou o pixel original.", 100);
   const redo = await findElement(sessionId, 'button[title="Refazer (Ctrl+Y)"]');
   await clickElement(sessionId, redo);
-  await waitFor(async () => isDeepStrictEqual(await colorAt(targetPoint.x, targetPoint.y), preview),
+  await waitFor(async () => isDeepStrictEqual(await colorAt(targetPoint.x, targetPoint.y), applied),
     10000, "Refazer não recuperou o efeito.", 100);
   await click("pixel-save");
   const verifySaved = async (saved) => {
@@ -18370,6 +18406,7 @@ async function verifyTerrainAuthoring(sessionId, projectDir, report, prefix, tim
       return Array.from({length: 9}, (_, i) => Array.from(context.getImageData(11 + (i % 3) * 16, 11 + Math.floor(i / 3) * 16, 1, 1).data));
     `, [canvas]);
     const before = await waitFor(readCopies, 10000, "O trecho de 2 × 2 não foi repetido.", 100);
+    await executeScript(sessionId, `document.querySelector(arguments[0]).scrollIntoView({block:"center", inline:"nearest"});`, [canvas]);
     await clickCanvasPointNatively(sessionId, canvas, 47 / 48, 47 / 48, "Abrir o canto da emenda");
     await waitFor(() => executeScript(sessionId, `
       const origin = document.querySelector('[data-testid="tile-seam-source"]');

@@ -1,10 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { emulatorInputObservation, emulatorObserve } from "../../core/ipc/emulatorService";
-import { inputAtObservedFrame, MAX_MOTION_SAMPLES, motionTraceSummary, type MotionTrace } from "../../core/motionTrace";
+import { inputAtObservedFrame, MAX_MOTION_SAMPLES, motionTraceSummary, type MotionSample, type MotionTrace } from "../../core/motionTrace";
+import type { RuntimeLinkEntity } from "../../core/runtimeLink";
 import { readRuntimeWord } from "../../core/runtimeSample";
 import { useEditorStore } from "../../core/store/editorStore";
 
 const button = "rounded border border-[var(--rds-border-default)] px-2 py-1 disabled:opacity-40";
+
+async function observePosition(actor: RuntimeLinkEntity, epoch: number, lastFrame?: number): Promise<MotionSample | null> {
+  const before = await emulatorInputObservation();
+  if (before.epoch !== epoch || before.frames_run === lastFrame) return null;
+  const [x, y] = await Promise.all([readRuntimeWord(actor.symbols.x, true), readRuntimeWord(actor.symbols.y, true)]);
+  const after = await emulatorInputObservation();
+  return after.epoch === epoch && after.frames_run === before.frames_run
+    ? { frame: after.frames_run, x, y, input: inputAtObservedFrame(after) } : null;
+}
 
 export default function MotionTracePanel({ renderedFrames, paused }: { renderedFrames: number; paused: boolean }) {
   const project = useEditorStore((state) => state.activeProjectDir);
@@ -45,24 +55,19 @@ export default function MotionTracePanel({ renderedFrames, paused }: { renderedF
       end("O ator ficou sem vínculo com a ROM.");
       return;
     }
-    void (async () => {
-      const before = await emulatorInputObservation();
-      if (before.epoch !== track.coreEpoch || cancelled) return;
-      const last = track.samples[track.samples.length - 1]?.frame;
-      if (last === before.frames_run) return;
-      const [x, y] = await Promise.all([readRuntimeWord(actor.symbols.x, true), readRuntimeWord(actor.symbols.y, true)]);
-      const after = await emulatorInputObservation();
-      if (cancelled || after.epoch !== before.epoch || after.frames_run !== before.frames_run) return;
-      if (last !== undefined && last > after.frames_run) {
+    const last = track.samples[track.samples.length - 1]?.frame;
+    void observePosition(actor, track.coreEpoch, last).then((sample) => {
+      if (cancelled || !sample) return;
+      if (last !== undefined && last > sample.frame) {
         end("O core voltou a um quadro anterior. Escolha A ou B para iniciar outra gravação.");
         return;
       }
-      const samples = [...track.samples, { frame: after.frames_run, x, y, input: inputAtObservedFrame(after) }];
+      const samples = [...track.samples, sample];
       const filled = samples.length >= MAX_MOTION_SAMPLES;
       update((current) => current?.key === key && current.recording === slot && current[slot] === track
         ? { ...current, [slot]: { ...track, samples }, recording: filled ? null : slot } : current);
       if (filled) setMessage(`Gravação concluída com ${MAX_MOTION_SAMPLES} amostras.`);
-    })().catch((error: unknown) => end(error instanceof Error ? error.message : String(error)));
+    }).catch((error: unknown) => end(error instanceof Error ? error.message : String(error)));
     return () => { cancelled = true; };
   }, [epoch, key, link, paused, renderedFrames, rom?.sha256, slot, track, update]);
 
@@ -101,14 +106,15 @@ export default function MotionTracePanel({ renderedFrames, paused }: { renderedF
     setMessage("");
     try {
       const origin = await emulatorObserve();
+      const first = await observePosition(linkedActor, epoch);
       const current = useEditorStore.getState();
-      if (!origin.ok || origin.rom_sha256 !== rom.sha256 || current.coreEpoch !== epoch || !current.emulPaused
+      if (!origin.ok || origin.rom_sha256 !== rom.sha256 || !first || first.frame !== origin.frames_run || current.coreEpoch !== epoch || !current.emulPaused
           || current.activeProjectDir !== project || current.activeScenePath !== scene || current.selectedEntityId !== linkedActor.entity_id) {
         setMessage("O contexto da ROM mudou. Pause a sessão atual e tente novamente.");
         return;
       }
       const value: MotionTrace = { entityId: linkedActor.entity_id, sceneRevision: revision, romSha256: rom.sha256,
-        coreEpoch: epoch, coreLabel: origin.core_label, initialFrame: origin.frames_run, initialFramebufferSha256: origin.framebuffer_sha256, samples: [] };
+        coreEpoch: epoch, coreLabel: origin.core_label, initialFrame: origin.frames_run, initialFramebufferSha256: origin.framebuffer_sha256, samples: [first] };
       update((old) => ({ a: old?.key === key ? old.a : null, b: old?.key === key ? old.b : null, key, recording: target, [target]: value }));
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : String(error));

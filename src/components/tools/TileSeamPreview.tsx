@@ -109,6 +109,7 @@ export default function TileSeamPreview({ project, entityId, map, tileCount, onL
       setArea({ x, y, width, height });
       setSelected(null);
       setMessage("");
+      requestAnimationFrame(() => canvas.current?.scrollIntoView({ block: "nearest", inline: "nearest" }));
     }}>
       {axes.map((axis, index) => <label key={axis} className="flex flex-col">{labels[index]}
         <input className={inputClass} type="number" name={axis} required defaultValue={area[axis]}
