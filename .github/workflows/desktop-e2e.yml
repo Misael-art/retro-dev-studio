@@ -15,6 +15,7 @@ on:
           - authoring
           - hud
           - guides
+          - advanced-authoring
       upload_candidate:
         description: "Guardar o executável exato deste ensaio Windows e seu SHA-256"
         type: boolean
@@ -505,6 +506,30 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Add-Content -Path $env:RDS_E2E_LEDGER -Value 'hud_extremes'
 
+      - name: Compare sockets, material and event timing in the Mega Drive core
+        id: advanced_authoring
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'advanced-authoring' }}
+        env:
+          RDS_POSE_PROOF: advanced
+        run: |
+          $project = node scripts/qa/create-pose-authoring-demo.mjs --advanced-authoring
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'advanced_authoring'
+
+      - name: Edit with native floating panels and restore the dock
+        id: floating_panels
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'advanced-authoring' }}
+        env:
+          RDS_POSE_PROOF: floating
+        run: |
+          $project = node scripts/qa/create-pose-authoring-demo.mjs --advanced-authoring
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'floating_panels'
+
       - name: Report step outcomes before verification
         if: always()
         shell: pwsh
@@ -573,6 +598,8 @@ jobs:
             "- Motion trace and gravity control: ${{ steps.motion_trace.outcome }}",
             "- Wave with camera and foreground control: ${{ steps.wave_band.outcome }}",
             "- HUD extremes and screen-space controls: ${{ steps.hud_extremes.outcome }}",
+            "- Sockets, materials and events in the core: ${{ steps.advanced_authoring.outcome }}",
+            "- Native floating panels: ${{ steps.floating_panels.outcome }}",
             "- Pillar, aperture and control pixel comparison: ${{ steps.point_occlusion.outcome }}",
             "- Linked atlas copy, reordering and control comparison: ${{ steps.linked_atlas.outcome }}",
             "- Smoke SNES: ${{ steps.smoke_snes.outcome }}",

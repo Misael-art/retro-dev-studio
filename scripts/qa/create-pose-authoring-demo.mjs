@@ -346,6 +346,63 @@ async function writeGuidesProject(directory) {
   return projectPath;
 }
 
+async function writeAdvancedAuthoringProject(directory) {
+  const projectPath = await writeProject(directory, false);
+  const project = JSON.parse(await readFile(projectPath, "utf8"));
+  const scenePath = path.join(directory, project.entry_scene);
+  const scene = JSON.parse(await readFile(scenePath, "utf8"));
+  async function sprite(id, color, palette, x, y) {
+    const asset = "assets/sprites/" + id + ".png";
+    const colors = [[0, 0, 0], color, ...Array.from({ length: 14 }, () => [0, 0, 0])];
+    await writeFile(path.join(directory, asset), indexedAtlasPng(8, 8, colors, [Buffer.alloc(64, 1)]));
+    return { entity_id: id, display_name: id, transform: { x, y }, components: {
+      sprite: { asset, frame_width: 8, frame_height: 8, palette_slot: palette, priority: "foreground" },
+    } };
+  }
+  const actor = scene.entities.find(({ entity_id }) => entity_id === "raposa");
+  scene.entities.push(await sprite("Lanterna", [7, 0, 7], 2, 272, 101));
+  const runner = await sprite("corredor", [0, 7, 7], 3, 28, 168);
+  runner.components.physics = { gravity: true, gravity_strength: 12, max_velocity: { x: 8, y: 8 }, friction: 0 };
+  scene.entities.push(runner);
+  scene.collision_map = { tile_width: 8, tile_height: 8, width: 40, height: 28,
+    data: Array.from({ length: 40 * 28 }, (_, i) => Number(Math.floor(i / 40) === 22)) };
+
+  const wav = Buffer.alloc(44 + 1600 * 2);
+  wav.write("RIFF", 0); wav.writeUInt32LE(wav.length - 8, 4); wav.write("WAVEfmt ", 8);
+  wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22);
+  wav.writeUInt32LE(16000, 24); wav.writeUInt32LE(32000, 28); wav.writeUInt16LE(2, 32);
+  wav.writeUInt16LE(16, 34); wav.write("data", 36); wav.writeUInt32LE(wav.length - 44, 40);
+  for (let i = 0; i < 1600; i += 1) wav.writeInt16LE(i % 40 < 20 ? 9000 : -9000, 44 + i * 2);
+  await mkdir(path.join(directory, "assets/audio"), { recursive: true });
+  await writeFile(path.join(directory, "assets/audio/passo.wav"), wav);
+  actor.components.audio = { sfx: { passo: "assets/audio/passo.wav" } };
+  const port = (id) => ({ id, label: id, type: "exec" });
+  const node = (id, type, label, x, y, params = {}) => ({
+    id, type, label, x, y, params,
+    inputs: type === "event_update" ? [] : [port("exec")],
+    outputs: type === "timeline_sequence" ? Array.from({ length: 4 }, (_, i) => port("slot_" + i)) : [port("exec")],
+  });
+  const edge = (fromNode, toNode, fromPort = "exec") => ({ id: fromNode + "_" + toNode, fromNode, fromPort, toNode, toPort: "exec" });
+  actor.components.logic = { graph: JSON.stringify({
+    version: 1,
+    nodes: [
+      node("movimento", "event_update", "Movimento", 30, 30),
+      node("direita", "input_held", "Direita", 260, 30, { pad: "JOY_1", button: "BUTTON_RIGHT" }),
+      node("acelerar", "set_velocity", "Acelerar", 530, 30, { target: "corredor", vx: 64, vy: 0 }),
+      node("evento", "event_update", "Evento", 30, 270),
+      node("pressionar", "input_pressed", "Disparar", 260, 270, { pad: "JOY_1", button: "BUTTON_A" }),
+      node("tempo", "timeline_sequence", "Resposta", 540, 270, { run_mode: "event", slot_0_delay: 2, slot_1_delay: 4, slot_2_delay: -1, slot_3_delay: -1 }),
+      node("marca_inicio", "var_set", "Marca inicial", 850, 190, { var_name: "marca_inicio", value: 1 }),
+      node("som", "action_sound", "Som", 850, 400, { sfx: "passo" }),
+      node("marca_som", "var_set", "Marca do som", 1090, 400, { var_name: "marca_som", value: 7 }),
+    ],
+    edges: [edge("movimento", "direita"), edge("direita", "acelerar"), edge("evento", "pressionar"), edge("pressionar", "tempo"),
+      edge("tempo", "marca_inicio", "slot_0"), edge("tempo", "som", "slot_1"), edge("som", "marca_som")],
+  }) };
+  await writeFile(scenePath, JSON.stringify(scene, null, 2) + "\n");
+  return projectPath;
+}
+
 await mkdir(sessions, { recursive: true });
 const root = await mkdtemp(path.join(sessions, "ensaio-poses-"));
 if (process.argv.includes("--atlas-replacement")) {
@@ -358,6 +415,8 @@ if (process.argv.includes("--atlas-replacement")) {
   console.log(await writeTerrainProject(path.join(root, "terreno")));
 } else if (process.argv.includes("--guides")) {
   console.log(await writeGuidesProject(path.join(root, "guias")));
+} else if (process.argv.includes("--advanced-authoring")) {
+  console.log(await writeAdvancedAuthoringProject(path.join(root, "autoria-avancada")));
 } else if (process.argv.includes("--indexed-effects")) {
   const moving = process.argv.includes("--moving-camera");
   for (const effect of ["transparent", "ghost", "rotation"]) {
