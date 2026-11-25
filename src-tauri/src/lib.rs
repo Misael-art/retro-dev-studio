@@ -4273,6 +4273,7 @@ pub struct SceneDataResult {
     pub target: String,
     pub project_fps: Option<u32>,
     pub scene_path: String,
+    pub studio_context_json: Option<String>,
     pub source_kind: String,
     pub legacy_sgdk_index: Option<LegacySgdkIndex>,
 }
@@ -4361,6 +4362,7 @@ fn switch_scene_impl(project_dir: String, scene_path: String) -> SceneDataResult
             target: String::new(),
             project_fps: None,
             scene_path,
+            studio_context_json: None,
             source_kind: String::new(),
             legacy_sgdk_index: None,
         };
@@ -4379,6 +4381,7 @@ fn load_scene_result(project_dir: &Path, scene_path: Option<&str>) -> SceneDataR
             target: String::new(),
             project_fps: None,
             scene_path: String::new(),
+            studio_context_json: None,
             source_kind: String::new(),
             legacy_sgdk_index: None,
         };
@@ -4396,6 +4399,7 @@ fn load_scene_result(project_dir: &Path, scene_path: Option<&str>) -> SceneDataR
                 target: String::new(),
                 project_fps: None,
                 scene_path: String::new(),
+                studio_context_json: None,
                 source_kind: String::new(),
                 legacy_sgdk_index: None,
             }
@@ -4433,12 +4437,20 @@ fn load_scene_result(project_dir: &Path, scene_path: Option<&str>) -> SceneDataR
                 target: project.target,
                 project_fps: Some(project.fps),
                 scene_path: resolved_scene_path,
+                studio_context_json: None,
                 source_kind,
                 legacy_sgdk_index,
             }
         }
     };
     let scene_json = serde_json::to_string_pretty(&scene).unwrap_or_default();
+    let studio_context_json = match core::scene_save::read_context(&dir, &resolved_scene_path) {
+        Ok(context) => context,
+        Err(error) => {
+            eprintln!("[get_scene_data] contexto do editor indisponível: {error}");
+            None
+        }
+    };
     SceneDataResult {
         ok: true,
         error: String::new(),
@@ -4447,6 +4459,7 @@ fn load_scene_result(project_dir: &Path, scene_path: Option<&str>) -> SceneDataR
         target: project.target,
         project_fps: Some(project.fps),
         scene_path: resolved_scene_path,
+        studio_context_json,
         source_kind,
         legacy_sgdk_index,
     }
@@ -4621,6 +4634,7 @@ async fn save_scene_data(
     resolved_scene_json: Option<String>,
     expected_scene_json: Option<String>,
     expected_graphs: Option<BTreeMap<String, String>>,
+    studio_context_json: Option<String>,
 ) -> Result<SceneSaveResult, String> {
     run_heavy_result_command("save_scene_data", move || {
         Ok(save_scene_data_impl(
@@ -4630,6 +4644,7 @@ async fn save_scene_data(
             resolved_scene_json,
             expected_scene_json,
             expected_graphs,
+            studio_context_json.as_deref(),
         ))
     })
     .await
@@ -4642,6 +4657,7 @@ fn save_scene_data_impl(
     resolved_scene_json: Option<String>,
     expected_scene_json: Option<String>,
     expected_graphs: Option<BTreeMap<String, String>>,
+    studio_context_json: Option<&str>,
 ) -> SceneSaveResult {
     let mut conflict_json = None;
     let mut graphs = BTreeMap::new();
@@ -4692,8 +4708,15 @@ fn save_scene_data_impl(
             writes = collect_external_graph_refs(&dir, &mut scene, &resolved)
                 .map_err(|e| e.to_string())?;
         }
-        core::scene_save::commit(&dir, target, &scene, &writes, &guard)
-            .map_err(|e| e.to_string())?;
+        core::scene_save::commit_with_context(
+            &dir,
+            target,
+            &scene,
+            &writes,
+            studio_context_json,
+            &guard,
+        )
+        .map_err(|e| e.to_string())?;
         let persisted = load_scene(&dir, target).map_err(|e| e.to_string())?;
         graphs = core::project_mgr::external_graph_baseline(&dir, &persisted)
             .map_err(|e| e.to_string())?;
@@ -10502,6 +10525,7 @@ pub extern "C" fn retro_run() {
             Some(hydration.scene_json),
             Some(source_json),
             Some(hydration.graphs),
+            None,
         );
         assert!(!result.ok && result.conflict, "{}", result.message);
         assert_eq!(fs::read_to_string(graph_path).unwrap(), changed);
@@ -10531,6 +10555,7 @@ pub extern "C" fn retro_run() {
             source.to_string(),
             Some("scenes/main.json".into()),
             Some(source.to_string()),
+            None,
             None,
             None,
         );
@@ -10619,6 +10644,7 @@ pub extern "C" fn retro_run() {
             Some(resolved_scene.to_string()),
             None,
             None,
+            None,
         );
         assert!(!invalid.ok);
         assert_eq!(fs::read(&scene_file).unwrap(), scene_before);
@@ -10632,6 +10658,7 @@ pub extern "C" fn retro_run() {
             serde_json::to_string_pretty(&source_scene).expect("serialize source scene"),
             Some("scenes/main.json".to_string()),
             Some(serde_json::to_string_pretty(&resolved_scene).expect("serialize resolved scene")),
+            None,
             None,
             None,
         );
@@ -10657,6 +10684,7 @@ pub extern "C" fn retro_run() {
             Some(resolved_scene.to_string()),
             result.scene_json.clone(),
             Some(stale_graphs),
+            None,
         );
         assert!(!conflict.ok && conflict.conflict);
         assert_eq!(fs::read_to_string(&graph_file).unwrap(), concurrent);
@@ -10682,6 +10710,7 @@ pub extern "C" fn retro_run() {
             Some("scenes/main.json".into()),
             Some(serde_json::to_string(&changed_graph).unwrap()),
             Some(baseline),
+            None,
             None,
         );
         assert!(!refused.ok && refused.conflict);

@@ -181,13 +181,17 @@ export function rememberWorkspaceCamera(
 
 const STORAGE_PREFIX = "rds.studioContext.v1:";
 
+export function serializeStudioContext(state: StudioContextState, scenePath?: string | null): string {
+  return JSON.stringify({ schema: 1, focus: state.focus, cameras: state.cameras, scenePath });
+}
+
 /** Serialização por projeto (conveniência do usuário; falha silenciosa sem armazenamento). */
 export function saveStudioContext(projectDir: string, state: StudioContextState, scenePath?: string | null): void {
   if (!projectDir) return;
   try {
     globalThis.localStorage?.setItem(
       STORAGE_PREFIX + projectDir,
-      JSON.stringify({ schema: 1, focus: state.focus, cameras: state.cameras, scenePath })
+      serializeStudioContext(state, scenePath)
     );
   } catch {
     // armazenamento indisponível: contexto continua só em memória
@@ -195,13 +199,19 @@ export function saveStudioContext(projectDir: string, state: StudioContextState,
 }
 
 export function loadStudioContext(projectDir: string): StudioContextState {
-  const fallback = initialStudioContext();
-  if (!projectDir) return fallback;
+  if (!projectDir) return initialStudioContext();
   try {
-    const raw = globalThis.localStorage?.getItem(STORAGE_PREFIX + projectDir);
-    if (!raw) return fallback;
+    return parseStudioContext(globalThis.localStorage?.getItem(STORAGE_PREFIX + projectDir)) ?? initialStudioContext();
+  } catch {
+    return initialStudioContext();
+  }
+}
+
+export function parseStudioContext(raw?: string | null): StudioContextState | null {
+  if (!raw) return null;
+  try {
     const parsed = JSON.parse(raw) as { schema?: number; focus?: Partial<StudioFocus>; cameras?: StudioContextState["cameras"]; scenePath?: unknown };
-    if (parsed.schema !== 1 || !parsed.focus) return fallback;
+    if (!parsed || parsed.schema !== 1 || !parsed.focus) return null;
     const task = parsed.focus.task && parsed.focus.task in STUDIO_TASK_LABEL ? parsed.focus.task : "scene";
     return {
       focus: { ...emptyStudioFocus(task), ...parsed.focus, task },
@@ -211,6 +221,6 @@ export function loadStudioContext(projectDir: string): StudioContextState {
       ...(typeof parsed.scenePath === "string" ? { savedScenePath: parsed.scenePath } : {}),
     };
   } catch {
-    return fallback;
+    return null;
   }
 }

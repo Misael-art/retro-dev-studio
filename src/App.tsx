@@ -130,6 +130,7 @@ import {
 } from "./core/editorEntityFactory";
 import { getEntityDisplayName } from "./core/entityDisplay";
 import { nativeAnimationNames } from "./core/characterTimeline";
+import { parseStudioContext } from "./core/studioContext";
 import {
   getPreferredSceneEntity,
   resolveSceneWorkspaceContext,
@@ -2901,7 +2902,9 @@ export default function App() {
     }
 
     setActiveProject(projectDir, projectName);
-    const remembered = useEditorStore.getState().studio;
+    const localContext = useEditorStore.getState().studio;
+    const remembered = localContext.savedScenePath === sceneData.scene_path
+      ? localContext : parseStudioContext(sceneData.studio_context_json) ?? localContext;
     setSelectedEntityId(null);
     setHwStatus(hw);
     setActiveScenePath(sceneData.scene_path);
@@ -2928,7 +2931,7 @@ export default function App() {
       if (!animation) focus.animation = null;
       if (!focus.occurrenceId || !ids?.includes(focus.occurrenceId)) focus.occurrenceId = null;
       useEditorStore.setState((state) => ({
-        studio: { ...state.studio, focus, restoreSeq: state.studio.restoreSeq + 1 },
+        studio: { ...state.studio, focus, cameras: remembered.cameras, restoreSeq: state.studio.restoreSeq + 1 },
         viewportZoom: remembered.cameras.scene?.zoom ?? state.viewportZoom,
       }));
     }

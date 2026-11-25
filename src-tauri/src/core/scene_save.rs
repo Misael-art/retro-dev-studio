@@ -15,6 +15,40 @@ use std::path::{Component, Path, PathBuf};
 const PENDING: &str = ".rds/scene-save/pending.json";
 const SCHEMA: &str = "rds.scene-save/1";
 
+fn context_name(scene: &str) -> String {
+    let scene = scene.replace(std::path::MAIN_SEPARATOR, "/");
+    format!(
+        ".rds/scene-save/contexts/{}.json",
+        sha256_hex(scene.as_bytes())
+    )
+}
+
+fn validate_context(scene: &str, raw: &str) -> Result<(), LoadError> {
+    let context: serde_json::Value = serde_json::from_str(raw).map_err(error)?;
+    let scene = scene.replace(std::path::MAIN_SEPARATOR, "/");
+    if context["schema"] != 1
+        || !context["focus"].is_object()
+        || !context["cameras"].is_object()
+        || context["scenePath"]
+            .as_str()
+            .is_none_or(|path| path.replace(std::path::MAIN_SEPARATOR, "/") != scene)
+    {
+        return Err(error("contexto do editor inválido para a cena"));
+    }
+    Ok(())
+}
+
+pub(crate) fn read_context(root: &Path, scene: &str) -> Result<Option<String>, LoadError> {
+    validate_scene_path(scene)?;
+    let path = checked_path(root, Path::new(&context_name(scene)))?;
+    let Some(bytes) = read_optional(&path)? else {
+        return Ok(None);
+    };
+    let raw = String::from_utf8(bytes).map_err(error)?;
+    validate_context(scene, &raw)?;
+    Ok(Some(raw))
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Change {
@@ -122,10 +156,13 @@ fn apply(root: &Path, intent: &Intent) -> Result<(), LoadError> {
         .map(|reference| graph_write_path(root, reference))
         .collect::<Result<_, _>>()?;
     let mut targets = Vec::new();
+    let context = context_name(&intent.scene);
     // Preflight the entire set before even creating a destination directory.
     for (name, change) in &intent.files {
         let path = checked_path(root, Path::new(name))?;
-        if name != &intent.scene && !allowed.contains(&path) {
+        if name == &context {
+            validate_context(&intent.scene, &change.after)?;
+        } else if name != &intent.scene && !allowed.contains(&path) {
             return Err(error("arquivo fora das referências da cena"));
         }
         let current = read_optional(&path)?;
@@ -203,6 +240,17 @@ pub(crate) fn commit(
     scene_path: &str,
     scene: &Scene,
     graphs: &BTreeMap<PathBuf, String>,
+    guard: &File,
+) -> Result<(), LoadError> {
+    commit_with_context(root, scene_path, scene, graphs, None, guard)
+}
+
+pub(crate) fn commit_with_context(
+    root: &Path,
+    scene_path: &str,
+    scene: &Scene,
+    graphs: &BTreeMap<PathBuf, String>,
+    editor_context: Option<&str>,
     _guard: &File,
 ) -> Result<(), LoadError> {
     validate_scene_path(scene_path)?;
@@ -244,6 +292,20 @@ pub(crate) fn commit(
             Change {
                 before: before.as_deref().map(sha256_hex),
                 after: after.clone(),
+            },
+        );
+    }
+    if let Some(raw) = editor_context {
+        validate_context(scene_path, raw)?;
+        let key = context_name(scene_path);
+        let path = checked_path(root, Path::new(&key))?;
+        let before = read_optional(&path)?;
+        changed |= before.as_deref() != Some(raw.as_bytes());
+        files.insert(
+            key,
+            Change {
+                before: before.as_deref().map(sha256_hex),
+                after: raw.into(),
             },
         );
     }
@@ -376,6 +438,39 @@ mod tests {
         assert_eq!(fs::read(dir.join("scenes/main.json")).unwrap(), original);
         assert!(!dir.join(PENDING).exists());
         drop(guard);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn saves_editor_context_with_its_scene_without_changing_scene_data() {
+        let (dir, scene) = project();
+        let file = "scenes/main.json";
+        let guard = begin(&dir).unwrap();
+        commit(&dir, file, &scene, &BTreeMap::new(), &guard).unwrap();
+        let original = fs::read(dir.join(file)).unwrap();
+        assert_eq!(read_context(&dir, file).unwrap(), None);
+
+        let wrong_scene = r#"{"schema":1,"scenePath":"scenes/other.json","focus":{},"cameras":{}}"#;
+        assert!(commit_with_context(
+            &dir,
+            file,
+            &scene,
+            &BTreeMap::new(),
+            Some(wrong_scene),
+            &guard
+        )
+        .is_err());
+        assert_eq!(read_context(&dir, file).unwrap(), None);
+        assert!(!dir.join(PENDING).exists());
+
+        let saved = r#"{"schema":1,"scenePath":"scenes/main.json","focus":{"entityId":"a","animation":"passo","occurrenceId":"o2"},"cameras":{}}"#;
+        commit_with_context(&dir, file, &scene, &BTreeMap::new(), Some(saved), &guard).unwrap();
+        assert_eq!(fs::read(dir.join(file)).unwrap(), original);
+        drop(guard);
+        let reopened = crate::load_scene_result(&dir, Some(file));
+        assert!(reopened.ok, "{}", reopened.error);
+        assert_eq!(reopened.studio_context_json.as_deref(), Some(saved));
+        assert_eq!(read_context(&dir, "scenes/other.json").unwrap(), None);
         fs::remove_dir_all(dir).unwrap();
     }
 

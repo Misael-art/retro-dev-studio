@@ -466,6 +466,7 @@ export interface SceneDataResult {
   target: string;
   project_fps?: number | null;
   scene_path: string;
+  studio_context_json?: string | null;
   source_kind: string;
   legacy_sgdk_index?: LegacySgdkIndex | null;
 }
@@ -497,9 +498,10 @@ export function saveSceneData(
   scenePath?: string,
   resolvedSceneJson?: string,
   expectedSceneJson?: string,
-  expectedGraphs?: Record<string, string>
+  expectedGraphs?: Record<string, string>,
+  studioContextJson?: string,
 ): Promise<{ ok: boolean; message: string; scene_json?: string | null; conflict?: boolean; graphs?: Record<string, string> }> {
-  return invoke("save_scene_data", { projectDir, sceneJson, scenePath, resolvedSceneJson, expectedSceneJson, expectedGraphs });
+  return invoke("save_scene_data", { projectDir, sceneJson, scenePath, resolvedSceneJson, expectedSceneJson, expectedGraphs, studioContextJson });
 }
 
 export function listScenes(projectDir: string): Promise<SceneInfo[]> {
