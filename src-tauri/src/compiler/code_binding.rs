@@ -1498,6 +1498,74 @@ mod tests {
     }
 
     #[test]
+    fn authored_pose_sound_uses_the_occurrence_and_actor_in_the_generated_game() {
+        let mut scene = twin_scene();
+        let mut definition = json!({
+            "frames": [0, 1, 2, 1], "fps": 12, "loop": true,
+            "frame_durations": [5, 6, 7, 2]
+        });
+        for entity in &mut scene.entities {
+            entity
+                .components
+                .sprite
+                .as_mut()
+                .unwrap()
+                .animations
+                .insert(
+                    "passo".into(),
+                    serde_json::from_value(definition.clone()).unwrap(),
+                );
+        }
+        definition["frame_events"] = json!([{
+            "id": "step", "occurrence": "o2", "tick": 4,
+            "kind": "sound", "sound": "passo", "origin": "authored"
+        }]);
+        let sprite = scene.entities[0].components.sprite.as_mut().unwrap();
+        sprite
+            .animations
+            .insert("passo".into(), serde_json::from_value(definition).unwrap());
+        assert!(emit(&scene).contains("#error \"Som 'passo' ausente"));
+        scene.entities[0].components.audio = Some(
+            serde_json::from_value(json!({
+                "sfx": { "passo": "assets/audio/passo.wav" }
+            }))
+            .unwrap(),
+        );
+        let output = emit(&scene);
+        assert!(
+            output.contains("if (sprite->frameInd == 1 && tick == 4) XGM_startPlayPCM(SFX_PASSO,")
+        );
+        assert_eq!(output.matches("XGM_startPlayPCM(SFX_PASSO,").count(), 1);
+        assert!(output.contains("SPR_update();\n        rds_pose_spr_hero_a_dispatch(spr_hero_a);"));
+        assert!(!output.contains("rds_pose_spr_hero_a__hero_b_dispatch"));
+
+        let doc = document(&scene);
+        let binding = doc
+            .pose_bindings
+            .iter()
+            .find(|binding| binding.instance_id == "hero_a" && binding.pose.occurrence_id == "o2")
+            .unwrap();
+        let applied = analyze(
+            &scene,
+            &CodeEditTransaction {
+                schema: CODE_EDIT_SCHEMA.into(),
+                context: doc.context.clone(),
+                instance_id: "hero_a".into(),
+                node_id: String::new(),
+                graph_sha256: String::new(),
+                scope: CodeEditScope::Instance,
+                new_text: region_text(&doc, &binding.location).replace(" = 6;", " = 4;"),
+                pose: Some(binding.pose.clone()),
+            },
+        );
+        assert_eq!(applied.status, CodeEditStatus::Draft);
+        assert_eq!(
+            applied.pose_change.unwrap().definition.frame_durations,
+            Some(vec![5, 6, 7, 2])
+        );
+    }
+
+    #[test]
     fn document_has_no_delimiters_and_separates_identical_instances() {
         let scene = twin_scene();
         let doc = document(&scene);

@@ -69,7 +69,7 @@ export const PLATFORM_UNSUPPORTED_NODES: Record<string, Partial<Record<string, s
   snes: {
     condition_on_ground: "o estado de apoio no chao so existe na fisica do Mega Drive",
     condition_crushed: "o sinal de esmagamento por plataforma so existe na fisica do Mega Drive",
-    authored_strike: "o teste de caixas usa o runtime MUGEN, que so existe no Mega Drive",
+    authored_strike: "o teste de caixas por pose está disponível no Mega Drive",
   },
 };
 

@@ -17139,6 +17139,7 @@ async function editPoseThroughDesktop(initialSessionId, projectDir, app, report,
   await waitFor(async () => (await state())?.undoDepth === beforeCode.undoDepth + 1 && /\s=\s4;/.test(await readCode()),
     15000, "A edição vinculada não gravou 4 ticks como uma única operação.", 150);
   addReportStep(report, "c_o2_6_to_4", "passed");
+  addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-duracao-c.png`), "Campo C vinculado com 4 ticks");
   await click("studio-return-origin");
   await ticks(4);
   await clickTopBarMenuAction(sessionId, "Desfazer");
@@ -17175,22 +17176,54 @@ async function editPoseThroughDesktop(initialSessionId, projectDir, app, report,
   await waitFor(async () => (await focus())?.activeWorkspace === "scene"
     && (await readTicks("inspector-pose-duration")) === "4" && (await readTicks("canvas-pose-duration")) === "4",
   15000, "A cena reaberta não restaurou a raposa, o2 e os 4 ticks no Canvas e no Inspector.", 150);
+  addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-cena-reaberta.png`), "Canvas e Inspector na pose reaberta");
   await enter("viewport-open-animation");
   await waitFor(async () => (await focus())?.activeWorkspace === "artstudio",
     15000, "Animar não reabriu a timeline na pose o2.", 150);
   await ticks(4);
+  addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-timeline-reaberta.png`), "Timeline reaberta na segunda ocorrência com 4 ticks");
   addReportStep(report, "undo_redo_save_cold_reopen", "passed");
   return { sessionId, code: editedCode, focus };
+}
+
+async function addPoseEventThroughDesktop(sessionId, prefix, report) {
+  const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  await setSessionWindowRect(sessionId, 1366, 768);
+  await selectPoseActorsOnCanvas(sessionId);
+  await click("viewport-open-animation");
+  await click("character-occurrence-o2");
+  const wav = path.join(validationDir, `${prefix}-passo.wav`);
+  await writeFile(wav, authoredWav16k());
+  await callAutomationApi(sessionId, "setNextAudioImportPath", [wav]);
+  await click("character-add-sound");
+  const sound = await waitFor(async () => executeScript(sessionId, `
+    return [...(document.querySelector('[data-testid="character-event-sound"]')?.options ?? [])]
+      .find((item) => item.value.endsWith('_passo'))?.value ?? null;
+  `), 15000, "O som não apareceu no seletor de eventos.", 150);
+  await selectOptionByTestIdNative(sessionId, "character-event-sound", sound);
+  await fillInputBySelector(sessionId, '[data-testid="character-event-tick"]', "2");
+  await click("character-event-add");
+  await waitFor(async () => executeScript(sessionId, `
+    return document.querySelector('[data-testid="character-events"]')?.textContent.includes('no tick 2');
+  `), 10000, "O evento de som não apareceu na segunda ocorrência.", 100);
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  await waitFor(async () => executeScript(sessionId, `
+    return document.querySelector('[data-testid="scene-save-status"]')?.dataset.status === 'saved';
+  `), 15000, "O evento de som não foi salvo.", 100);
+  addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-evento.png`), "Evento sonoro na segunda ocorrência");
+  addReportStep(report, "sound_authored_on_o2_tick_2", "passed");
+  return sound;
 }
 
 // Mede pixels no core, depois do Build & Run pelo desktop. O cenário recebe
 // uma das salas de create-pose-authoring-demo.mjs (ou sua revisão editada).
 async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
   const revision = process.env.RDS_POSE_PROOF || "baseline";
-  if (!["baseline", "aligned-4", "journey"].includes(revision)) fail("RDS_POSE_PROOF deve ser baseline, aligned-4 ou journey.");
+  if (!["baseline", "aligned-4", "journey", "events"].includes(revision)) fail("RDS_POSE_PROOF deve ser baseline, aligned-4, journey ou events.");
   const prefix = `pose-cadence-${artifactTimestamp()}`;
-  const report = { scenario: "pose-cadence", revision, status: "failed", samples: [], steps: [], artifacts: [] };
-  const expectedTarget = revision === "baseline" ? [5, 3, 7, 2] : [5, 4, 7, 2];
+  const report = { scenario: "pose-cadence", fixture: path.basename(projectDir), revision, status: "failed", samples: [], steps: [], artifacts: [] };
+  const alignedTarget = revision === "aligned-4" || revision === "journey";
+  const expectedTarget = alignedTarget ? [5, 4, 7, 2] : [5, 3, 7, 2];
   const expectedControl = [5, 3, 7, 2];
   // Retângulos fixados na fixture antes de observar o jogo.
   const regions = { target: [64, 136, 32, 32], control: [208, 136, 32, 32], backdrop: [1, 110, 8, 8] };
@@ -17242,6 +17275,15 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
       sessionId = journey.sessionId;
       report.sceneSha256 = await confirmScene(expectedTarget);
     }
+    if (revision === "events") {
+      const sound = await addPoseEventThroughDesktop(sessionId, prefix, report);
+      report.sceneSha256 = await confirmScene(expectedTarget);
+      const scene = JSON.parse(await readFile(scenePath, "utf8"));
+      const events = scene.entities.find((entity) => entity.entity_id === "raposa").components.sprite.animations.passo.frame_events;
+      if (events?.length !== 1 || events[0].occurrence !== "o2" || events[0].tick !== 2 || events[0].sound !== sound) {
+        fail("O evento salvo perdeu a identidade da ocorrência ou do som.");
+      }
+    }
     report.build = await runBuildRunAndCollect(sessionId, "ensaio de poses", timeoutMs, report, prefix, { nativeClick: true });
     if (journey) {
       const compiledCode = await readFile(path.join(projectDir, "build", "megadrive", "src", "main.c"), "utf8");
@@ -17253,7 +17295,15 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
     // Avançar no core já pausado elimina a cadência e a latência de apresentação da UI.
     const warm = await invokeCoreObserveCommand(sessionId, "emulator_run_frames", { frames: 120 });
     if (!warm?.ok) fail("O core não confirmou o aquecimento de 120 quadros.");
+    const audioSamples = (from, count) => executeScript(sessionId,
+      "return window.__RDS_E2E__.readReceivedAudioSamples(arguments[0], arguments[1]);", [from, count]);
+    if (revision === "events") {
+      const before = (await audioSamples(0, 0)).total;
+      await invokeCoreObserveCommand(sessionId, "emulator_run_frame");
+      await waitFor(async () => (await audioSamples(0, 0)).total > before, 5000, "O core não entregou áudio após o aquecimento.", 50);
+    }
     for (let tick = 0; tick < 48; tick += 1) {
+      const audioFrom = revision === "events" ? (await audioSamples(0, 0)).total : null;
       const advance = await invokeCoreObserveCommand(sessionId, "emulator_run_frame");
       if (!advance?.ok) fail(`O core recusou o quadro ${tick}.`);
       const frame = await invokeCoreObserve(sessionId);
@@ -17265,6 +17315,14 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
       if (tick && frame.frames_run !== report.samples[tick - 1].frame + 1) fail("A captura saltou ou repetiu um quadro do core.");
       const pixels = Buffer.from(frame.framebuffer_rgba);
       const sample = { frame: frame.frames_run };
+      if (audioFrom !== null) {
+        const end = await waitFor(async () => {
+          const received = await audioSamples(0, 0);
+          return received.total > audioFrom ? received.total : null;
+        }, 5000, "Faltaram amostras PCM do quadro observado.", 50);
+        const { sampleRate, samples } = await audioSamples(audioFrom, end - audioFrom);
+        sample.audio = { sampleRate, rms: Math.sqrt(samples.reduce((sum, value) => sum + value * value, 0) / samples.length) };
+      }
       for (const [name, [x, y, width, height]] of Object.entries(regions)) {
         const rows = [];
         for (let row = y; row < y + height; row += 1) {
@@ -17280,13 +17338,23 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
     if (new Set(report.samples.map((sample) => sample.backdrop)).size !== 1) fail("A área de fundo mudou durante a prova.");
     const images = [0, 1, 2, 1];
     report.control = matchPoseCadence(report.samples.map((s) => s.control), images, expectedControl);
-    report.target = matchPoseCadence(report.samples.map((s) => s.target),
-      revision === "baseline" ? images : [0, "aligned", 2, 1], expectedTarget);
+    report.target = matchPoseCadence(report.samples.map((s) => s.target), alignedTarget ? [0, "aligned", 2, 1] : images, expectedTarget);
+    if (revision === "events") {
+      const { phase, period } = report.target;
+      const onsets = report.samples.flatMap(({ audio, frame }, index) => index > 0 && audio.rms > 100
+        && report.samples[index - 1].audio.rms <= 100 ? [{ frame, phase: (phase + index) % period }] : []);
+      report.eventAudio = { onsets, expectedEventPhase: 7, allowedDriverLatencyTicks: 6 };
+      if (onsets.length < 2 || onsets.some((onset, i) => onset.phase < 7 || onset.phase > 13
+        || (i > 0 && Math.abs(onset.frame - onsets[i - 1].frame - period) > 1))) {
+        fail(`O PCM observado não acompanhou o tick local e a repetição da ocorrência: ${JSON.stringify(onsets)}.`);
+      }
+      addReportStep(report, "event_audio_at_the_bound_occurrence", "passed");
+    }
     report.feet = [];
     for (const actor of ["control", "target"]) {
       for (const occurrence of [0, 1, 3]) {
         const image = images[occurrence];
-        const aligned = actor === "target" && revision !== "baseline" && occurrence === 1;
+        const aligned = actor === "target" && alignedTarget && occurrence === 1;
         const hash = report[actor].hashesByPose[aligned ? "aligned" : image];
         const observed = locatePoseFoot(atlas, image, crops.get(hash));
         const expected = image === 0 || aligned ? [14, 27] : [13, 26];

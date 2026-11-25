@@ -56,6 +56,8 @@ pub struct SpriteAnimationOnionSkin {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SpriteAnimationHitbox {
     pub frame: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub occurrence_id: Option<String>,
     pub kind: String,
     #[serde(deserialize_with = "deserialize_f64_to_i32")]
     pub x: i32,
@@ -240,6 +242,7 @@ mod sprite_command_tests {
             }),
             hitboxes: vec![
                 SpriteAnimationHitbox {
+                    occurrence_id: None,
                     frame: 1,
                     kind: "attack".to_string(),
                     x: 20,
@@ -248,6 +251,7 @@ mod sprite_command_tests {
                     height: 10,
                 },
                 SpriteAnimationHitbox {
+                    occurrence_id: None,
                     frame: 1,
                     kind: "collision".to_string(),
                     x: 8,

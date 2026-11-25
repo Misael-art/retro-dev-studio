@@ -864,6 +864,7 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     "        for (rds_boot_frame = 0; rds_boot_frame < 8; rds_boot_frame++) {\n",
                 );
                 out.push_str("            SPR_update();\n");
+                super::pose_runtime::emit_events(&mut out, ast, 12);
                 out.push_str("            SYS_doVBlankProcess();\n");
                 out.push_str("        }\n");
                 out.push_str("    }\n");
@@ -944,6 +945,8 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                 }
                 super::pose_runtime::emit_positions(&mut out, ast);
                 out.push_str("        SPR_update();\n");
+                super::pose_runtime::emit_events(&mut out, ast, 8);
+                out.push_str(&super::mugen_runtime::render_native_strike_ticks(ast, 8));
             }
             AstNode::VSync => {
                 out.push_str(JOY_PREV_UPDATE_MARKER);

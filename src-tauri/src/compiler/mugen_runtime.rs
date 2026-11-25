@@ -262,6 +262,7 @@ pub(crate) fn render_decls(ast: &AstOutput) -> String {
         .any(|tables| tables.iter().any(|t| !t.events.is_empty()));
     let any_table = assets.values().any(|t| t.is_ok());
     if !any_table {
+        out.push_str(&render_strikes(ast, &assets, &vars));
         out.push_str(&render_done_fns(&done_vars, &vars, &assets));
         return out;
     }
@@ -497,7 +498,10 @@ pub(crate) fn render_ticks(ast: &AstOutput, indent: usize) -> String {
         .filter(|(_, res)| matches!(assets.get(res), Some(Ok(_))))
         .map(|(v, _)| format!("{pad}rds_mugen_{v}_tick();\n"))
         .collect();
-    for strike in collect_strikes(ast) {
+    for strike in collect_strikes(ast)
+        .into_iter()
+        .filter(|(_, a, t, _, _)| !native_strike(ast, a, t))
+    {
         out.push_str(&format!("{pad}rds_strike_{}_check();\n", strike.0));
     }
     // v2: contato do HitDef depois do tick de animacao de TODOS os sprites (quadro exibido).
@@ -538,6 +542,60 @@ fn collect_strikes(ast: &AstOutput) -> Vec<(String, String, String, u16, u16)> {
     out
 }
 
+fn native_strike(ast: &AstOutput, attacker: &str, target: &str) -> bool {
+    super::pose_runtime::actor_has_boxes(ast, attacker)
+        && super::pose_runtime::actor_has_boxes(ast, target)
+}
+
+/// As caixas nativas acompanham o quadro aceito por SPR_update, inclusive quando há atraso de DMA.
+pub(super) fn render_native_strike_ticks(ast: &AstOutput, indent: usize) -> String {
+    collect_strikes(ast)
+        .into_iter()
+        .filter(|(_, a, t, _, _)| native_strike(ast, a, t))
+        .map(|(id, _, _, _, _)| format!("{:indent$}rds_strike_{id}_check();\n", ""))
+        .collect()
+}
+
+fn render_strike_state(id: &str, health: u16) -> String {
+    format!(
+        "static volatile u16 rds_strike_{id}_hp = {health};\n\
+             static volatile u16 rds_strike_{id}_hits = 0;\n\
+             static volatile u16 rds_strike_{id}_overlaps = 0;\n\
+             static u16 rds_strike_{id}_armed = 0;\n\
+             static u16 rds_strike_{id}_enabled = 0;\n"
+    )
+}
+
+fn render_native_strike(id: &str, a: &str, t: &str, damage: u16) -> String {
+    format!("static u16 rds_strike_{id}_cycle;\n\
+             static void rds_strike_{id}_check(void) {{\n\
+             \x20   const bool enabled = rds_strike_{id}_enabled;\n\
+             \x20   rds_strike_{id}_enabled = 0;\n\
+             \x20   if (rds_strike_{id}_cycle != rds_pose_{a}_box_cycle) {{\n\
+             \x20       rds_strike_{id}_cycle = rds_pose_{a}_box_cycle;\n\
+             \x20       rds_strike_{id}_armed = 1;\n\
+             \x20   }}\n\
+             \x20   if (!enabled || !{a} || !{t}) return;\n\
+             \x20   const RdsPoseFrame *attack = rds_pose_{a}_visible_frame;\n\
+             \x20   const RdsPoseFrame *body = rds_pose_{t}_visible_frame;\n\
+             \x20   if (!attack || !body) return;\n\
+             \x20   for (u16 i = 0; i < attack->attacks; i++) {{\n\
+             \x20       const RdsPoseBox p = rds_pose_{a}_world_box(attack, &attack->attack[i]);\n\
+             \x20       for (u16 j = 0; j < body->bodies; j++) {{\n\
+             \x20           const RdsPoseBox q = rds_pose_{t}_world_box(body, &body->body[j]);\n\
+             \x20           if (p.x1 >= q.x2 || p.x2 <= q.x1 || p.y1 >= q.y2 || p.y2 <= q.y1) continue;\n\
+             \x20           rds_strike_{id}_overlaps++;\n\
+             \x20           if (rds_strike_{id}_armed) {{\n\
+             \x20               rds_strike_{id}_armed = 0;\n\
+             \x20               rds_strike_{id}_hits++;\n\
+             \x20               rds_strike_{id}_hp = rds_strike_{id}_hp > {damage} ? rds_strike_{id}_hp - {damage} : 0;\n\
+             \x20           }}\n\
+             \x20           return;\n\
+             \x20       }}\n\
+             \x20   }}\n\
+             }}\n")
+}
+
 /// Estado e verificacao dos golpes autorais (ver `LogicOp::AuthoredStrike`). Observaveis na RAM:
 /// `rds_strike_<id>_hp` (vida do alvo), `_hits` (acertos aplicados) e `_overlaps` (quadros com
 /// caixa de ataque sobre caixa de corpo, aplicando ou nao dano).
@@ -548,6 +606,11 @@ fn render_strikes(
 ) -> String {
     let mut out = String::new();
     for (id, a, t, damage, health) in collect_strikes(ast) {
+        if native_strike(ast, &a, &t) {
+            out.push_str(&render_strike_state(&id, health));
+            out.push_str(&render_native_strike(&id, &a, &t, damage));
+            continue;
+        }
         let table = |v: &str| {
             vars.iter()
                 .find(|(var, _)| var == v)
@@ -558,17 +621,13 @@ fn render_strikes(
         };
         let (Some((ra, (aax, aay))), Some((rt, (tax, tay)))) = (table(&a), table(&t)) else {
             out.push_str(&format!(
-                "#error \"RetroDev: golpe autoral '{id}' exige atacante e alvo com animacao MUGEN valida\"\n"
+                "#error \"RetroDev: golpe autoral '{id}' exige caixas nos dois atores do mesmo perfil de animação\"\n"
             ));
             continue;
         };
+        out.push_str(&render_strike_state(&id, health));
         out.push_str(&format!(
-            "static volatile u16 rds_strike_{id}_hp = {health};\n\
-             static volatile u16 rds_strike_{id}_hits = 0;\n\
-             static volatile u16 rds_strike_{id}_overlaps = 0;\n\
-             static u16 rds_strike_{id}_armed = 0;\n\
-             static u16 rds_strike_{id}_enabled = 0;\n\
-             static void rds_strike_{id}_check(void) {{\n\
+            "static void rds_strike_{id}_check(void) {{\n\
              \x20   if (!{a} || !{t}) {{ rds_strike_{id}_enabled = 0; return; }}\n\
              \x20   if (rds_mugen_{a}_elapsed == 0) rds_strike_{id}_armed = 1;\n\
              \x20   if (!rds_strike_{id}_enabled) return;\n\

@@ -64,8 +64,8 @@ export function describeOccurrences(def: AnimationDef, projectFps = 60): Timelin
       source: mugen ? { group: mugen.group, image: mugen.image } : null,
       ticks,
       startTick,
-      attackBoxes: mugen?.clsn1?.length ?? 0,
-      bodyBoxes: mugen?.clsn2?.length ?? 0,
+      attackBoxes: mugen?.clsn1?.length ?? (mugen ? 0 : occurrenceBoxes(def, ids[index], "clsn1").length),
+      bodyBoxes: mugen?.clsn2?.length ?? (mugen ? 0 : occurrenceBoxes(def, ids[index], "clsn2").length),
       events: events.filter((event) => event.occurrence === ids[index]).sort((a, b) => a.tick - b.tick),
     };
   });
@@ -167,7 +167,7 @@ export function retimeEventsToFit(def: AnimationDef, occurrence: string, ticks: 
 
 /**
  * Move uma ocorrência para `toIndex`, levando junto imagem, duração, quadro MUGEN (caixas, eixo,
- * flags) e identidade; eventos seguem a identidade; hitboxes autorais por índice são remapeadas.
+ * flags) e identidade. Eventos e caixas por ocorrência seguem a identidade.
  */
 export function moveOccurrence(def: AnimationDef, occurrence: string, toIndex: number): TimelineResult {
   const ids = occurrenceIds(def);
@@ -178,18 +178,12 @@ export function moveOccurrence(def: AnimationDef, occurrence: string, toIndex: n
   const order = def.frames.map((_, index) => index);
   order.splice(to, 0, ...order.splice(from, 1));
   const permute = <T,>(values: T[] | undefined) => (values ? order.map((index) => values[index]) : undefined);
-  const newIndexOf = new Map(order.map((oldIndex, newIndex) => [oldIndex, newIndex]));
-  const hitboxes: SpriteAnimationHitbox[] | undefined = def.hitboxes?.map((box) => ({
-    ...box,
-    frame: newIndexOf.get(box.frame) ?? box.frame,
-  }));
   const next: AnimationDef = {
     ...def,
     frames: order.map((index) => def.frames[index]),
     occurrence_ids: order.map((index) => ids[index]),
-    ...(def.frame_durations || def.mugen_frames ? { frame_durations: permute(effectiveDurations(def)) } : {}),
+    ...(def.frame_durations || def.mugen_frames ? { frame_durations: permute(occurrenceDurations(def)) } : {}),
     ...(def.mugen_frames ? { mugen_frames: permute(def.mugen_frames) } : {}),
-    ...(hitboxes ? { hitboxes } : {}),
   };
   return { ok: true, def: next };
 }
@@ -210,12 +204,14 @@ export function addSoundEvent(
   def: AnimationDef,
   occurrence: string,
   tick: number,
-  sound: string
+  sound: string,
+  projectFps = 60,
 ): TimelineResult {
   const index = occurrenceIds(def).indexOf(occurrence);
   if (index < 0) return { ok: false, message: `Ocorrência '${occurrence}' não existe nesta animação.` };
   if (!sound.trim()) return { ok: false, message: "Escolha um som do Audio da entidade." };
-  const ticks = effectiveDurations(def)[index];
+  const ticks = occurrenceDurations(def, projectFps)[index];
+  if (ticks === 0) return { ok: false, message: "Defina uma duração positiva para disparar o som nesta ocorrência." };
   if (!Number.isInteger(tick) || tick < 0 || (ticks === -1 ? tick !== 0 : tick >= ticks)) {
     return {
       ok: false,
@@ -255,6 +251,20 @@ export function totalTicks(def: AnimationDef, projectFps = 60): number | null {
 export type BoxKind = "clsn1" | "clsn2";
 export const BOX_LIMIT = 511;
 
+function nativeBoxKind(kind: BoxKind): SpriteAnimationHitbox["kind"] {
+  return kind === "clsn1" ? "attack" : "hurt";
+}
+
+export function occurrenceBoxes(def: AnimationDef, occurrence: string, kind: BoxKind): MugenCollisionBox[] {
+  if (def.mugen_frames) {
+    const index = occurrenceIds(def).indexOf(occurrence);
+    return def.mugen_frames[index]?.[kind] ?? [];
+  }
+  return (def.hitboxes ?? [])
+    .filter((box) => box.occurrence_id === occurrence && box.kind === nativeBoxKind(kind))
+    .map(({ x, y, width, height }) => ({ x1: x, y1: y, x2: x + width, y2: y + height }));
+}
+
 function normalizeBox(box: MugenCollisionBox): MugenCollisionBox {
   return {
     x1: Math.min(box.x1, box.x2),
@@ -276,15 +286,23 @@ function boxProblem(box: MugenCollisionBox): string | null {
 function withBoxes(def: AnimationDef, occurrence: string, kind: BoxKind, change: (boxes: MugenCollisionBox[]) => MugenCollisionBox[] | string): TimelineResult {
   const index = occurrenceIds(def).indexOf(occurrence);
   if (index < 0) return { ok: false, message: `Ocorrência '${occurrence}' não existe nesta animação.` };
-  const frame = def.mugen_frames?.[index];
-  if (!frame) return { ok: false, message: "Só animações MUGEN têm caixas por ocorrência." };
-  const next = change([...((frame[kind] ?? []) as MugenCollisionBox[])]);
+  const next = change([...occurrenceBoxes(def, occurrence, kind)]);
   if (typeof next === "string") return { ok: false, message: next };
+  if (!def.mugen_frames) {
+    const boxKind = nativeBoxKind(kind);
+    const other = (def.hitboxes ?? []).filter((box) => box.occurrence_id !== occurrence || box.kind !== boxKind);
+    const scoped = next.map(({ x1, y1, x2, y2 }) => ({
+      frame: def.frames[index], occurrence_id: occurrence, kind: boxKind,
+      x: x1, y: y1, width: x2 - x1, height: y2 - y1,
+    }));
+    return { ok: true, def: { ...withOccurrenceIds(def), hitboxes: [...other, ...scoped] } };
+  }
+  if (!def.mugen_frames[index]) return { ok: false, message: "Quadro AIR ausente nesta ocorrência." };
   return {
     ok: true,
     def: {
       ...withOccurrenceIds(def),
-      mugen_frames: def.mugen_frames!.map((f, i) => (i === index ? { ...f, [kind]: next, clsn_edited: true } : f)),
+      mugen_frames: def.mugen_frames.map((f, i) => (i === index ? { ...f, [kind]: next, clsn_edited: true } : f)),
     },
   };
 }

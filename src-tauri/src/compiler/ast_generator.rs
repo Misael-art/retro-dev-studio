@@ -184,7 +184,10 @@ pub struct SpriteAnimation {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuthoredPoseAnimation {
     pub name: String,
+    pub looping: bool,
+    pub cell: (u32, u32),
     pub frames: Vec<AuthoredPoseFrame>,
+    pub events: Vec<MugenEventRuntime>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -192,6 +195,8 @@ pub struct AuthoredPoseFrame {
     pub occurrence_id: String,
     pub ticks: u8,
     pub offset: (i16, i16),
+    pub attack_boxes: Vec<[i16; 4]>,
+    pub body_boxes: Vec<[i16; 4]>,
 }
 
 /// Animacao dirigida pelo runtime gerado (`compiler/mugen_runtime.rs`) em vez da
@@ -753,7 +758,9 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
                     .any(|animation| {
                         animation.mugen_frames.is_none()
                             && (animation.frame_durations.is_some()
-                                || !animation.pose_alignment.is_empty())
+                                || !animation.pose_alignment.is_empty()
+                                || !animation.frame_events.is_empty()
+                                || !animation.hitboxes.is_empty())
                     })
                     .then_some(sprite.asset.as_str())
             })
@@ -1264,6 +1271,9 @@ fn authored_pose_animations(
         if def.pose_alignment.keys().any(|id| !ids.contains(id)) {
             return Err(format!("animação '{}': ponto associado a uma ocorrência inexistente", projected.name));
         }
+        if def.hitboxes.iter().any(|hitbox| hitbox.occurrence_id.as_ref().is_some_and(|id| !ids.contains(id))) {
+            return Err(format!("animação '{}': caixa associada a uma ocorrência inexistente", projected.name));
+        }
         let times = match &def.frame_durations {
             Some(times) => {
                 if times.len() != ids.len() || times.iter().any(|ticks| !(1..=255).contains(ticks)) {
@@ -1277,7 +1287,8 @@ fn authored_pose_animations(
                 vec![fallback; ids.len()]
             }
         };
-        let frames = ids.into_iter().zip(times).map(|(occurrence_id, ticks)| {
+        let events = resolve_frame_events(def, &times.iter().map(|&ticks| i32::from(ticks)).collect::<Vec<_>>())?;
+        let frames = ids.into_iter().zip(times).enumerate().map(|(index, (occurrence_id, ticks))| {
             let offset = if let Some(pose) = def.pose_alignment.get(&occurrence_id) {
                 let in_cell = pose.anchor.x >= 0 && pose.anchor.y >= 0
                     && pose.anchor.x.cast_unsigned() < sprite.frame_width
@@ -1287,9 +1298,26 @@ fn authored_pose_animations(
                 }
                 (pose.offset.x as i16, pose.offset.y as i16)
             } else { (0, 0) };
-            Ok(AuthoredPoseFrame { occurrence_id, ticks, offset })
+            let boxes = |kind| {
+                let boxes = def.hitboxes.iter().filter(|b| b.kind == kind && b.occurrence_id.as_ref()
+                    .map_or(b.frame == def.frames[index], |id| id == &occurrence_id));
+                let boxes = boxes.map(|b| {
+                    let corners = [b.x, b.y, b.x.saturating_add(b.width), b.y.saturating_add(b.height)];
+                    if b.width < 1 || b.height < 1 || corners.iter().any(|value| !(-511..=511).contains(value)) {
+                        return Err(format!("animação '{}', ocorrência '{occurrence_id}': caixa {kind} fora dos limites", projected.name));
+                    }
+                    Ok(corners.map(|value| value as i16))
+                }).collect::<Result<Vec<_>, String>>()?;
+                if boxes.len() > 8 {
+                    return Err(format!("animação '{}', ocorrência '{occurrence_id}': limite de oito caixas {kind}", projected.name));
+                }
+                Ok(boxes)
+            };
+            let attack_boxes = boxes("attack")?;
+            let body_boxes = boxes("hurt")?;
+            Ok(AuthoredPoseFrame { occurrence_id, ticks, offset, attack_boxes, body_boxes })
         }).collect::<Result<_, String>>()?;
-        Ok(AuthoredPoseAnimation { name: projected.name.clone(), frames })
+        Ok(AuthoredPoseAnimation { name: projected.name.clone(), looping: def.looping, cell: (sprite.frame_width, sprite.frame_height), frames, events })
     }).collect()
 }
 

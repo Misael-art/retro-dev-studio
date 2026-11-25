@@ -37,8 +37,11 @@ limite em duas tentativas. O [handoff do host](handoffs/NOVO_HOST_INICIO.md#qual
 registra as identidades e onde repetir. Na sala simples, a primeira edição
 3→6→4 passou no Tauri Linux e no core. Duração, apoio das poses, controle e
 retorno ao ator estão registrados na [matriz da jornada](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#conferência-por-item-da-autoria-de-fase).
-Repetir no novo candidato, incluindo sala densa, Windows, casos do editor C
-e uso com participantes.
+Na revisão Linux limpa `66c7944`, o rascunho C e os dois alcances por instância
+passaram. As duas salas confirmaram a edição vinculada até a ROM e a volta
+à mesma ocorrência, incluindo a entrada numérica em Nós. A matriz registra
+o aplicativo, os hashes e as duas cenas. A repetição Windows desta revisão,
+os demais itens da timeline e a avaliação com participantes seguem abertos.
 
 ### Continuidade antes da formatação — 2026-11-22
 

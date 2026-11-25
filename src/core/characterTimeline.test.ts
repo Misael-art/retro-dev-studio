@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import type { AnimationDef } from "./ipc/sceneService";
 import {
   addSoundEvent,
+  addOccurrenceBox,
   alignPoseSupport,
   describeOccurrences,
   moveOccurrence,
+  occurrenceBoxes,
   occurrenceIds,
   removeEvent,
   retimeEventsToFit,
@@ -57,6 +59,31 @@ describe("characterTimeline", () => {
     expect(original.pose_alignment).toBeUndefined();
     expect(alignPoseSupport(original, { id: "o1", anchor: { x: 32, y: 27 } },
       { id: "o2", anchor: { x: 13, y: 26 } }, { width: 32, height: 32 }).ok).toBe(false);
+  });
+
+  it("binds a sound to a native occurrence with the project's tick rate", () => {
+    const def: AnimationDef = { frames: [4, 4], fps: 16, loop: true };
+    const result = addSoundEvent(def, "o2", 2, "passo", 50);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(describeOccurrences(result.def, 50).map((occ) => occ.events.length)).toEqual([0, 1]);
+    expect(setOccurrenceDuration(result.def, "o2", "2", 50).ok).toBe(false);
+    expect(addSoundEvent(def, "o2", 3, "passo", 50).ok).toBe(false);
+    expect(addSoundEvent({ ...def, fps: 0 }, "o2", 0, "passo", 50).ok).toBe(false);
+  });
+
+  it("keeps native boxes tied to the occurrence even after reordering a repeated image", () => {
+    const imageBox = { frame: 13, kind: "attack" as const, x: 1, y: 2, width: 2, height: 3 };
+    const def: AnimationDef = { frames: [13, 5, 13], fps: 12, loop: true, hitboxes: [imageBox] };
+    const box = { x1: 8, y1: 3, x2: 18, y2: 19 };
+    const added = addOccurrenceBox(def, "o3", "clsn1", box);
+    if (!added.ok) throw new Error(added.message);
+    const moved = moveOccurrence(added.def, "o3", 0);
+    if (!moved.ok) throw new Error(moved.message);
+    expect(occurrenceBoxes(moved.def, "o3", "clsn1")).toEqual([box]);
+    expect(occurrenceBoxes(moved.def, "o1", "clsn1")).toEqual([]);
+    expect(moved.def.hitboxes).toContainEqual(imageBox);
+    expect(describeOccurrences(moved.def).map((occ) => occ.attackBoxes)).toEqual([1, 0, 0]);
   });
 
   it("describes occurrences with source, boxes and start ticks", () => {

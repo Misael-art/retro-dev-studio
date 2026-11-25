@@ -618,7 +618,7 @@ const strike: BehaviorDefinition = {
   id: "strike",
   title: "Golpe autoral",
   description:
-    "Autoral (nao convertido do CNS): quando o quadro atual do atacante tem caixa de ataque encostando na caixa de corpo do alvo, tira vida do alvo uma unica vez por golpe. Exige personagens MUGEN com caixas.",
+    "Quando a caixa de ataque da pose encosta na caixa de corpo do alvo, reduz a vida uma vez por golpe. Use dois atores com caixas na timeline Mega Drive ou dois personagens MUGEN.",
   params: [
     { key: "attacker", label: "Atacante", kind: "entity", require: "sprite" },
     { key: "target", label: "Alvo", kind: "entity", require: "sprite" },

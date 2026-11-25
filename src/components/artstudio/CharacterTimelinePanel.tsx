@@ -10,6 +10,7 @@ import {
   type BoxKind,
   describeOccurrences,
   moveOccurrence,
+  occurrenceBoxes,
   removeEvent,
   retimeEventsToFit,
   setOccurrenceDuration,
@@ -126,7 +127,9 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
   // Registro de sons é único por ROM: qualquer som do projeto pode ser usado num evento.
   const sfxSources = new Map<string, string>();
   for (const candidate of activeScene?.entities ?? []) {
-    for (const [action, path] of Object.entries(candidate.components.audio?.sfx ?? {})) sfxSources.set(action, path);
+    for (const [action, path] of Object.entries(candidate.components.audio?.sfx ?? {})) {
+      if (path.trim() && !sfxSources.has(action)) sfxSources.set(action, path);
+    }
   }
   const sfxNames = [...sfxSources.keys()].sort();
 
@@ -143,7 +146,13 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
   const [eventTick, setEventTick] = useState("0");
   const [eventSound, setEventSound] = useState("");
   const [playing, setPlaying] = useState(false);
-  const [selectedBox, setSelectedBox] = useState<{ kind: BoxKind; index: number } | null>(null);
+  const [pausedPreviewTick, setPausedPreviewTick] = useState<number | null>(null);
+  const [previewZoom, setPreviewZoom] = useState(() => authored
+    ? Math.min(5, Math.max(1, Math.floor(160 / Math.max(sprite.frame_width, sprite.frame_height)))) : 3);
+  const [selectedBox, setSelectedBox] = useState<{ kind: BoxKind; index: number } | null>(() => {
+    const [kind, index] = studio.focus.boxKey?.split(":") ?? [];
+    return (kind === "clsn1" || kind === "clsn2") && /^\d+$/.test(index ?? "") ? { kind, index: Number(index) } : null;
+  });
   const [drag, setDrag] = useState<{
     kind: BoxKind;
     index: number;
@@ -158,20 +167,27 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
   const playTick = useRef(0);
   const [, forceRender] = useState(0);
 
-  // Prévia no editor (aproximada): avança em ticks de 1/60 s; a ROM é a referência.
+  // Prévia aproximada nos ticks do projeto, incluindo o último quadro sem repetição.
   useEffect(() => {
     if (!playing || !def) return;
+    const end = totalTicks(def, tickRate);
     let raf = 0;
     let last = performance.now();
     let acc = 0;
     const step = (now: number) => {
       acc += now - last;
       last = now;
-      while (acc >= 1000 / tickRate) {
-        acc -= 1000 / tickRate;
-        playTick.current += 1;
+      const elapsed = Math.floor(acc / (1000 / tickRate));
+      if (elapsed) {
+        acc -= elapsed * (1000 / tickRate);
+        playTick.current += elapsed;
+        if (end !== null && !def.loop && playTick.current >= end) {
+          setPausedPreviewTick(end);
+          setPlaying(false);
+          return;
+        }
+        forceRender((v) => v + 1);
       }
-      forceRender((v) => v + 1);
       raf = requestAnimationFrame(step);
     };
     raf = requestAnimationFrame(step);
@@ -180,10 +196,16 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
 
   async function addSound() {
     try {
+      const started = useEditorStore.getState();
       const imported = await chooseAndImportAudio(activeProjectDir);
       if (!imported) return;
+      const editor = useEditorStore.getState();
+      if (editor.projectSessionId !== started.projectSessionId || editor.activeScenePath !== started.activeScenePath
+        || editor.selectedEntityId !== entity.entity_id) return;
+      const current = editor.activeScene?.entities.find((candidate) => candidate.entity_id === entity.entity_id);
+      if (!current) return;
       const action = sfxActionFromPath(imported.relative_path);
-      const audio = entity.components.audio ?? { sfx: {} };
+      const audio = current.components.audio ?? { sfx: {} };
       updateEntity(entity.entity_id, { components: { audio: { ...audio, sfx: { ...audio.sfx, [action]: imported.relative_path } } } });
       setEventSound(action);
       setMessage({
@@ -244,6 +266,7 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
 
   function selectAnimation(name: string) {
     setPlaying(false);
+    setPausedPreviewTick(null);
     setDurationDraft(null);
     setDurationPreview(null);
     durationDrag.current = null;
@@ -255,6 +278,7 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
 
   function selectOccurrence(occ: TimelineOccurrence) {
     setPlaying(false);
+    setPausedPreviewTick(null);
     setDurationDraft(null);
     setMessage(null);
     setSelectedBox(null);
@@ -263,7 +287,7 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
     setEventTick("0");
     const mark = def?.pose_alignment?.[occ.id]?.anchor;
     setAnchorDraft(mark ? { x: String(mark.x), y: String(mark.y) } : { x: "", y: "" });
-    refineStudioFocus({ entityId: entity.entity_id, animation: animationName, occurrenceId: occ.id });
+    refineStudioFocus({ entityId: entity.entity_id, animation: animationName, occurrenceId: occ.id, boxKey: null, eventId: null });
   }
 
   /** Aplica a nova animação no alcance mostrado, numa só entrada de desfazer. */
@@ -284,7 +308,7 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
     }
     commitHistoryCapture();
     setMessage({ tone: "info", text: description });
-    logMessage("info", `[Personagem] ${description} (${users.length} uso(s) do modelo).`);
+    logMessage("info", `[Personagem] ${description}${authored ? "" : ` (${users.length} uso(s) do modelo)`}`);
     return true;
   }
 
@@ -298,8 +322,8 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
 
   const total = totalTicks(def, tickRate);
   const playIndex = (() => {
-    if (!playing) return selected?.index ?? 0;
-    const time = playTick.current;
+    if (!playing && pausedPreviewTick === null) return selected?.index ?? 0;
+    const time = playing ? playTick.current : pausedPreviewTick ?? 0;
     const loopIndex = def.loop_start ?? 0;
     const loopAt = occurrences[loopIndex]?.startTick ?? 0;
     if (total && time >= total && !def.loop) return occurrences.length - 1;
@@ -314,7 +338,7 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
   const shown = occurrences[playIndex] ?? selected;
   const shownFrame: MugenAnimationFrame | undefined = def.mugen_frames?.[shown?.index ?? 0];
   const pivot = sprite.pivot ?? { x: 0, y: 0 };
-  const scale = 3;
+  const scale = previewZoom;
   const stage = { w: sprite.frame_width * scale + 160, h: sprite.frame_height * scale + 60 };
   const axis = authored ? { x: 80 + pivot.x * scale, y: 30 + pivot.y * scale } : { x: stage.w / 2, y: stage.h - 30 };
   const currentAnchor = anchorDraft.x.trim() && anchorDraft.y.trim()
@@ -332,6 +356,8 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
   };
   const previous = shown && shown.index > 0 ? occurrences[shown.index - 1] : null;
   const savedAnchor = authored && shown ? def.pose_alignment?.[shown.id]?.anchor : null;
+  const boxOrigin = authored && shown ? imageAt(shownFrame, shown) : { left: axis.x, top: axis.y };
+  const selectedBoxData = selected && selectedBox ? occurrenceBoxes(def, selected.id, selectedBox.kind)[selectedBox.index] : null;
   function commitTicks(occ: TimelineOccurrence, ticks: number) {
     if (ticks !== occ.ticks) {
       commit(setOccurrenceDuration(def!, occ.id, String(ticks), tickRate),
@@ -345,7 +371,7 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
       data-entity-id={entity.entity_id}
       data-animation={animationName}
       data-occurrence-id={selected?.id ?? ""}
-      className="grid h-full min-h-0 grid-cols-[minmax(150px,200px)_minmax(0,1fr)_minmax(200px,260px)] grid-rows-[minmax(0,1fr)_auto] gap-2 bg-[#0b1120] p-2 text-[11px] text-[#cbd5e1]"
+      className="grid h-full min-h-0 grid-cols-[clamp(108px,14vw,200px)_minmax(0,1fr)_clamp(184px,21vw,260px)] grid-rows-[minmax(0,1fr)_auto] gap-2 bg-[#0b1120] p-2 text-[11px] text-[#cbd5e1]"
     >
       <aside aria-label="Animações do personagem" className="row-span-2 min-h-0 overflow-y-auto rounded border border-[#27272a] p-2">
         <div className="mb-2 flex items-center justify-between">
@@ -364,7 +390,7 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
                 className={`w-full rounded px-2 py-1 text-left ${name === animationName ? "bg-[#312e81] text-white" : "hover:bg-[#1e293b]"}`}
               >
                 {name}
-                <span className="ml-1 text-[9px] text-[#94a3b8]">{anim.frames.length} oc.</span>
+                <span className="ml-1 text-[10px]">{anim.frames.length} oc.</span>
               </button>
             </li>
           ))}
@@ -377,8 +403,13 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
             type="button"
             data-testid="character-play"
             onClick={() => {
-              playTick.current = selected?.startTick ?? 0;
-              setPlaying((value) => !value);
+              if (playing) {
+                setPausedPreviewTick(playTick.current);
+              } else {
+                playTick.current = pausedPreviewTick !== null && (def.loop || total === null || pausedPreviewTick < total)
+                  ? pausedPreviewTick : selected?.startTick ?? 0;
+              }
+              setPlaying(!playing);
             }}
             className="rounded border border-[#334155] px-2 py-0.5"
           >
@@ -408,17 +439,24 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
               Repetir
             </label>
           ) : null}
+          <div className="flex items-center gap-1" role="group" aria-label="Zoom da prévia">
+            <button type="button" aria-label="Reduzir zoom da prévia" disabled={previewZoom <= 1}
+              onClick={() => setPreviewZoom((zoom) => zoom - 1)} className="min-h-6 min-w-6 rounded border border-[#45475a] disabled:opacity-45">−</button>
+            <span className="font-mono">{previewZoom}×</span>
+            <button type="button" aria-label="Ampliar zoom da prévia" disabled={previewZoom >= 12}
+              onClick={() => setPreviewZoom((zoom) => zoom + 1)} className="min-h-6 min-w-6 rounded border border-[#45475a] disabled:opacity-45">+</button>
+          </div>
           <span data-testid="character-total-ticks" className="ml-auto text-[#94a3b8]">
             {occurrences.length} ocorrências ·{" "}
             {total === null ? (authored ? "termina parada" : "termina parada (-1)") : `${total} ticks = ${(total / tickRate).toFixed(3).replace(".", ",")} s`} ·
             prévia aproximada; ROM é a referência
           </span>
         </div>
-        <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto">
+        <div className="flex min-h-0 flex-1 overflow-auto">
           <div
             data-testid="character-preview"
             data-shown-occurrence={shown?.id ?? ""}
-            className="relative bg-[repeating-conic-gradient(#1e293b_0_25%,#0f172a_0_50%)] [background-size:16px_16px]"
+            className="relative m-auto shrink-0 bg-[repeating-conic-gradient(#1e293b_0_25%,#0f172a_0_50%)] [background-size:16px_16px]"
             style={{ width: stage.w, height: stage.h }}
           >
             {onion && previous ? (
@@ -460,15 +498,15 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
                 style={{ left: imageAt(shownFrame, shown).left + (savedAnchor.x + 0.5) * scale,
                   top: imageAt(shownFrame, shown).top + (savedAnchor.y + 0.5) * scale }} />
             ) : null}
-            {(["clsn2", "clsn1"] as BoxKind[]).flatMap((kind) =>
-              ((shownFrame?.[kind] ?? []) as MugenCollisionBox[]).map((raw, i) => {
+            {shown ? (["clsn2", "clsn1"] as BoxKind[]).flatMap((kind) =>
+              occurrenceBoxes(def, shown.id, kind).map((raw, i) => {
                 const box = drag && drag.kind === kind && drag.index === i && !playing ? drag.preview : raw;
                 const r = boxRect(box);
                 if (!r) return null;
                 const attack = kind === "clsn1";
                 const isSelected = selectedBox?.kind === kind && selectedBox.index === i;
                 const editable = !playing && shown?.id === selected?.id;
-                const origin = shownFrame?.clsn_edited ? "editada" : "importada";
+                const origin = authored ? "desta ocorrência" : shownFrame?.clsn_edited ? "editada" : "importada";
                 return (
                   <div
                     key={`${kind}-${i}`}
@@ -478,9 +516,9 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
                     role="button"
                     tabIndex={editable ? 0 : -1}
                     aria-label={`${attack ? "Ataque" : "Corpo"} ${i + 1} (${origin})`}
-                    title={`${attack ? "Ataque (Clsn1)" : "Corpo (Clsn2)"}, ${origin}. Arraste para mover; canto para redimensionar; setas movem 1 px.`}
+                    title={`${attack ? "Ataque" : "Corpo"}, ${origin}. Arraste para mover. Use o canto para redimensionar ou as setas para mover 1 px.`}
                     className={`absolute border-2 ${attack ? "border-dashed border-[#f97316] bg-[#f97316]/15" : "border-[#3b82f6] bg-[#3b82f6]/10"} ${isSelected ? "outline outline-2 outline-white" : ""} ${editable ? "cursor-move" : ""}`}
-                    style={{ left: axis.x + r.x * scale, top: axis.y + r.y * scale, width: r.w * scale, height: r.h * scale }}
+                    style={{ left: boxOrigin.left + r.x * scale, top: boxOrigin.top + r.y * scale, width: r.w * scale, height: r.h * scale }}
                     onPointerDown={(event) => {
                       if (!editable || !selected) return;
                       event.preventDefault();
@@ -491,6 +529,13 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
                     }}
                     onKeyDown={(event) => {
                       if (!editable || !selected) return;
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedBox({ kind, index: i });
+                        refineStudioFocus({ boxKey: `${kind}:${i}` });
+                        requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-testid="character-box-fields"] input')?.focus());
+                        return;
+                      }
                       const step: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
                       const d = step[event.key];
                       if (!d) return;
@@ -508,7 +553,7 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
                   </div>
                 );
               })
-            )}
+            ) : null}
             <div aria-hidden="true" className="absolute h-2 w-2 -translate-x-1 -translate-y-1 rounded-full bg-white" style={{ left: axis.x, top: axis.y }} title="Eixo" />
             {!authored ? <ul className="absolute right-1 top-1 space-y-0.5 rounded bg-black/60 p-1 text-[9px] text-white">
               <li><span className="mr-1 inline-block h-2 w-2 border border-[#3b82f6]" />Corpo (Clsn2)</li>
@@ -545,6 +590,11 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
                 value={durationDraft ?? String(selected.ticks)}
                 onChange={(event) => setDurationDraft(event.target.value)}
                 onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    event.stopPropagation();
+                    setDurationDraft(null);
+                    setMessage(null);
+                  }
                   if (event.key === "Enter") (event.target as HTMLInputElement).blur();
                 }}
                 onBlur={() => {
@@ -575,7 +625,7 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
                 </button>
                 <button type="button" data-testid="character-align-poses" aria-expanded={aligning}
                   className="rounded border border-[#45475a] px-2 py-1"
-                  onClick={() => { setAligning(!aligning); setPlaying(false); }}>
+                  onClick={() => { setAligning(!aligning); setPlaying(false); setPausedPreviewTick(null); }}>
                   Alinhar poses
                 </button>
                 {aligning ? (
@@ -613,9 +663,9 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
                 ) : null}
               </div>
             ) : null}
-            {!authored ? <div data-testid="character-occurrence-boxes" className="space-y-1">
+            <div data-testid="character-occurrence-boxes" className="space-y-1">
               <p className="text-[10px] text-[#94a3b8]">
-                Caixas: {selected.bodyBoxes} corpo · {selected.attackBoxes} ataque ({def.mugen_frames?.[selected.index]?.clsn_edited ? "editadas no Studio" : "importadas"})
+                Caixas: {selected.bodyBoxes} corpo · {selected.attackBoxes} ataque ({authored ? "desta ocorrência" : def.mugen_frames?.[selected.index]?.clsn_edited ? "editadas no Studio" : "importadas"})
               </p>
               <div className="flex gap-1">
                 {(["clsn1", "clsn2"] as BoxKind[]).map((kind) => (
@@ -624,9 +674,15 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
                     type="button"
                     data-testid={`character-box-add-${kind}`}
                     onClick={() => {
-                      const result = addOccurrenceBox(def, selected.id, kind, kind === "clsn1" ? { x1: 10, y1: -60, x2: 40, y2: -40 } : { x1: -20, y1: -80, x2: 20, y2: 0 });
+                      const initial = authored ? {
+                        x1: kind === "clsn1" ? Math.floor(sprite.frame_width / 2) : 0, y1: 0,
+                        x2: sprite.frame_width, y2: sprite.frame_height,
+                      } : kind === "clsn1" ? { x1: 10, y1: -60, x2: 40, y2: -40 } : { x1: -20, y1: -80, x2: 20, y2: 0 };
+                      const result = addOccurrenceBox(def, selected.id, kind, initial);
                       if (commit(result, `caixa ${kind === "clsn1" ? "de ataque" : "de corpo"} adicionada`) && result.ok) {
-                        setSelectedBox({ kind, index: ((result.def.mugen_frames?.[selected.index]?.[kind] ?? []) as unknown[]).length - 1 });
+                        const index = occurrenceBoxes(result.def, selected.id, kind).length - 1;
+                        setSelectedBox({ kind, index });
+                        refineStudioFocus({ boxKey: `${kind}:${index}` });
                       }
                     }}
                     className="rounded border border-[#334155] px-1.5"
@@ -635,13 +691,13 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
                   </button>
                 ))}
               </div>
-              {selectedBox && def.mugen_frames?.[selected.index]?.[selectedBox.kind]?.[selectedBox.index] ? (
+              {selectedBox && selectedBoxData ? (
                 (() => {
-                  const box = def.mugen_frames![selected.index][selectedBox.kind]![selectedBox.index];
+                  const box = selectedBoxData;
                   return (
                     <div data-testid="character-box-fields" className="rounded border border-[#334155] p-1">
                       <p className="mb-0.5 text-[10px]">
-                        {selectedBox.kind === "clsn1" ? "Ataque" : "Corpo"} {selectedBox.index + 1} (px a partir do eixo; y negativo = acima do pé)
+                        {selectedBox.kind === "clsn1" ? "Ataque" : "Corpo"} {selectedBox.index + 1} ({authored ? "px a partir do canto da pose" : "px a partir do eixo"})
                       </p>
                       <div className="grid grid-cols-4 gap-1">
                         {(["x1", "y1", "x2", "y2"] as const).map((key) => (
@@ -675,7 +731,10 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
                         type="button"
                         data-testid="character-box-remove"
                         onClick={() => {
-                          if (commit(removeOccurrenceBox(def, selected.id, selectedBox.kind, selectedBox.index), "caixa removida")) setSelectedBox(null);
+                          if (commit(removeOccurrenceBox(def, selected.id, selectedBox.kind, selectedBox.index), "caixa removida")) {
+                            setSelectedBox(null);
+                            refineStudioFocus({ boxKey: null });
+                          }
                         }}
                         className="mt-1 rounded border border-[#f38ba8]/60 px-1.5 text-[#f38ba8]"
                       >
@@ -687,7 +746,7 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
               ) : (
                 <p className="text-[9px] text-[#94a3b8]">Clique numa caixa na prévia para editar.</p>
               )}
-            </div> : null}
+            </div>
             {!authored ? <div className="flex gap-1">
               <button
                 type="button"
@@ -712,7 +771,7 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
                 Mover ▸
               </button>
             </div> : null}
-            {!authored ? <div>
+            <div>
               <h3 className="mb-1 text-xs font-semibold text-[color:var(--rds-text-primary)]">Eventos (autorais)</h3>
               <ul className="space-y-1" data-testid="character-events">
                 {selected.events.map((event) => (
@@ -790,7 +849,7 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
                     data-testid="character-event-add"
                     onClick={() =>
                       commit(
-                        addSoundEvent(def, selected.id, Number(eventTick), eventSound),
+                        addSoundEvent(def, selected.id, eventTick.trim() ? Number(eventTick) : Number.NaN, eventSound, tickRate),
                         `som “${eventSound}” na ocorrência ${selected.index + 1}, tick ${eventTick}`
                       )
                     }
@@ -800,7 +859,7 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
                   </button>
                 </div>
               )}
-            </div> : null}
+            </div>
           </>
         ) : null}
         {message ? (

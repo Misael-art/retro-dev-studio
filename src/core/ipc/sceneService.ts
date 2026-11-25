@@ -79,7 +79,9 @@ export interface SpriteAnimationOnionSkin {
 export type SpriteAnimationHitboxKind = "attack" | "hurt" | "push" | "collision";
 
 export interface SpriteAnimationHitbox {
+  /** Image index used by Atlas. A pose-specific box also carries its occurrence. */
   frame: number;
+  occurrence_id?: string;
   kind: SpriteAnimationHitboxKind;
   x: number;
   y: number;

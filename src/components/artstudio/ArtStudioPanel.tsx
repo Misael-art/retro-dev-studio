@@ -384,6 +384,7 @@ function sanitizeArtStudioHitboxes(
     })
     .map((hitbox) => ({
       frame: Math.trunc(hitbox.frame),
+      ...(hitbox.occurrence_id ? { occurrence_id: hitbox.occurrence_id } : {}),
       kind: hitbox.kind,
       x: Math.trunc(hitbox.x),
       y: Math.trunc(hitbox.y),
@@ -472,7 +473,7 @@ export function buildArtStudioHitboxCMetadata(
     "} RdsHitboxKind;",
     `static const RdsHitbox RDS_${key}_HITBOXES[] = {`,
   ];
-  for (const hitbox of sanitizeArtStudioHitboxes(hitboxes, hitboxes.map((item) => item.frame))) {
+  for (const hitbox of sanitizeArtStudioHitboxes(hitboxes, hitboxes.map((item) => item.frame)).filter((item) => !item.occurrence_id)) {
     lines.push(
       `  { ${hitbox.frame}, RDS_HITBOX_${hitbox.kind.toUpperCase()}, ${hitbox.x}, ${hitbox.y}, ${hitbox.width}, ${hitbox.height} },`
     );
@@ -589,7 +590,7 @@ export function buildArtStudioPreviewOverlays(
   }
 
   const hitboxes = sanitizeArtStudioHitboxes(sequence.hitboxes, sequence.frames)
-    .filter((hitbox) => hitbox.frame === activeFrameIndex)
+    .filter((hitbox) => !hitbox.occurrence_id && hitbox.frame === activeFrameIndex)
     .map((hitbox) => ({
       ...hitbox,
       color: ARTSTUDIO_HITBOX_COLORS[hitbox.kind],
@@ -1322,7 +1323,7 @@ function artStudioReducer(state: ArtStudioState, action: ArtStudioAction): ArtSt
                 hitboxes: sanitizeArtStudioHitboxes(
                   [
                     ...(sequence.hitboxes ?? []).filter(
-                      (hitbox) => !(hitbox.frame === action.hitbox.frame && hitbox.kind === action.hitbox.kind)
+                      (hitbox) => hitbox.occurrence_id || hitbox.frame !== action.hitbox.frame || hitbox.kind !== action.hitbox.kind
                     ),
                     action.hitbox,
                   ],
@@ -1930,7 +1931,7 @@ function ArtStudioInspectorSection() {
           : "border-[#334155] bg-[#111827] text-[#94a3b8]";
   const activeFrame = activeSequence?.frames[0] ?? 0;
   const activeFrameDuration = activeSequence?.frameDurations?.[activeFrame] ?? 1;
-  const activeHitbox = activeSequence?.hitboxes?.find((hitbox) => hitbox.frame === activeFrame) ?? {
+  const activeHitbox = activeSequence?.hitboxes?.find((hitbox) => !hitbox.occurrence_id && hitbox.frame === activeFrame) ?? {
     frame: activeFrame,
     kind: "attack" as SpriteAnimationHitboxKind,
     x: 0,
