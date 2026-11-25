@@ -20,6 +20,8 @@ vi.mock("../../core/pixelEditor", async (importOriginal) => {
 import PixelEditor from "./PixelEditor";
 import { useEditorStore } from "../../core/store/editorStore";
 import { createPixelDoc, serializePixelDoc } from "../../core/pixelEditor";
+import { validateImageBinding } from "../../core/imageIngress";
+import type { Scene } from "../../core/ipc/sceneService";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -83,6 +85,29 @@ describe("PixelEditor", () => {
     expect(q("pixel-edit-context").textContent).toContain("Editando recurso compartilhado: library_image");
     expect(useEditorStore.getState().pixelEditorSessions["/proj"].doc.frames).toEqual(existing.frames);
     expect(saveMock).not.toHaveBeenCalled();
+  });
+  it("holds a linked atlas edit before writing files when an authored pose still uses its removed frame", async () => {
+    const original = createPixelDoc(16, 16, { name: "bound", frames: 2 });
+    const asset = "assets/sprites/pixel/bound.png";
+    const scene: Scene = {
+      scene_id: "room", background_layers: [], entities: [{
+        entity_id: "edited", transform: { x: 0, y: 0 }, components: { sprite: {
+          asset, frame_width: 16, frame_height: 16,
+          animations: { idle: { frames: [0, 1], fps: 12, loop: true, occurrence_ids: ["a", "b"] } },
+        } },
+      }],
+    };
+    const onSaved = vi.fn();
+    loadMock.mockResolvedValue(serializePixelDoc(original));
+    await act(async () => root.render(<PixelEditor projectDir="/proj"
+      source={{ url: "", sourcePath: `/proj/${asset}`, name: "bound", frameWidth: 16, frameHeight: 16, frames: [0, 1], autoOpen: true }}
+      log={vi.fn()} beforeSave={(doc, previous) => validateImageBinding(scene, "edited", doc, previous)} onSaved={onSaved} />));
+    act(() => q("pixel-frame-1").click());
+    act(() => q("pixel-frame-remove").click());
+    await act(async () => q("pixel-save").click());
+    expect(q("pixel-status").textContent).toContain("O quadro 2");
+    expect(saveMock).not.toHaveBeenCalled();
+    expect(onSaved).not.toHaveBeenCalled();
   });
   it("starts without motion ghosts, exposes one bank, and restores all frames after successive frame sizes", async () => {
     const gif = createPixelDoc(64, 56, { name: "moving", frames: 53 });

@@ -130,8 +130,50 @@ export async function publishImage(projectDir: string, prepared: PreparedImage, 
   return { entity, doc, assetPath: saved.png_relative, prepared };
 }
 
-export function applyImageEdits(scene: Scene, id: string, asset: string, doc: PixelDoc): Scene {
-  const animation = doc.target === "sprite" ? pixelDocAnimation(doc) : undefined;
+function imageAnimations(entity: Entity, doc: PixelDoc, previous?: PixelDoc) {
+  const animations = { ...entity.components.sprite?.animations };
+  const previousFrames = previous?.frames ?? doc.frames;
+  const nextIndices = new Map(doc.frames.map((frame, index) => [frame.id, index]));
+  const ambiguous = previous && (nextIndices.size !== doc.frames.length || new Set(previousFrames.map((frame) => frame.id)).size !== previousFrames.length);
+  for (const [name, definition] of Object.entries(animations)) {
+    if (name === "idle" && !isAuthoredIdle(definition)) continue;
+    if (ambiguous) throw new Error(`A animação «${name}» usa um atlas com identidades de quadros ambíguas.`);
+    const remap = (index: number) => {
+      const source = previousFrames[index];
+      const next = previous ? (source ? nextIndices.get(source.id) : undefined) : (source ? index : undefined);
+      if (next === undefined) throw new Error(`O quadro ${index + 1} é usado em «${name}». Restaure-o ou remapeie essa ocorrência antes de salvar.`);
+      return next;
+    };
+    const frames = definition.frames.map(remap);
+    const hitboxes = definition.hitboxes?.map((box) => {
+      const frame = remap(box.frame);
+      return frame === box.frame ? box : { ...box, frame };
+    });
+    if (frames.some((index, occurrence) => index !== definition.frames[occurrence])
+        || hitboxes?.some((box, index) => box !== definition.hitboxes?.[index])) {
+      animations[name] = { ...definition, frames, ...(hitboxes ? { hitboxes } : {}) };
+    }
+  }
+  const previousIdle = animations.idle;
+  if (previousIdle ? !isAuthoredIdle(previousIdle) : Object.keys(animations).length === 0) {
+    animations.idle = { ...pixelDocAnimation(doc), loop: previousIdle?.loop ?? true };
+  }
+  return animations;
+}
+
+function isAuthoredIdle(definition: AnimationDef) {
+  return Boolean(definition.occurrence_ids || definition.mugen_frames || definition.pose_alignment
+    || definition.pose_code_drafts || definition.frame_events || definition.hitboxes || definition.onion_skin
+    || definition.loop_start != null);
+}
+
+/** Checks linked, authored occurrences before the pixel writer changes any project file. */
+export function validateImageBinding(scene: Scene, id: string, doc: PixelDoc, previous?: PixelDoc): void {
+  const entity = scene.entities.find((item) => item.entity_id === id);
+  if (entity?.components.sprite) imageAnimations(entity, doc, previous);
+}
+
+export function applyImageEdits(scene: Scene, id: string, asset: string, doc: PixelDoc, previous?: PixelDoc): Scene {
   const oldEntity = scene.entities.find(e => e.entity_id === id);
   if (!oldEntity) return scene;
   const assetOf = (e: Entity) => e.components.sprite?.asset ?? e.components.tilemap?.tileset;
@@ -152,7 +194,7 @@ export function applyImageEdits(scene: Scene, id: string, asset: string, doc: Pi
       const mounted = tilemap && tilemap.cells?.every((cell,i) => cell === i + 1);
       return { ...entity, components: { ...entity.components,
         ...(sprite ? { sprite: { ...sprite, asset, frame_width: doc.width, frame_height: doc.height, meta_sprite: doc.width > 32 || doc.height > 32,
-          animations: { ...sprite.animations, idle: { ...animation!, loop: sprite.animations?.idle?.loop ?? true } } } } : {}),
+          animations: imageAnimations(entity, doc, previous) } } : {}),
         ...(tilemap ? { tilemap: { ...tilemap, tileset: asset, ...(mounted ? { map_width: doc.width / 8, map_height: doc.height / 8, cells: Array.from({length: doc.width * doc.height / 64}, (_,i) => i+1) } : {}) } } : {}),
       } };
     }),

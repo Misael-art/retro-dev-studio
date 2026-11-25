@@ -114,6 +114,7 @@ export interface PixelEditorSource {
   frames: number[];
   /** Open the canonical imported document; previous edits remain in Undo. */
   autoOpen?: boolean;
+  initialFrame?: number;
   originalPath?: string;
 }
 
@@ -121,7 +122,8 @@ interface PixelEditorProps {
   projectDir: string | null;
   source: PixelEditorSource | null;
   log: (level: "info" | "warn" | "error" | "success", message: string) => void;
-  onSaved: (pngAbsolute: string, doc?: PixelDoc) => void;
+  beforeSave?: (doc: PixelDoc, previous?: PixelDoc) => void;
+  onSaved: (pngAbsolute: string, doc?: PixelDoc, previous?: PixelDoc) => void | Promise<void>;
 }
 
 type Drag = {
@@ -174,7 +176,7 @@ export async function importFramesFromSheet(source: PixelEditorSource, line: num
   return { doc, warnings: result.warnings };
 }
 
-export default function PixelEditor({ projectDir, source, log, onSaved }: PixelEditorProps) {
+export default function PixelEditor({ projectDir, source, log, beforeSave, onSaved }: PixelEditorProps) {
   const projectKey = projectDir ?? "";
   const initial = useRef(useEditorStore.getState().pixelEditorSessions[projectKey]).current;
   const [doc, setDocState] = useState<PixelDoc>(() => initial?.doc ?? createPixelDoc(32, 32));
@@ -259,6 +261,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
   const layer = Math.min(layerIndex, doc.layers.length - 1);
 
   const docRef = useRef(doc);
+  const boundDocumentRef = useRef<{ source: string; doc: PixelDoc } | null>(null);
   docRef.current = doc;
   const commit = useCallback((next: PixelDoc) => {
     const current = docRef.current;
@@ -664,9 +667,12 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
         if (!stillCurrent()) return;
         if (json) {
           const opened = deserializePixelDoc(json);
+          if (source.autoOpen) boundDocumentRef.current = { source: autoSourceIdentity, doc: opened };
           if (serializePixelDoc(opened) !== serializePixelDoc(docRef.current)) {
-            commit(opened); setFrameIndex(0); setLayerIndex(0);
+            commit(opened);
+            setLayerIndex(0);
           }
+          setFrameIndex(Math.max(0, Math.min(source.initialFrame ?? 0, opened.frames.length - 1)));
           setSavedPath(`${pixelDoc[1]}.png`);
           setSavedSource(serializePixelDoc(opened));
           setStatus("Documento de pixel art reaberto com layers e frames.");
@@ -721,25 +727,40 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
       setStatus("Abra um projeto para salvar.");
       return;
     }
-    const snapshot = docRef.current;
-    const snapshotSource = serializePixelDoc(snapshot);
+    const previous = source?.autoOpen && boundDocumentRef.current?.source === autoSourceIdentity
+      ? boundDocumentRef.current.doc : undefined;
+    if (source?.autoOpen && beforeSave && !previous) {
+      setStatus("Recupere o documento vinculado antes de salvar.");
+      return;
+    }
     const stillCurrent = () => mounted.current && projectIdentityRef.current === projectDir && sourceIdentityRef.current === sourceIdentity;
     savingRef.current = true;
     setSaving(true);
     try {
+      let snapshot = docRef.current;
+      beforeSave?.(snapshot, previous);
+      const changedSheetLayout = previous && (snapshot.width !== previous.width || snapshot.height !== previous.height
+        || snapshot.frames.length !== previous.frames.length || snapshot.frames.some((frame, index) => frame.id !== previous.frames[index]?.id));
+      if (previous && changedSheetLayout && snapshot.name === previous.name) {
+        snapshot = copyPixelDoc(snapshot);
+        commit(snapshot);
+      }
+      const snapshotSource = serializePixelDoc(snapshot);
       const sheet = await exportSheetPng(snapshot);
       if (!stillCurrent()) return;
+      beforeSave?.(snapshot, previous);
       const saved = await savePixelArtAsset(projectDir, snapshot.name, sheet.png, snapshotSource);
       if (!stillCurrent()) return;
+      if (serializePixelDoc(docRef.current) === snapshotSource) {
+        if (previous) await onSaved(saved.png_absolute, snapshot, previous);
+        else await onSaved(saved.png_absolute, snapshot);
+        if (!stillCurrent()) return;
+        if (source?.autoOpen) boundDocumentRef.current = { source: autoSourceIdentity, doc: snapshot };
+        setStatus(null);
+      } else setStatus("A versão anterior foi salva. Há novas alterações de pixels pendentes.");
       setSavedPath(saved.png_relative);
       setSavedSource(snapshotSource);
       log("success", `[Editor de pixels] ${saved.png_relative} (${snapshot.frames.length} frame(s), PAL${sheet.line}, PNG 4-bit).`);
-      if (serializePixelDoc(docRef.current) === snapshotSource) {
-        // The revision-bound save-state line is the single save indicator.
-        // Tool errors (e.g. a rejected palette tile) keep their own feedback.
-        setStatus(null);
-        onSaved(saved.png_absolute, snapshot);
-      } else setStatus("A versão anterior foi salva. Há novas alterações de pixels pendentes.");
     } catch (error) {
       if (!mounted.current) return;
       setStatus(`Falha ao salvar: ${error instanceof Error ? error.message : String(error)}`);
@@ -870,7 +891,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
           <button type="button" onClick={() => void download()} className="rounded border border-[#313244] px-2 py-1 hover:bg-[#1f2937]" title="Folha horizontal, PNG indexado 4-bit">
             Baixar PNG
           </button>
-          {source?.autoOpen && <button type="button" data-testid="pixel-save-copy" disabled={saving || imagePreview !== null} onClick={() => { commit(copyPixelDoc(docRef.current)); void save(); }} className="rounded border border-[#313244] px-2 py-1 disabled:opacity-40" title="Cria outro recurso e aplica apenas à ocorrência selecionada">Salvar cópia</button>}
+          {source?.autoOpen && <button type="button" data-testid="pixel-save-copy" disabled={saving || imagePreview !== null} onClick={() => { commit(copyPixelDoc(docRef.current)); void save(); }} className="rounded border border-[#313244] px-2 py-1 disabled:opacity-40" title="Cria outro recurso para a instância selecionada">Salvar cópia</button>}
           <button
             type="button"
             data-testid="pixel-save"
@@ -884,7 +905,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
       </div>
       <p data-testid="pixel-save-state" role="status" className="px-1 text-[10px] text-[#a6adc8]">
         {imagePreview ? "Prévia não aplicada · use Aplicar ou Cancelar no painel da imagem antes de salvar." : isSaved ? `PNG e documento salvos: ${savedPath}.` : "Pixels pendentes · mantidos nesta sessão ao trocar de ferramenta. Salve antes de fechar o aplicativo."}
-        {" "}{source?.autoOpen ? "O mesmo nome atualiza o recurso compartilhado; outro nome ou Salvar cópia aplica apenas à ocorrência selecionada. Ctrl+Z recupera edições desta sessão." : sourceDocument ? "Salvar atualiza este documento no projeto; outros objetos podem usar o mesmo recurso. Renomeie para gravar outra cópia." : "Salvar grava este documento no projeto. A imagem de origem permanece preservada; aplique a cópia à cena quando desejar."}
+        {" "}{source?.autoOpen ? "Salvar recurso atualiza os usos compartilhados. Salvar cópia e alterações na estrutura do atlas usam outro recurso para esta instância. Ctrl+Z recupera edições desta sessão." : sourceDocument ? "Salvar atualiza este documento no projeto. Outros objetos podem usar o mesmo recurso. Renomeie para gravar outra cópia." : "Salvar grava este documento no projeto. A imagem de origem permanece preservada. Aplique a cópia à cena quando desejar."}
       </p>
 
       <nav aria-label="Tarefas de edição de imagem" className="flex shrink-0 flex-wrap gap-1 rounded-xl border border-[#313244] bg-[#111827] p-1 text-xs">
@@ -1010,10 +1031,10 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
             </div>
             <div className="flex flex-col justify-center gap-1 text-[10px]">
               <span className="flex gap-1">
-                <button type="button" onClick={() => { commit(moveFrame(doc, frame, frame - 1)); setFrameIndex(Math.max(0, frame - 1)); }} className="rounded border border-[#313244] px-1.5" title="Mover para a esquerda">◀</button>
-                <button type="button" onClick={() => { commit(moveFrame(doc, frame, frame + 1)); setFrameIndex(Math.min(doc.frames.length - 1, frame + 1)); }} className="rounded border border-[#313244] px-1.5" title="Mover para a direita">▶</button>
+                <button type="button" data-testid="pixel-frame-move-left" onClick={() => { commit(moveFrame(doc, frame, frame - 1)); setFrameIndex(Math.max(0, frame - 1)); }} className="rounded border border-[#313244] px-1.5" aria-label="Mover quadro para a esquerda">◀</button>
+                <button type="button" data-testid="pixel-frame-move-right" onClick={() => { commit(moveFrame(doc, frame, frame + 1)); setFrameIndex(Math.min(doc.frames.length - 1, frame + 1)); }} className="rounded border border-[#313244] px-1.5" aria-label="Mover quadro para a direita">▶</button>
               </span>
-              <button type="button" disabled={doc.frames.length <= 1} onClick={() => { commit(removeFrame(doc, frame)); setFrameIndex(Math.max(0, frame - 1)); }} className="rounded border border-[#f38ba8]/40 px-2 py-0.5 text-[#f38ba8] disabled:opacity-40">✕ Excluir</button>
+              <button type="button" data-testid="pixel-frame-remove" disabled={doc.frames.length <= 1} onClick={() => { commit(removeFrame(doc, frame)); setFrameIndex(Math.max(0, frame - 1)); }} className="rounded border border-[#f38ba8]/40 px-2 py-0.5 text-[#f38ba8] disabled:opacity-40">✕ Excluir</button>
             </div>
           </div>
         </div>

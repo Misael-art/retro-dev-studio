@@ -19,6 +19,7 @@ import {
   type TimelineResult,
 } from "../../core/characterTimeline";
 import { getEntityDisplayName } from "../../core/entityDisplay";
+import { resolveLinkedPixelAsset } from "../../core/entityAuthoring";
 import { useCodeFocusStore } from "../../core/codeFocusStore";
 import type { AnimationDef, Entity, MugenAnimationFrame, MugenCollisionBox, SpriteComponent, Transform } from "../../core/ipc/sceneService";
 import { describeTicks, isMugenAnimation } from "../../core/mugenAnimationTiming";
@@ -395,6 +396,11 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
             </li>
           ))}
         </ul>
+        {authored && selected && resolveLinkedPixelAsset(entity) ? <button
+          type="button" data-testid="character-open-pixels"
+          className="mt-2 rounded border border-[#45475a] px-2 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#89b4fa]"
+          onClick={() => openStudioEditor({ focus: { task: "pixels", entityId: entity.entity_id, animation: animationName, occurrenceId: selected.id } })}
+        >Editar pixels do atlas</button> : null}
       </aside>
 
       <section aria-label="Prévia do quadro" className="flex min-h-0 flex-col rounded border border-[#27272a]">

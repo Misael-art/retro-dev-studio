@@ -23,6 +23,14 @@ export function entityHasLogicWorkspace(entity: Entity | null | undefined): bool
   return Boolean(logic?.graph || logic?.graph_ref || resolveEntitySourceRefs(entity).length > 0);
 }
 
+export function resolveLinkedPixelAsset(entity: Entity | null | undefined): string | undefined {
+  const components = entity?.components;
+  if (!components?.logic?.logic_hints?.some((hint) => hint.startsWith("art_ingress:original=") || hint.startsWith("pixel_art:document="))) {
+    return undefined;
+  }
+  return components.sprite?.asset ?? components.tilemap?.tileset;
+}
+
 export function buildTilemapAuthoringBrush(entity: Entity | null | undefined): ActiveBrush | null {
   const tilemap = entity?.components.tilemap;
   if (!tilemap) {

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const invokeMock=vi.hoisted(()=>vi.fn());
 vi.mock("@tauri-apps/api/core",()=>({invoke:invokeMock}));
-import { applyImageEdits, captureClipboardImage, editableImageTarget, imageFileInput, imageTransferSources, insertImageEntity, MAX_IMAGE_BYTES, pixelDocAnimation, replaceImageBank, type ImageCandidate } from "./imageIngress";
+import { applyImageEdits, captureClipboardImage, editableImageTarget, imageFileInput, imageTransferSources, insertImageEntity, MAX_IMAGE_BYTES, pixelDocAnimation, replaceImageBank, validateImageBinding, type ImageCandidate } from "./imageIngress";
 import { createSpriteEntityFromAsset, createTilemapEntityFromAsset } from "./editorEntityFactory";
 import { createPixelDoc } from "./pixelEditor";
 import type { Scene } from "./ipc/sceneService";
@@ -51,6 +51,35 @@ describe("image ingress", () => {
     expect(shared.palettes![0].uses).toEqual([a.entity_id, b.entity_id]);
     const separate = { ...scene, palettes: [{ ...scene.palettes![0], uses: [a.entity_id] }] };
     expect(applyImageEdits(separate, a.entity_id, "copy.png", doc).palettes![0].colors[1]).toBe("#ff0000");
+  });
+  it("relinks an atlas copy by image identity and preserves authored data on each occurrence", () => {
+    const edited = sprite("edited"), control = sprite("control");
+    const original = createPixelDoc(16, 16, { frames: 3 });
+    const animation = {
+      frames: [0, 1, 2, 1], fps: 12, loop: false,
+      occurrence_ids: ["o1", "o2", "o3", "o4"], frame_durations: [5, 4, 7, 2],
+      pose_code_drafts: { o2: "duracao = 9" },
+      frame_events: [{ id: "sound", occurrence: "o2", kind: "sound" as const, tick: 2, sound: "passo" }],
+      hitboxes: [{ frame: 1, occurrence_id: "o2", kind: "attack" as const, x: 2, y: 3, width: 4, height: 5 }],
+    };
+    edited.components.sprite!.animations = { idle: animation };
+    edited.components.sprite!.pivot = { x: 8, y: 15 };
+    control.components.sprite!.asset = edited.components.sprite!.asset;
+    control.components.sprite!.animations = { idle: { ...animation, frame_durations: [5, 3, 7, 2] } };
+    const scene: Scene = { scene_id: "scene", entities: [edited, control], background_layers: [] };
+    const reordered = { ...original, frames: [original.frames[2], original.frames[0], original.frames[1]] };
+    const next = applyImageEdits(scene, edited.entity_id, "copy.png", reordered, original);
+    expect(next.entities[0].components.sprite).toMatchObject({
+      asset: "copy.png", pivot: { x: 8, y: 15 },
+      animations: { idle: { ...animation, frames: [1, 2, 0, 2], hitboxes: [{ ...animation.hitboxes[0], frame: 2 }] } },
+    });
+    expect(next.entities[1]).toEqual(control);
+    expect(scene.entities[0].components.sprite?.animations?.idle).toEqual(animation);
+    const missing = { ...original, frames: [original.frames[0], original.frames[2]] };
+    expect(() => validateImageBinding(scene, edited.entity_id, missing, original)).toThrow("O quadro 2");
+    edited.components.sprite!.animations = { passo: animation };
+    const linked = applyImageEdits(scene, edited.entity_id, "copy.png", reordered, original);
+    expect(Object.keys(linked.entities[0].components.sprite!.animations!)).toEqual(["passo"]);
   });
   it("preserves unequal animation delays and splits long holds without duplicating source frames", () => {
     const doc = createPixelDoc(16,16,{ frames: 3 });

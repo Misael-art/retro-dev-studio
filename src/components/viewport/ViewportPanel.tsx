@@ -565,7 +565,9 @@ export default function ViewportPanel({
   const [showCollisionOverlay, setShowCollisionOverlay] = useState(false);
   const [showCameraOverlay, setShowCameraOverlay] = useState(true);
   const [showEntityBounds, setShowEntityBounds] = useState(true);
-  const [showEntityLabels, setShowEntityLabels] = useState(true);
+  const [entityLabelPreference, setEntityLabelPreference] = useState<boolean | null>(null);
+  const showEntityLabels = entityLabelPreference ?? !compactTools;
+  const labelFocusedEntity = compactTools && entityLabelPreference === null;
   const [showStagingOverlay, setShowStagingOverlay] = useState(false);
   const [showViewportWarnings, setShowViewportWarnings] = useState(false);
   const [showSceneNavigator, setShowSceneNavigator] = useState(false);
@@ -3030,6 +3032,7 @@ export default function ViewportPanel({
       });
       const isDensePreview = focusTreatment === "preview" && !isSelected;
       const isSoloFocus = focusTreatment === "solo";
+      const showLabel = showEntityLabels || (labelFocusedEntity && (isSelected || isDensePreview || isSoloFocus));
       const color = entity.components?.tilemap
         ? "#94e2d5"
         : entity.components?.camera
@@ -3052,7 +3055,7 @@ export default function ViewportPanel({
         context.setLineDash([]);
         context.fillStyle = isSelected || isDensePreview ? "#f9e2af" : "rgba(249,226,175,0.8)";
         context.font = "10px monospace";
-        if (showEntityLabels) {
+        if (showLabel) {
           context.fillText(`CAM ${entityDisplayLabel(entity)}`.slice(0, 22), x + 6, y + 14);
         }
         context.restore();
@@ -3072,7 +3075,7 @@ export default function ViewportPanel({
         if (showEntityBounds || isSelected || isDensePreview || isSoloFocus) {
           context.strokeRect(x + 0.5, y + 0.5, width, height);
         }
-        if (showEntityLabels) {
+        if (showLabel) {
           context.fillStyle = "#94e2d5";
           context.font = "10px monospace";
           context.fillText(`TM ${entityDisplayLabel(entity)}`.slice(0, 22), x + 6, y + 14);
@@ -3094,10 +3097,10 @@ export default function ViewportPanel({
           entityId: entity.entity_id,
           x,
           y,
-          text: showEntityLabels ? entityDisplayLabel(entity) : "",
+          text: showLabel ? entityDisplayLabel(entity) : "",
           color: isSelected || isSoloFocus ? "#ffffff" : isDensePreview ? "#f9e2af" : color,
           priority: isSelected ? 2 : isSoloFocus || isDensePreview ? 1 : 0,
-          pill: showEntityLabels && posCtx.positionMode ? posCtx.positionMode : null,
+          pill: showLabel && posCtx.positionMode ? posCtx.positionMode : null,
         });
         if (isSelected) {
           context.save();
@@ -3125,7 +3128,7 @@ export default function ViewportPanel({
         entityId: entity.entity_id,
         x,
         y,
-        text: showEntityLabels ? entityDisplayLabel(entity) : "",
+        text: showLabel ? entityDisplayLabel(entity) : "",
         color: "#cdd6f4",
         priority: isSelected ? 2 : 0,
         pill: null,
@@ -3521,6 +3524,7 @@ export default function ViewportPanel({
     showCameraOverlay,
     showEntityBounds,
     showEntityLabels,
+    labelFocusedEntity,
     showGrid,
     showStagingOverlay,
     showSprites,
@@ -5391,7 +5395,7 @@ export default function ViewportPanel({
               {([
                 ["Cam", showCameraOverlay, setShowCameraOverlay, "Mostrar camera e janela MD"],
                 ["Bnd", showEntityBounds, setShowEntityBounds, "Mostrar bounds das entidades"],
-                ["Lbl", showEntityLabels, setShowEntityLabels, "Mostrar labels das entidades"],
+                ["Lbl", showEntityLabels, setEntityLabelPreference, "Mostrar todos os nomes das entidades"],
                 ["Stg", showStagingOverlay, setShowStagingOverlay, "Mostrar staging importado"],
                 ["Warn", showViewportWarnings, setShowViewportWarnings, "Mostrar avisos de autoria no viewport"],
                 ["Nav", showSceneNavigator, setShowSceneNavigator, "Mostrar navegador do mundo"],
@@ -5402,7 +5406,7 @@ export default function ViewportPanel({
                   key={label}
                   type="button"
                   data-testid={`viewport-toggle-${label.toLowerCase()}`}
-                  onClick={() => setter((current) => !current)}
+                  onClick={() => setter(!active)}
                   aria-pressed={active}
                   className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
                     active
@@ -6300,7 +6304,7 @@ export default function ViewportPanel({
 
         {activeViewportTab === "artstudio" && (
           <div className="h-full w-full">
-            {selectedEntity?.components.sprite && (showNativePoses ||
+            {studio.focus.task !== "pixels" && selectedEntity?.components.sprite && (showNativePoses ||
               Object.values(selectedEntity.components.sprite.animations ?? {}).some((animation) => Array.isArray(animation.mugen_frames))) ? (
               <Suspense fallback={<WorkspaceViewportFallback label="Carregando Personagem..." />}>
                 <CharacterTimelinePanel key={selectedEntity.entity_id} entity={selectedEntity} authored={showNativePoses} />

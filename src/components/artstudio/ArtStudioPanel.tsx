@@ -33,7 +33,7 @@ import { openCodeRef } from "../inspector/SpriteCodeLink";
 import AssetQualityPanel from "./AssetQualityPanel";
 import PixelEditor from "./PixelEditor";
 import { persistActiveScene } from "../../core/scenePersistence";
-import { applyImageEdits } from "../../core/imageIngress";
+import { applyImageEdits, validateImageBinding } from "../../core/imageIngress";
 import type {
   AnimationDef,
   SpriteAnimationHitbox,
@@ -52,7 +52,7 @@ import {
 import { constrainSpriteFrameSize } from "../../core/sceneConstraints";
 import { useSpriteAnimator } from "./useSpriteAnimator";
 import { getEntityDisplayName } from "../../core/entityDisplay";
-import { buildTilemapAuthoringBrush, resolvePrimaryAuthoringSurface } from "../../core/entityAuthoring";
+import { buildTilemapAuthoringBrush, resolveLinkedPixelAsset, resolvePrimaryAuthoringSurface } from "../../core/entityAuthoring";
 import { occurrenceDurations, occurrenceIds, setOccurrenceDuration } from "../../core/characterTimeline";
 
 const ARTSTUDIO_SUPPORTED_FORMATS_LABEL = "PNG, BMP, JPG/JPEG, GIF, WebP e PPM";
@@ -2752,6 +2752,7 @@ export default function ArtStudioPanel() {
     hwStatus,
     selectedEntityId,
     artStudioAssetPath,
+    studio,
     addEntity,
     updateEntity,
     setEditorMode,
@@ -2806,8 +2807,11 @@ export default function ArtStudioPanel() {
   const selectedEntity = activeScene?.entities.find((entity) => entity.entity_id === selectedEntityId);
   const selectedEntitySprite = selectedEntity?.components?.sprite;
   const sceneSpriteEntities = (activeScene?.entities ?? []).filter((entity) => entity.components.sprite);
-  const importedPixelPath = selectedEntity?.components.logic?.logic_hints?.some(h => h.startsWith("art_ingress:original=") || h.startsWith("pixel_art:document="))
-    ? selectedEntitySprite?.asset ?? selectedEntity?.components.tilemap?.tileset : undefined;
+  const importedPixelPath = resolveLinkedPixelAsset(selectedEntity);
+  const focusedPixelAnimation = studio.focus.task === "pixels" && studio.focus.entityId === selectedEntityId && studio.focus.animation
+    ? selectedEntitySprite?.animations?.[studio.focus.animation] : undefined;
+  const focusedImage = focusedPixelAnimation
+    ? focusedPixelAnimation.frames[occurrenceIds(focusedPixelAnimation).indexOf(studio.focus.occurrenceId ?? "")] : undefined;
   const imageOriginalRelative = selectedEntity?.components.logic?.logic_hints?.find(h=>h.startsWith("art_ingress:original="))?.slice("art_ingress:original=".length);
   useEffect(() => { if (importedPixelPath) setArtMode("pixel"); }, [importedPixelPath]);
   const canUpdateEntity = Boolean(selectedEntitySprite);
@@ -4392,6 +4396,7 @@ export default function ArtStudioPanel() {
                 url: "", sourcePath: `${activeProjectDir}/${importedPixelPath}`, name: importedPixelPath,
                 frameWidth: selectedEntitySprite?.frame_width ?? 8, frameHeight: selectedEntitySprite?.frame_height ?? 8,
                 frames: selectedEntitySprite?.animations?.idle?.frames ?? [0], autoOpen: true,
+                initialFrame: focusedImage,
                 originalPath: imageOriginalRelative && /^\.rds\/art-sources\/[a-f0-9]{64}\.[a-z0-9]+$/.test(imageOriginalRelative) ? `${activeProjectDir}/${imageOriginalRelative}` : undefined,
               } : state.spriteSheetUrl
                 ? gameSprite && state.spriteSourceAssetPath === gameSprite.asset
@@ -4415,14 +4420,31 @@ export default function ArtStudioPanel() {
                 : null
             }
             log={logMessage}
-            onSaved={(pngAbsolute, doc) => {
+            beforeSave={importedPixelPath && selectedEntityId ? (doc, previous) => {
+              const current = useEditorStore.getState();
+              if (!current.activeScene || current.activeProjectDir !== activeProjectDir || current.projectSessionId !== projectSessionId
+                  || current.activeScenePath !== activeScenePath || current.selectedEntityId !== selectedEntityId) {
+                throw new Error("A seleção mudou. Volte à instância para salvar a arte.");
+              }
+              validateImageBinding(current.activeScene, selectedEntityId, doc, previous);
+            } : undefined}
+            onSaved={async (pngAbsolute, doc, previous) => {
               if (importedPixelPath && doc && selectedEntityId && activeProjectDir) {
                 const s = useEditorStore.getState();
-                if (!s.activeScene || !s.activeSceneSource || s.activeProjectDir !== activeProjectDir || s.projectSessionId !== projectSessionId || s.activeScenePath !== activeScenePath || s.selectedEntityId !== selectedEntityId) return;
+                if (!s.activeScene || !s.activeSceneSource || s.activeProjectDir !== activeProjectDir || s.projectSessionId !== projectSessionId || s.activeScenePath !== activeScenePath || s.selectedEntityId !== selectedEntityId) {
+                  throw new Error("A arte foi gravada. Volte à instância para vinculá-la à cena.");
+                }
                 const prefix = `${normalizeFsPath(activeProjectDir).replace(/\/$/, "")}/`;
-                const asset = normalizeFsPath(pngAbsolute).slice(prefix.length);
-                s.replaceScenesWithHistory(applyImageEdits(s.activeScene,selectedEntityId,asset,doc),applyImageEdits(s.activeSceneSource,selectedEntityId,asset,doc));
-                void persistActiveScene(activeProjectDir,"Imagem");
+                const output = normalizeFsPath(pngAbsolute);
+                if (!output.startsWith(prefix)) throw new Error("O recurso gravado não pertence ao projeto aberto.");
+                const asset = output.slice(prefix.length);
+                s.replaceScenesWithHistory(
+                  applyImageEdits(s.activeScene, selectedEntityId, asset, doc, previous),
+                  applyImageEdits(s.activeSceneSource, selectedEntityId, asset, doc, previous),
+                );
+                if (!await persistActiveScene(activeProjectDir, "Imagem")) {
+                  throw new Error("A arte foi gravada. Salve a cena para confirmar o vínculo.");
+                }
               } else if (!importedPixelPath) void ingestSpriteSheet({ sourcePath: pngAbsolute });
             }}
           />
