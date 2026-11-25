@@ -3051,6 +3051,49 @@ async function sendNativeGameKey(sessionId, code, action, label) {
   return response;
 }
 
+async function selectOptionByTestIdNative(sessionId, testId, value) {
+  const target = await executeScript(sessionId, `
+    const select = document.querySelector('[data-testid="' + String(arguments[0]) + '"]');
+    if (!(select instanceof HTMLSelectElement)) return null;
+    select.scrollIntoView({ block: "center", inline: "center" });
+    select.focus();
+    const rect = select.getBoundingClientRect();
+    const x = Math.round(rect.left + rect.width / 2);
+    const y = Math.round(rect.top + rect.height / 2);
+    const hit = document.elementFromPoint(x, y);
+    return {
+      index: Array.from(select.options).findIndex((option) => option.value === String(arguments[1])),
+      current: select.value,
+      visible: rect.width > 0 && rect.height > 0,
+      unobstructed: Boolean(hit && (hit === select || select.contains(hit))),
+    };
+  `, [testId, value]);
+  if (!target?.visible || !target.unobstructed || target.index < 0) {
+    fail(`Seleção nativa indisponível: ${JSON.stringify({ testId, value, target })}`);
+  }
+  if (target.current !== value) {
+    const keys = [
+      { type: "keyDown", value: "\uE011" },
+      { type: "keyUp", value: "\uE011" },
+      ...Array.from({ length: target.index }, () => [
+        { type: "keyDown", value: "\uE015" },
+        { type: "keyUp", value: "\uE015" },
+      ]).flat(),
+      { type: "keyDown", value: "\uE007" },
+      { type: "keyUp", value: "\uE007" },
+    ];
+    await webdriverRequest("POST", `/session/${sessionId}/actions`, {
+      actions: [{ type: "key", id: `reference-select-${testId}`, actions: keys }],
+    });
+  }
+  await waitFor(
+    async () => (await executeScript(sessionId, `return document.querySelector('[data-testid="${testId}"]')?.value ?? null;`)) === value,
+    5000,
+    `Selecao ${testId}=${value} nao aplicada.`,
+    100
+  );
+}
+
 async function clickCanvasPointNatively(sessionId, selector, normalizedX, normalizedY, label, button = 0) {
   const point = await executeScript(
     sessionId,
@@ -12706,48 +12749,6 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   // NodeGraph "Passagens" panel with its own state and threshold 60, save, close, reopen,
   // build and measure on the core. Threshold 60 because the player only reaches the second
   // blocker around score ~41: a lower threshold would open before arrival and prove nothing.
-  const selectOptionByTestIdNative = async (testId, value) => {
-    const target = await executeScript(sessionId, `
-      const select = document.querySelector('[data-testid="' + String(arguments[0]) + '"]');
-      if (!(select instanceof HTMLSelectElement)) return null;
-      select.scrollIntoView({ block: "center", inline: "center" });
-      select.focus();
-      const rect = select.getBoundingClientRect();
-      const x = Math.round(rect.left + rect.width / 2);
-      const y = Math.round(rect.top + rect.height / 2);
-      const hit = document.elementFromPoint(x, y);
-      return {
-        index: Array.from(select.options).findIndex((option) => option.value === String(arguments[1])),
-        current: select.value,
-        visible: rect.width > 0 && rect.height > 0,
-        unobstructed: Boolean(hit && (hit === select || select.contains(hit))),
-      };
-    `, [testId, value]);
-    if (!target?.visible || !target.unobstructed || target.index < 0) {
-      fail(`Seleção nativa indisponível: ${JSON.stringify({ testId, value, target })}`);
-    }
-    if (target.current !== value) {
-      const keys = [
-        { type: "keyDown", value: "\uE011" },
-        { type: "keyUp", value: "\uE011" },
-        ...Array.from({ length: target.index }, () => [
-          { type: "keyDown", value: "\uE015" },
-          { type: "keyUp", value: "\uE015" },
-        ]).flat(),
-        { type: "keyDown", value: "\uE007" },
-        { type: "keyUp", value: "\uE007" },
-      ];
-      await webdriverRequest("POST", `/session/${sessionId}/actions`, {
-        actions: [{ type: "key", id: `reference-select-${testId}`, actions: keys }],
-      });
-    }
-    await waitFor(
-      async () => (await executeScript(sessionId, `return document.querySelector('[data-testid="${testId}"]')?.value ?? null;`)) === value,
-      5000,
-      `Selecao ${testId}=${value} nao aplicada.`,
-      100
-    );
-  };
   await clickByTestId(sessionId, "workspace-rail-scene");
   await clickByTestId(sessionId, "hierarchy-entity-passage_blocker");
   await waitFor(async () => (await readAutomationState(sessionId))?.selectedEntityId === "passage_blocker", 10000, "passage_blocker nao selecionado.", 200);
@@ -12861,7 +12862,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     await captureScreenshot(sessionId, `${artifactPrefix}-passage-panel-failure.png`);
     fail(`${error instanceof Error ? error.message : String(error)} diagnostics=${diagnosticPath}`);
   });
-  await selectOptionByTestIdNative("passage-add-blocker", "passage_blocker_2");
+  await selectOptionByTestIdNative(sessionId, "passage-add-blocker", "passage_blocker_2");
   await setInputByTestIdNative(sessionId, "passage-add-threshold", "60");
   await clickButtonByTestIdNative(sessionId, "passage-add", "adicionar passagem");
   await waitFor(async () => executeScript(sessionId, "return Boolean(document.querySelector('[data-testid=\"passage-passage_2\"]'));"), 10000, `Passagem nao adicionada: ${await executeScript(sessionId, "return document.querySelector('[data-testid=\"passage-add-error\"]')?.textContent ?? null;")}`, 200);
@@ -17142,11 +17143,7 @@ async function runCodeInstanceScope(sessionId, projectDir, appPath) {
   const read = (id, property) => executeScript(sessionId, `
     return document.querySelector('[data-testid="' + arguments[0] + '"]')?.[arguments[1]] ?? null;
   `, [id, property]);
-  const select = async (id, value) => {
-    const option = await findElement(sessionId, `[data-testid="${id}"] option[value="${value}"]`);
-    await clickElement(sessionId, option);
-    await waitFor(async () => (await read(id, "value")) === value, 5000, `Seleção ${id}=${value} não aplicada.`, 150);
-  };
+  const select = (id, value) => selectOptionByTestIdNative(sessionId, id, value);
   const graphRef = "graphs/scope-probe.json";
   const graphPath = path.join(projectDir, graphRef);
   const scenePath = path.join(projectDir, "scenes", "main.json");
