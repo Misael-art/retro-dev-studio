@@ -998,6 +998,8 @@ A suíte Windows de autoria passou em todos os seis grupos com a mesma fonte. Co
 
 O host Full retornou `READY`. O binário Linux de `5fed41856f71fae3b661672a69237e053a2f6bc2` tem SHA-256 `7b7b22ec838c66e0b6e3c83f8ba14488445759024ced0a59f290c1694829d8d2`. A janela Timeline abriu em branco na primeira tentativa. O Build & Run da sala de controle carregou a ROM `a5530dcf24cee74888f2c56d5e159f670d8830efeefb448c8496affd05f439c8` e a coleta de PCM interrompeu o cenário. Recibos e capturas em `sessions/validacao-autoria-avancada-Vsg1Z0Hu/`. A revisão `bdf85ac630edd8d3e7fe7b5021bb3968215bf6d8` usa uma página do aplicativo para as janelas. O driver usa o avanço de um quadro que publica o áudio do core. [Ensaio Windows da revisão](https://github.com/Misael-art/retro-dev-studio/actions/runs/45683278192)
 
+Na segunda tentativa com o primeiro binário, a mesma ROM de controle confirmou 17 ticks por ciclo na testemunha, PCM no quadro 7 a partir da entrada e 140 px após a sequência de direita. A Timeline gravou os dois pontos, a prévia exibiu a lanterna e a cena persistiu o vínculo com X=12. O formulário gravou a regra Areia. O gesto parou porque o rodapé do Canvas cobria a faixa no zoom herdado da edição de poses. O driver passou a reenquadrar a malha antes do gesto. Capturas e relatório identificados por `pose-cadence-2026-11-25T19-19-20-606Z` na pasta de validação. A etapa do som na nova fixture usa um contador incrementado, para conferir a pressão mantida e um segundo disparo.
+
 O gerador escreve a sala descartável e imprime o caminho de `project.rds`.
 
 ```bash

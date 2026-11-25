@@ -19155,6 +19155,7 @@ async function observeAdvancedAuthoringRom(sessionId, projectDir, build) {
   `), 5000, "O core não retornou PCM do quadro.", 50);
   const event = [];
   const ground = [];
+  const secondPress = [];
   try {
     await input({ y: true });
     for (let tick = 0; tick < 16; tick += 1) {
@@ -19163,9 +19164,20 @@ async function observeAdvancedAuthoringRom(sessionId, projectDir, build) {
       const colorAt = (x, y) => frame.framebuffer_rgba.slice(4 * (y * frame.framebuffer_width + x), 4 * (y * frame.framebuffer_width + x) + 3);
       event.push({ first: await ram("logic_var_marca_inicio", 4), sound: await ram("logic_var_marca_som", 4),
         runner: colorAt(30, 170), control: colorAt(10, 110), ...(await audio()) });
-      if (tick === 0) await input();
     }
+    await input();
     for (let tick = 0; tick < 10; tick += 1) {
+      await advance();
+      await audio();
+    }
+    await input({ y: true });
+    for (let tick = 0; tick < 9; tick += 1) {
+      await advance();
+      secondPress.push(await ram("logic_var_marca_som", 4));
+      await audio();
+    }
+    await input();
+    for (let tick = 0; tick < 20; tick += 1) {
       await advance();
       await audio();
     }
@@ -19186,7 +19198,7 @@ async function observeAdvancedAuthoringRom(sessionId, projectDir, build) {
         .then(() => { delete window.__RDS_ADVANCED_AUDIO__; done(true); }).catch(() => done(false));
     `);
   }
-  return { build, core, magenta, control: matchPoseCadence(control, [0, 1, 2, 1], [5, 3, 7, 2]), neutral, event, ground };
+  return { build, core, magenta, control: matchPoseCadence(control, [0, 1, 2, 1], [5, 3, 7, 2]), neutral, event, secondPress, ground };
 }
 
 async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, timeoutMs) {
@@ -19256,18 +19268,22 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
   await input("material-friction", "16");
   await selectOptionByTestIdNative(sessionId, "material-step-sound", "passo");
   await click("material-save-rule");
+  await clickElement(sessionId, await findElement(sessionId, 'button[title="Resetar vista (zoom + pan)"]'));
   const overlay = '[data-testid="viewport-scene-overlay"]';
-  const targets = await executeScript(sessionId, `
+  const cellCenters = () => executeScript(sessionId, `
     const c = document.querySelector(arguments[0]);
     return Array.from({ length: 8 }, (_, i) => [((i + 6) * 8 + 4 - Number(c.dataset.worldMinX)) / Number(c.dataset.worldWidth),
       (180 - Number(c.dataset.worldMinY)) / Number(c.dataset.worldHeight)]);
   `, [overlay]);
-  const moves = [];
-  for (const target of targets) {
-    const point = await nativeCanvasPoint(sessionId, overlay, ...target);
-    if (!point?.unobstructed) fail("A célula do pincel está obstruída: " + JSON.stringify(point));
-    moves.push({ type: "pointerMove", origin: "viewport", x: point.x, y: point.y, duration: 50 });
+  let targets, pointerSamples;
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    targets = await cellCenters();
+    pointerSamples = await Promise.all(targets.map((target) => nativeCanvasPoint(sessionId, overlay, ...target)));
+    if (pointerSamples.every(({ unobstructed }) => unobstructed)) break;
+    await click("viewport-zoom-out");
   }
+  if (!pointerSamples.every(({ unobstructed }) => unobstructed)) fail("A faixa do pincel está obstruída: " + JSON.stringify(pointerSamples));
+  const moves = pointerSamples.map(({ x, y }) => ({ type: "pointerMove", origin: "viewport", x, y, duration: 50 }));
   const beforeStroke = await state();
   await webdriverRequest("POST", "/session/" + sessionId + "/actions", { actions: [{
     type: "pointer", id: "material-pointer", parameters: { pointerType: "mouse" },
@@ -19325,7 +19341,7 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
   const present = edited.magenta.map(({ attached }) => attached);
   const spans = [baseline, edited].map((sample) => ({
     first: sample.event.findIndex(({ first }) => first === 1),
-    sound: sample.event.findIndex(({ sound }) => sound === 7),
+    sound: sample.event.findIndex(({ sound }) => sound === 1),
     pcm: sample.event.findIndex(({ rms }) => rms > 100),
   }));
   if (baseline.magenta.some(({ attached, parked }) => attached || !isDeepStrictEqual(parked, [272, 101, 64]))
@@ -19336,7 +19352,9 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
   addReportStep(report, "socket_pixels_matched_in_rom", "passed", { control: edited.control });
   if (baseline.neutral !== 0 || edited.neutral !== 0 || spans[0].first < 0 || spans[0].first !== spans[1].first
       || spans[0].sound - spans[0].first !== 2 || spans[1].sound - spans[1].first !== 4
-      || spans.some(({ pcm, sound }) => pcm < sound || pcm > sound + 8)) fail("O tempo do grafo ou a emissão do PCM ficou fora da janela: " + JSON.stringify(spans));
+      || spans.some(({ pcm, sound }) => pcm < sound || pcm > sound + 8)
+      || [baseline, edited].some((take, i) => take.event.at(-1).sound !== 1 || take.secondPress.findIndex((value) => value === 2) !== spans[i].sound
+        || take.secondPress.at(-1) !== 2)) fail("O tempo do grafo ou a emissão do PCM ficou fora da janela: " + JSON.stringify(spans));
   addReportStep(report, "trigger_relative_ticks_and_pcm_in_rom", "passed", { spans });
   if (withFlash) {
     const white = ([r, g, b]) => Math.min(r, g, b) > 220;

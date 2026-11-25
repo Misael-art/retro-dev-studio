@@ -381,13 +381,20 @@ async function writeAdvancedAuthoringProject(directory, withFlash) {
   await writeFile(path.join(directory, "assets/audio/passo.wav"), wav);
   actor.components.audio = { sfx: { passo: "assets/audio/passo.wav" } };
   const port = (id) => ({ id, label: id, kind: "exec" });
+  const value = (id) => ({ id, label: id, kind: "data", dataType: "int" });
   const node = (id, type, label, x, y, params = {}) => ({
     id, type, label, x, y, params,
-    inputs: type === "event_update" ? [] : [port("exec")],
-    outputs: type === "timeline_sequence" ? Array.from({ length: 4 }, (_, i) => port("slot_" + i))
-      : type.startsWith("input_") ? [port("true"), port("false")] : [port("exec")],
+    inputs: {
+      event_update: [], var_get: [], var_set: [port("exec"), value("value")], logic_math: [value("a"), value("b")],
+    }[type] ?? [port("exec")],
+    outputs: {
+      input_held: [port("true"), port("false")], input_pressed: [port("true"), port("false")],
+      timeline_sequence: Array.from({ length: 4 }, (_, i) => port("slot_" + i)),
+      var_get: [value("value")], logic_math: [value("value")],
+    }[type] ?? [port("exec")],
   });
-  const edge = (fromNode, toNode, fromPort = "exec") => ({ id: fromNode + "_" + toNode, fromNode, fromPort, toNode, toPort: "exec" });
+  const edge = (fromNode, toNode, fromPort = "exec", toPort = "exec") =>
+    ({ id: fromNode + "_" + toNode, fromNode, fromPort, toNode, toPort });
   actor.components.logic = { graph: JSON.stringify({
     version: 1,
     nodes: [
@@ -399,10 +406,13 @@ async function writeAdvancedAuthoringProject(directory, withFlash) {
       node("tempo", "timeline_sequence", "Resposta", 540, 270, { run_mode: "event", slot_0_delay: 2, slot_1_delay: 4, slot_2_delay: -1, slot_3_delay: -1 }),
       node("marca_inicio", "var_set", "Marca inicial", 850, 190, { var_name: "marca_inicio", value: 1 }),
       node("som", "action_sound", "Som", 850, 400, { sfx: "passo" }),
-      node("marca_som", "var_set", "Marca do som", 1090, 400, { var_name: "marca_som", value: 7 }),
+      node("marca_som", "var_set", "Contar o disparo", 1090, 400, { var_name: "marca_som", value: 0 }),
+      node("contagem", "var_get", "Ler contagem", 640, 570, { var_name: "marca_som" }),
+      node("incremento", "logic_math", "Somar um", 850, 570, { operator: "+", b: 1 }),
     ],
     edges: [edge("movimento", "direita"), edge("direita", "acelerar", "true"), edge("evento", "pressionar"), edge("pressionar", "tempo", "true"),
-      edge("tempo", "marca_inicio", "slot_0"), edge("tempo", "som", "slot_1"), edge("som", "marca_som")],
+      edge("tempo", "marca_inicio", "slot_0"), edge("tempo", "som", "slot_1"), edge("som", "marca_som"),
+      edge("contagem", "incremento", "value", "a"), edge("incremento", "marca_som", "value", "value")],
   }) };
   await writeFile(scenePath, JSON.stringify(scene, null, 2) + "\n");
   await writeFile(projectPath, JSON.stringify(project, null, 2) + "\n");
