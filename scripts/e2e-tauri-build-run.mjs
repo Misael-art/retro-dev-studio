@@ -18847,7 +18847,8 @@ async function verifyHudExtremes(sessionId, projectDir, report, prefix, timeoutM
   const preview = () => executeScript(sessionId, `
     const frame = document.querySelector('[data-testid="hud-preview-frame"]');
     return frame ? { text: frame.querySelector('span').textContent, position: frame.querySelector('span').getAttribute('style'),
-      color: getComputedStyle(frame).backgroundColor, scroll: getComputedStyle(frame).backgroundPositionX } : null;
+      color: getComputedStyle(frame).backgroundColor, scroll: getComputedStyle(frame).backgroundPositionX,
+      slider: document.querySelector('[data-testid="hud-preview-camera-x"]')?.valueAsNumber } : null;
   `);
   const prior = await state();
   const variants = [];
@@ -18865,12 +18866,20 @@ async function verifyHudExtremes(sessionId, projectDir, report, prefix, timeoutM
     5000, "O gesto não selecionou o fundo claro.", 100);
   const cameraSlider = '[data-testid="hud-preview-camera-x"]';
   await clickCanvasPointNatively(sessionId, cameraSlider, 0.95, 0.5, "Deslocar a câmera na prévia do HUD");
-  const light = await preview();
-  if (light?.text !== "HP 099" || light.position !== variants[0].position || light.color === variants[0].color
-      || light.scroll === variants[0].scroll) fail(`A prévia não isolou o texto da câmera e do fundo: ${JSON.stringify(light)}.`);
+  const light = await waitFor(async () => {
+    const current = await preview();
+    return current?.slider > 0 && current.scroll !== variants[0].scroll ? current : false;
+  }, 5000, "O deslocamento escolhido não chegou à prévia do HUD.", 100).catch(async (error) => {
+    report.hudPreviewDiagnostic = { initial: variants[0], observed: await preview() };
+    throw error;
+  });
+  if (light.text !== "HP 099" || light.position !== variants[0].position || light.color === variants[0].color) {
+    fail(`A prévia não isolou o texto da câmera e do fundo: ${JSON.stringify(light)}.`);
+  }
   await selectOptionByTestIdNative(sessionId, "hud-preview-text", "long", { confirm: false });
   await executeScript(sessionId, `document.querySelector('[data-testid="hud-preview-camera-x"]')?.focus();`);
   if (!(await preview())?.text.endsWith(" - 099")) fail("O texto longo não apareceu no ensaio.");
+  await executeScript(sessionId, `document.querySelector('[data-testid="hud-preview-frame"]')?.scrollIntoView({ block: "nearest" });`);
   addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-hud-previa.png`), "Texto longo e fundo claro com a câmera movida");
   await webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [{
     type: "key", id: "hud-preview-escape", actions: [{ type: "keyDown", value: "\uE00C" }, { type: "keyUp", value: "\uE00C" }],
