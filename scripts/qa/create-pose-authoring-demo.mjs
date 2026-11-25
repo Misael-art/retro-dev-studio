@@ -273,17 +273,30 @@ async function writeHudProject(directory) {
   const node = (id, type, params) => ({ id, type, label: id, x: 0, y: 0, params });
   const edge = (fromNode, fromPort, toNode) => ({ id: toNode, fromNode, fromPort, toNode, toPort: "exec" });
   const values = [1, 9, 99];
-  scene.entities.find(({ entity_id }) => entity_id === "raposa").components.logic = {
+  const attacker = scene.entities.find(({ entity_id }) => entity_id === "raposa");
+  const witness = scene.entities.find(({ entity_id }) => entity_id === "testemunha");
+  witness.transform.x = attacker.transform.x + 12;
+  for (const [actor, kind] of [[attacker, "attack"], [witness, "hurt"]]) {
+    const clip = actor.components.sprite.animations.passo;
+    clip.hitboxes = clip.frames.map((frame, index) => ({
+      frame, occurrence_id: clip.occurrence_ids[index], kind, x: 2, y: 1, width: 28, height: 24,
+    }));
+  }
+  attacker.components.logic = {
     graph: JSON.stringify({
       version: 1,
       nodes: [node("quadro", "event_update", {}), node("marcos", "timeline_sequence",
         { slot_0_delay: 90, slot_1_delay: 110, slot_2_delay: 130 }),
-        ...values.map((value) => node(`valor_${value}`, "var_set", { var_name: "contador", value }))],
-      edges: [edge("quadro", "exec", "marcos"), ...values.map((value, i) => edge("marcos", `slot_${i}`, `valor_${value}`))],
+        ...values.map((value) => node(`valor_${value}`, "var_set", { var_name: "contador", value })),
+        node("golpe", "authored_strike", { attacker: "raposa", target: "testemunha", health: 99, damage: 99 })],
+      edges: [edge("quadro", "exec", "marcos"), ...values.map((value, i) => edge("marcos", `slot_${i}`, `valor_${value}`)),
+        edge("valor_9", "exec", "golpe")],
     }),
   };
   scene.entities.push({ entity_id: "hud_vida", display_name: "Mostrador de teste", transform: { x: 0, y: 0 },
     components: { hud: { label: "VIDA ", column: 2, row: 25, digits: 3, value: { kind: "logic_var", source: "contador" } } } });
+  scene.entities.push({ entity_id: "hud_barra", display_name: "Barra de teste", transform: { x: 0, y: 0 },
+    components: { hud: { label: "HP ", column: 2, row: 26, digits: 3, bar_tiles: 8, value: { kind: "strike_hp", source: "golpe" } } } });
   await writeFile(scenePath, JSON.stringify(scene, null, 2) + "\n");
   await writeFile(projectPath, JSON.stringify(project, null, 2) + "\n");
   return projectPath;
