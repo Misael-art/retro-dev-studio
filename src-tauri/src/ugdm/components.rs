@@ -820,6 +820,8 @@ pub struct HudTextComponent {
     pub value: Option<HudValueBinding>,
     #[serde(default = "default_hud_digits")]
     pub digits: u8,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bar_tiles: Option<u8>,
 }
 
 /// Vinculo autoral do valor exibido: `strike_hp` (vida do alvo de um golpe autoral, `source` = id

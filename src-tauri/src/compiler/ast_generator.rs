@@ -142,6 +142,7 @@ pub enum AstNode {
         label: String,
         binding: Option<(String, String)>,
         digits: u8,
+        bar_tiles: Option<u8>,
     },
     GameLoopBegin,
     GameLoopEnd,
@@ -812,6 +813,7 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
                     .as_ref()
                     .map(|binding| (binding.kind.clone(), binding.source.clone())),
                 digits: hud.digits,
+                bar_tiles: hud.bar_tiles,
             });
         }
 

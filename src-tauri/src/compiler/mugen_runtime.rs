@@ -515,7 +515,7 @@ pub(crate) fn render_ticks(ast: &AstOutput, indent: usize) -> String {
 }
 
 /// `(id, atacante, alvo, dano, vida)` de cada golpe autoral, sem repeticao de id.
-fn collect_strikes(ast: &AstOutput) -> Vec<(String, String, String, u16, u16)> {
+pub(super) fn collect_strikes(ast: &AstOutput) -> Vec<(String, String, String, u16, u16)> {
     let mut out: Vec<(String, String, String, u16, u16)> = Vec::new();
     for script in &ast.logic_scripts {
         visit_ops(&script.ops, &mut |op| {

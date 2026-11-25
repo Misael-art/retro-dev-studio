@@ -1608,7 +1608,7 @@ export default function InspectorPanel() {
                 </div>
               </div>
             ) : null}
-            {entity.components.hud ? <HudTextInspector entity={entity} /> : null}
+            {entity.components.hud ? <HudTextInspector key={JSON.stringify([activeProjectDir, activeScenePath, entity.entity_id])} entity={entity} /> : null}
             {entity.components.camera ? <div className="p-3"><CameraConfigurator entityId={entity.entity_id} /></div> : null}
             {entity.components.sprite &&
             Object.values(entity.components.sprite.animations ?? {}).some((def) => isMugenAnimation(def)) ? (

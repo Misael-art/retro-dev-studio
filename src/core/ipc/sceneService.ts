@@ -349,6 +349,7 @@ export interface HudTextComponent {
   label: string;
   value?: { kind: "strike_hp" | "logic_var"; source: string } | null;
   digits?: number;
+  bar_tiles?: number;
 }
 
 export interface Entity {
