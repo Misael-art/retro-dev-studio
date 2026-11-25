@@ -19205,6 +19205,7 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
   };
   const build = async (label) => {
     const output = await runBuildRunAndCollect(sessionId, label, timeoutMs, report, prefix + "-" + label, { nativeClick: true });
+    report.advancedRoms = { ...report.advancedRoms, [label]: output };
     await click("viewport-pause");
     await waitFor(async () => (await state())?.emulPaused, 15000, "A ROM avançada não pausou.", 100);
     const samples = await observeAdvancedAuthoringRom(sessionId, projectDir, output);
@@ -19311,6 +19312,15 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
   addReportStep(report, "event_sequence_precision_same_graph", "passed");
 
   await click("workspace-rail-scene");
+  await clickTopBarMenuAction(sessionId, "Fechar");
+  await waitFor(async () => !(await state())?.activeProjectDir, 15000, "A sala avançada não fechou.", 100);
+  await openSavedProjectWizard(sessionId, projectDir);
+  await waitFor(async () => (await state())?.activeProjectDir === projectDir, 60000, "A sala avançada não reabriu.", 150);
+  const reopened = await scene();
+  if (!isDeepStrictEqual(reopened.collision_map, composed.collision_map)
+      || !isDeepStrictEqual(actor(reopened, "raposa"), actor(composed, "raposa"))
+      || !isDeepStrictEqual(actor(reopened, "Lanterna"), actor(composed, "Lanterna"))) fail("A reabertura perdeu a autoria salva.");
+  addReportStep(report, "advanced_room_reopened_with_saved_authoring", "passed");
   const edited = report.advancedEdited = await build("editada");
   const present = edited.magenta.map(({ attached }) => attached);
   const spans = [baseline, edited].map((sample) => ({

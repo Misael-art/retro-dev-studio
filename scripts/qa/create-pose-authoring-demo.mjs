@@ -351,6 +351,7 @@ async function writeAdvancedAuthoringProject(directory, withFlash) {
   const project = JSON.parse(await readFile(projectPath, "utf8"));
   const scenePath = path.join(directory, project.entry_scene);
   const scene = JSON.parse(await readFile(scenePath, "utf8"));
+  project.name = scene.display_name = "Porto das Lanternas — Autoria avançada";
   async function sprite(id, color, palette, x, y) {
     const asset = "assets/sprites/" + id + ".png";
     const colors = [[0, 0, 0], color, ...Array.from({ length: 14 }, () => [0, 0, 0])];
@@ -404,6 +405,7 @@ async function writeAdvancedAuthoringProject(directory, withFlash) {
       edge("tempo", "marca_inicio", "slot_0"), edge("tempo", "som", "slot_1"), edge("som", "marca_som")],
   }) };
   await writeFile(scenePath, JSON.stringify(scene, null, 2) + "\n");
+  await writeFile(projectPath, JSON.stringify(project, null, 2) + "\n");
   return projectPath;
 }
 
