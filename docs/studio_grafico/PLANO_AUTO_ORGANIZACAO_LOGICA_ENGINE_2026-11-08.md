@@ -2,6 +2,8 @@
 
 **Revisão de 24/11/2026.** A [seção 11](#workspace-modular) especifica a mesa de edição, avalia as 24 propostas de interface e define a primeira jornada de implementação, do quadro de animação à ROM.
 
+O [prompt para o agente implementador](../handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#prompt-entrega-integral-workspace) acrescenta as nove ferramentas de produção e reúne o escopo, a ordem de execução e as provas para entrega.
+
 **Status: diretriz de produto registrada; proposta técnica/visual para validação do operador, antes da implementação.** Pedidos de 2026-11-08. Foco atual de implementação: Mega Drive. Esta entrega contém avaliação, plano e mockups. Nenhuma capacidade abaixo foi implementada por esta tarefa, nenhum projeto de jogo foi reorganizado e nenhuma validação de runtime é inferida das imagens.
 
 ## 1. Objetivo e alcance
