@@ -11211,26 +11211,35 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   const compositionPointerId = "reference-composition-pointer";
   const dragComposition = async () => {
     const placement = () => executeScript(sessionId, `
-      const canvas=document.querySelector('[data-testid="viewport-scene-overlay"]');
-      const rect=canvas.getBoundingClientRect();
-      const state=window.__RDS_E2E__.getState();
-      const bounds=state.activeScene.worldBounds;
-      const player=state.activeScene.entities.find((entity)=>entity.id==='player');
-      const worldX=player.x+12, worldY=player.y+12;
-      const x=Math.round(rect.left+(worldX-bounds.minX)/bounds.width*rect.width);
-      const y=Math.round(rect.top+(worldY-bounds.minY)/bounds.height*rect.height);
-      const dx=Math.round(16/bounds.width*rect.width);
-      return {x, y, dx, start:document.elementFromPoint(x,y)===canvas, end:document.elementFromPoint(x+dx,y)===canvas,
-        zoom:state.viewportZoom, rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};
+      const canvas = document.querySelector('[data-testid="viewport-scene-overlay"]');
+      const stage = document.querySelector('[data-testid="viewport-scene-stage"]');
+      const rect = canvas.getBoundingClientRect();
+      const player = window.__RDS_E2E__.getState().activeScene.entities.find((entity) => entity.id === 'player');
+      const dx = Math.round(16 * rect.width / Number(canvas.dataset.worldWidth));
+      const describe = (element) => element?.closest('[data-testid]')?.dataset.testid ?? element?.tagName;
+      // Use an interior point on the Player that leaves room for the full horizontal gesture.
+      for (const oy of [12, 8, 4, 16]) {
+        const x = Math.round(rect.left + (player.x + 12 - Number(canvas.dataset.worldMinX)) * rect.width / Number(canvas.dataset.worldWidth));
+        const y = Math.round(rect.top + (player.y + oy - Number(canvas.dataset.worldMinY)) * rect.height / Number(canvas.dataset.worldHeight));
+        const start = document.elementFromPoint(x, y), end = document.elementFromPoint(x + dx, y);
+        if (start === canvas && end === canvas && dx > 0) return { x, y, dx, ready: true };
+        if (oy === 16) return { x, y, dx, ready: false, start: describe(start), end: describe(end),
+          canvas: rect.toJSON(), stage: stage.getBoundingClientRect().toJSON() };
+      }
     `);
     let point = await placement();
-    if (!point.start || !point.end) {
-      const reset = await findElement(sessionId, 'button[title="Resetar vista (zoom + pan)"]');
-      await clickElement(sessionId, reset);
-      point = await waitFor(async () => {
-        const current = await placement();
-        return current.start && current.end && current.dx > 0 ? current : false;
-      }, 10000, `O Player ficou fora da área de arraste após enquadrar a cena (${JSON.stringify(point)}).`, 100);
+    if (!point.ready) {
+      const focus = await findElement(sessionId, 'button[title="Centralizar entidade selecionada"]');
+      await clickElement(sessionId, focus);
+      try {
+        point = await waitFor(async () => {
+          point = await placement();
+          return point.ready ? point : false;
+        }, 5000, "O Player não ficou acessível após centralizar a seleção.", 100);
+      } catch {
+        await captureScreenshot(sessionId, `${artifactPrefix}-arraste-obstruido.png`);
+        fail(`O Player não ficou acessível após centralizar a seleção: ${JSON.stringify(point)}.`);
+      }
     }
     const result = await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, { actions: [{
       type: "pointer", id: compositionPointerId, parameters: { pointerType: "mouse" }, actions: [
@@ -17191,10 +17200,15 @@ async function editPoseThroughDesktop(initialSessionId, projectDir, app, report,
   addReportStep(report, "undo_and_redo_kept_occurrence", "passed");
 
   await click("character-open-duration-code");
-  await click("logic-view-nodes");
+  await waitFor(async () => (await focus())?.activeWorkspace === "logic"
+    && (await read("logic-view-code", "aria-selected")) === "true" && /\s=\s4;/.test(await readCode()),
+  10000, "Código não reabriu na ocorrência com 4 ticks.", 150);
+  const currentTab = await findElement(sessionId, '[data-testid="logic-view-code"]');
+  await webdriverRequest("POST", `/session/${sessionId}/element/${currentTab}/value`, { text: "\uE012", value: ["\uE012"] });
   const readTicks = (testId) => executeScript(sessionId,
     `return document.querySelector('[data-testid="' + arguments[0] + '"]')?.value;`, [testId]);
-  await waitFor(async () => (await readTicks("nodes-pose-duration")) === "4" && await focus(),
+  await waitFor(async () => (await read("logic-view-nodes", "aria-selected")) === "true"
+    && (await readTicks("nodes-pose-duration")) === "4" && await focus(),
     10000, "Nós não preservou o ator, a ocorrência e os 4 ticks.", 150);
   const beforeNodes = await state();
   await input("nodes-pose-duration", "5");

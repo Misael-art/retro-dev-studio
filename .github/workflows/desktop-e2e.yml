@@ -151,7 +151,7 @@ jobs:
 
       - name: Run Mega Drive desktop smoke
         id: smoke_md
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
         run: |
           npm run test:e2e:desktop:md -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -159,7 +159,7 @@ jobs:
 
       - name: Run reference gameplay passage E2E
         id: reference_goal
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
         run: |
           npm run test:e2e:desktop:reference-platformer -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -167,7 +167,7 @@ jobs:
 
       - name: Run SNES desktop smoke
         id: smoke_snes
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes') }}
         run: |
           npm run test:e2e:desktop:snes -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -175,7 +175,7 @@ jobs:
 
       - name: Run Mega Drive live overflow desktop E2E
         id: live_overflow_md
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
         run: |
           npm run test:e2e:desktop:live-overflow:md -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -183,7 +183,7 @@ jobs:
 
       - name: Run SNES live overflow desktop E2E
         id: live_overflow_snes
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes') }}
         run: |
           npm run test:e2e:desktop:live-overflow:snes -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -191,7 +191,7 @@ jobs:
 
       - name: Run Mega Drive live VRAM overflow desktop E2E
         id: live_vram_overflow_md
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
         run: |
           npm run test:e2e:desktop:live-overflow-vram:md -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -199,7 +199,7 @@ jobs:
 
       - name: Run SNES live VRAM overflow desktop E2E
         id: live_vram_overflow_snes
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes') }}
         run: |
           npm run test:e2e:desktop:live-overflow-vram:snes -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -207,7 +207,7 @@ jobs:
 
       - name: Run Mega Drive live VRAM warning desktop E2E
         id: live_vram_warning_md
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
         run: |
           npm run test:e2e:desktop:live-warning-vram:md -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -215,7 +215,7 @@ jobs:
 
       - name: Run SNES live VRAM warning desktop E2E
         id: live_vram_warning_snes
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes') }}
         run: |
           npm run test:e2e:desktop:live-warning-vram:snes -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -223,7 +223,7 @@ jobs:
 
       - name: Run Mega Drive live sprite warning desktop E2E
         id: live_sprite_warning_md
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
         run: |
           npm run test:e2e:desktop:live-warning-sprites:md -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -231,7 +231,7 @@ jobs:
 
       - name: Run SNES live sprite warning desktop E2E
         id: live_sprite_warning_snes
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes') }}
         run: |
           npm run test:e2e:desktop:live-warning-sprites:snes -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -239,7 +239,7 @@ jobs:
 
       - name: Run Mega Drive live healthy desktop E2E
         id: live_ok_md
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
         run: |
           npm run test:e2e:desktop:live-ok:md -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -247,7 +247,7 @@ jobs:
 
       - name: Run SNES live healthy desktop E2E
         id: live_ok_snes
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes') }}
         run: |
           npm run test:e2e:desktop:live-ok:snes -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -255,7 +255,7 @@ jobs:
 
       - name: Run Mega Drive live error desktop E2E
         id: live_error_md
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
         run: |
           npm run test:e2e:desktop:live-error:md -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -263,7 +263,7 @@ jobs:
 
       - name: Run SNES live error desktop E2E
         id: live_error_snes
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes') }}
         run: |
           npm run test:e2e:desktop:live-error:snes -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -271,7 +271,7 @@ jobs:
 
       - name: Run Mega Drive live stale desktop E2E
         id: live_stale_md
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
         run: |
           npm run test:e2e:desktop:live-stale:md -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -279,7 +279,7 @@ jobs:
 
       - name: Run SNES live stale desktop E2E
         id: live_stale_snes
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes') }}
         run: |
           npm run test:e2e:desktop:live-stale:snes -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -378,15 +378,28 @@ jobs:
         if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
         run: |
           $failedCases = @()
-          foreach ($proof in @('occlusion', 'occlusion-region')) {
+          foreach ($proof in @('occlusion', 'occlusion-region', 'occlusion-motion')) {
             $env:RDS_POSE_PROOF = $proof
-            $project = node scripts/qa/create-pose-authoring-demo.mjs --composition
+            $fixture = if ($proof -eq 'occlusion-motion') { '--composition-motion' } else { '--composition' }
+            $project = node scripts/qa/create-pose-authoring-demo.mjs $fixture
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
             if ($LASTEXITCODE -ne 0) { $failedCases += $proof }
           }
           if ($failedCases.Count) { throw ("Pillar pixel comparisons failed: " + ($failedCases -join ", ")) }
           Add-Content -Path $env:RDS_E2E_LEDGER -Value 'point_occlusion'
+
+      - name: Reorder a linked atlas and preserve both actors in the Mega Drive core
+        id: linked_atlas
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
+        env:
+          RDS_POSE_PROOF: linked-atlas
+        run: |
+          $project = node scripts/qa/create-pose-authoring-demo.mjs --linked-atlas
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'linked_atlas'
 
       - name: Report step outcomes before verification
         if: always()
@@ -450,6 +463,7 @@ jobs:
             "- Pose audio, hitboxes and playback in the core: ${{ steps.pose_tools.outcome }}",
             "- Authoring layouts and pending edits at both sizes: ${{ steps.workspace_layout.outcome }}",
             "- Pillar, aperture and control pixel comparison: ${{ steps.point_occlusion.outcome }}",
+            "- Linked atlas copy, reordering and control comparison: ${{ steps.linked_atlas.outcome }}",
             "- Smoke SNES: ${{ steps.smoke_snes.outcome }}",
             "- Live overflow MD: ${{ steps.live_overflow_md.outcome }}",
             "- Live overflow SNES: ${{ steps.live_overflow_snes.outcome }}",
