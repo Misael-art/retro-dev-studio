@@ -662,6 +662,14 @@ export function deserializeNodeGraph(serialized?: string | null): NodeGraph {
     }
 
     const nodeById = new Map(hydratedNodes.map((node) => [node.id, node]));
+    for (const edge of rawEdges) {
+      const source = nodeById.get(edge.fromNode);
+      if ((source?.type === "input_pressed" || source?.type === "input_held" || source?.type === "input_command")
+          && (edge.fromPort === "true" || edge.fromPort === "false")
+          && !source.outputs.some((port) => port.id === edge.fromPort)) {
+        source.outputs.push({ id: edge.fromPort, label: edge.fromPort === "true" ? "Sim" : "Não", kind: "exec" });
+      }
+    }
     const validEdges = rawEdges.filter((edge) => edgeConnectsValidPorts(edge, nodeById));
     const groups = (Array.isArray(parsed.groups) ? parsed.groups : [])
       .filter(isNodeGraphGroup)

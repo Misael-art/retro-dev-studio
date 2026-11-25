@@ -316,6 +316,22 @@ describe("NodeGraph serialization", () => {
     expect(hydrated.nodes[1].outputs.length).toBeGreaterThan(0);
   });
 
+  it("preserves authored input branches supported by the Mega Drive compiler", () => {
+    const edges = ["true", "false"].map((branch) => ({
+      id: branch, fromNode: "input", fromPort: branch, toNode: branch, toPort: "exec",
+    }));
+    const graph = deserializeNodeGraph(JSON.stringify({
+      nodes: [
+        { id: "input", type: "input_pressed" },
+        { id: "true", type: "action_sound" },
+        { id: "false", type: "var_set" },
+      ],
+      edges,
+    }));
+    expect(graph.edges).toEqual(edges);
+    expect(graph.nodes[0].outputs.map(({ id }) => id)).toEqual(["exec", "true", "false"]);
+  });
+
   it("SGDK import: portos parciais no JSON fundem-se com NODE_DEFS e arestas invalidas caem fora", () => {
     const serialized = JSON.stringify({
       version: 1,

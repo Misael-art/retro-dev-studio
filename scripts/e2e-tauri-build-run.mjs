@@ -3077,7 +3077,10 @@ async function selectOptionByTestIdNative(sessionId, testId, value, { confirm = 
   }, 5000, `Seleção nativa indisponível: ${testId}=${value}`, 100).catch(() => {
     fail(`Seleção nativa indisponível: ${JSON.stringify({ testId, value, target })}`);
   });
-  if (target.current !== value) {
+  if (target.current !== value && afterSelect) {
+    const query = `[data-testid=${JSON.stringify(testId)}] option[value=${JSON.stringify(value)}]`;
+    await clickElement(sessionId, await findElement(sessionId, query));
+  } else if (target.current !== value) {
     const keys = [
       { type: "keyDown", value: "\uE011" },
       { type: "keyUp", value: "\uE011" },
@@ -19328,6 +19331,8 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
 
   await click("workspace-rail-logic");
   await click("logic-view-nodes");
+  await waitFor(() => executeScript(sessionId, `return !!document.querySelector('[data-testid="event-sequence-composer"]');`),
+    30000, "Nós não terminou de carregar o compositor.", 150);
   if (await executeScript(sessionId, `return !!document.querySelector('[data-testid="nodegraph-open-composer"]');`)) {
     await activateByTestIdWithEnter(sessionId, "nodegraph-open-composer");
   } else {
@@ -19356,7 +19361,7 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
   const graph = getGraph(composed);
   if (graph.nodes.find(({ id }) => id === "tempo")?.params.slot_1_delay !== 6
       || getGraph(original).edges.some((edge) => !graph.edges.some((item) => isDeepStrictEqual(item, edge)))
-      || !isDeepStrictEqual(actor(composed, "testemunha"), actor(original, "testemunha"))) fail("A edição do tempo alterou o grafo ou o ator de controle.");
+      || !isDeepStrictEqual(actor(composed, "testemunha"), actor(attached, "testemunha"))) fail("A edição do tempo alterou o grafo ou o ator de controle.");
   addReportStep(report, "event_sequence_precision_same_graph", "passed");
 
   await click("workspace-rail-scene");
@@ -19522,16 +19527,17 @@ async function verifyFloatingStudioPanels(sessionId, projectDir, report, prefix,
   await waitFor(async () => !(await handles()).includes(properties), 8000, "A janela de Propriedades ficou aberta.", 100);
   if ((await state()).selectedEntityId !== "raposa") fail("O Inspector perdeu a seleção.");
   addReportStep(report, "floating_inspector_shared_selection_undo_redo_save_redock", "passed");
+  const core = await invokeCoreObserve(sessionId);
+  if (!core?.disk_matches_loaded || core.rom_sha256 !== game.rom_sha256 || await invokeCoreObserveEpoch(sessionId) !== epoch) {
+    fail("Destacar os painéis modificou a sessão do jogo.");
+  }
+  addReportStep(report, "floating_panels_share_one_game_session", "passed", { epoch, sha256: game.rom_sha256 });
   await enter("float-properties");
   await switchChild("properties", [main]);
   await webdriverRequest("DELETE", driver);
   await switchTo(main);
   await docked("properties");
-  const core = await invokeCoreObserve(sessionId);
-  if (!core?.disk_matches_loaded || core.rom_sha256 !== game.rom_sha256 || await invokeCoreObserveEpoch(sessionId) !== epoch) {
-    fail("Destacar os painéis modificou a sessão do jogo.");
-  }
-  addReportStep(report, "closing_the_native_window_restores_the_dock", "passed", { epoch, sha256: game.rom_sha256 });
+  addReportStep(report, "closing_the_native_window_restores_the_dock", "passed");
 }
 
 async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {

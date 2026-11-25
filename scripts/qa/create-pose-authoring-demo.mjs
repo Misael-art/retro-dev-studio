@@ -388,7 +388,6 @@ async function writeAdvancedAuthoringProject(directory, withFlash) {
       event_update: [], var_get: [], var_set: [port("exec"), value("value")], logic_math: [value("a"), value("b")],
     }[type] ?? [port("exec")],
     outputs: {
-      input_held: [port("true"), port("false")], input_pressed: [port("true"), port("false")],
       timeline_sequence: Array.from({ length: 4 }, (_, i) => port("slot_" + i)),
       var_get: [value("value")], logic_math: [value("value")],
     }[type] ?? [port("exec")],
@@ -410,7 +409,7 @@ async function writeAdvancedAuthoringProject(directory, withFlash) {
       node("contagem", "var_get", "Ler contagem", 640, 570, { var_name: "marca_som" }),
       node("incremento", "logic_math", "Somar um", 850, 570, { operator: "+", b: 1 }),
     ],
-    edges: [edge("movimento", "direita"), edge("direita", "acelerar", "true"), edge("evento", "pressionar"), edge("pressionar", "tempo", "true"),
+    edges: [edge("movimento", "direita"), edge("direita", "acelerar"), edge("evento", "pressionar"), edge("pressionar", "tempo"),
       edge("tempo", "marca_inicio", "slot_0"), edge("tempo", "som", "slot_1"), edge("som", "marca_som"),
       edge("contagem", "incremento", "value", "a"), edge("incremento", "marca_som", "value", "value")],
   }) };

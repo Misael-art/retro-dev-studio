@@ -4318,7 +4318,10 @@ export default function NodeGraphEditor() {
                 onAddAction={(sequence, slot, type) => {
                   if (!canEditGraphNode(sequence)) return;
                   const node = makeNode(type, sequence.x + 265, sequence.y + 170 * slot);
-                  if (type === "palette_swap") node.params = { ...node.params, trigger_mode: "flow", target: "self" };
+                  if (type === "palette_swap") {
+                    node.label = "Brilho por paleta";
+                    node.params = { ...node.params, trigger_mode: "flow", target: "self" };
+                  }
                   const port = "slot_" + slot;
                   node.id = sequence.id + "_" + port + "_" + Date.now().toString(36) + "_" + node.id;
                   setGraph((current) => {
