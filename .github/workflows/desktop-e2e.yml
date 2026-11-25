@@ -12,6 +12,7 @@ on:
           - all
           - megadrive
           - snes
+          - authoring
       upload_candidate:
         description: "Guardar o executável exato deste ensaio Windows e seu SHA-256"
         type: boolean
@@ -405,6 +406,67 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Add-Content -Path $env:RDS_E2E_LEDGER -Value 'linked_atlas'
 
+      - name: Compare indexed pose effects with control pixels in the Mega Drive core
+        id: indexed_effects
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'authoring' }}
+        run: |
+          $failedCases = @()
+          foreach ($camera in @('fixed','moving')) {
+            $fixture = @('--indexed-effects')
+            if ($camera -eq 'moving') { $fixture += '--moving-camera' }
+            $projects = @(node scripts/qa/create-pose-authoring-demo.mjs @fixture)
+            if ($LASTEXITCODE -ne 0 -or $projects.Count -ne 3) { throw "Expected three indexed effect fixtures with camera $camera" }
+            foreach ($project in $projects) {
+              $room = Split-Path -LiteralPath $project
+              $env:RDS_POSE_PROOF = 'effect-' + (Split-Path -Leaf $room)
+              node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project $room
+              if ($LASTEXITCODE -ne 0) { $failedCases += "$env:RDS_POSE_PROOF ($camera)" }
+            }
+          }
+          if ($failedCases.Count) { throw ('Indexed effect comparisons failed: ' + ($failedCases -join ', ')) }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'indexed_effects'
+
+      - name: Compare lighting and atlas replacement with unchanged consumers
+        id: palette_and_atlas
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'authoring' }}
+        run: |
+          $failedCases = @()
+          foreach ($proof in @('lighting','asset-replace')) {
+            $fixture = if ($proof -eq 'lighting') { '--linked-atlas' } else { '--atlas-replacement' }
+            $project = node scripts/qa/create-pose-authoring-demo.mjs $fixture
+            if ($LASTEXITCODE -ne 0) { throw "Missing fixture for $proof" }
+            $env:RDS_POSE_PROOF = $proof
+            node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+            if ($LASTEXITCODE -ne 0) { $failedCases += $proof }
+          }
+          if ($failedCases.Count) { throw ('Palette or atlas comparison failed: ' + ($failedCases -join ', ')) }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'palette_and_atlas'
+
+      - name: Verify terrain strokes and seam editing in the Mega Drive core
+        id: terrain_and_seam
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'authoring' }}
+        run: |
+          $failedCases = @()
+          foreach ($proof in @('terrain','seam')) {
+            $project = node scripts/qa/create-pose-authoring-demo.mjs --terrain
+            if ($LASTEXITCODE -ne 0) { throw "Missing fixture for $proof" }
+            $env:RDS_POSE_PROOF = $proof
+            node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+            if ($LASTEXITCODE -ne 0) { $failedCases += $proof }
+          }
+          if ($failedCases.Count) { throw ('Terrain or seam comparison failed: ' + ($failedCases -join ', ')) }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'terrain_and_seam'
+
+      - name: Compare paused jumps and the gravity edit in the Mega Drive core
+        id: motion_trace
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'authoring' }}
+        env:
+          RDS_REFERENCE_MOTION_TRACE: "1"
+        run: |
+          node scripts/e2e-tauri-build-run.mjs --skip-build --scenario reference-platformer
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'motion_trace'
+
       - name: Report step outcomes before verification
         if: always()
         shell: pwsh
@@ -466,6 +528,10 @@ jobs:
             "- Pose editing, reopening and ROM in both scenes: ${{ steps.pose_journey.outcome }}",
             "- Pose audio, hitboxes and playback in the core: ${{ steps.pose_tools.outcome }}",
             "- Authoring layouts and pending edits at both sizes: ${{ steps.workspace_layout.outcome }}",
+            "- Indexed effect pixels: ${{ steps.indexed_effects.outcome }}",
+            "- Palette and atlas consumers: ${{ steps.palette_and_atlas.outcome }}",
+            "- Terrain and seam edits: ${{ steps.terrain_and_seam.outcome }}",
+            "- Motion trace and gravity control: ${{ steps.motion_trace.outcome }}",
             "- Pillar, aperture and control pixel comparison: ${{ steps.point_occlusion.outcome }}",
             "- Linked atlas copy, reordering and control comparison: ${{ steps.linked_atlas.outcome }}",
             "- Smoke SNES: ${{ steps.smoke_snes.outcome }}",

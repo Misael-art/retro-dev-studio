@@ -1,7 +1,7 @@
 import { decodePpm } from "../../core/ppmImage";
 import { terrainFromBrush, TILEMAP_CELL_EMPTY } from "../../core/tilemapCells";
 import { persistActiveScene } from "../../core/scenePersistence";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useEditorStore } from "../../core/store/editorStore";
 import {
@@ -11,6 +11,7 @@ import {
 } from "../../core/ipc/toolsService";
 import { resolveProjectAssetPath } from "../../core/pathUtils";
 import type { ActiveBrush, EditorMode, TilePaintTool } from "../../core/store/editorStore";
+import TileSeamPreview from "./TileSeamPreview";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -152,7 +153,11 @@ export function TilePalette({
   const setActiveTilemapId = useEditorStore((s) => s.setActiveTilemapId);
   const activeTilemapId = useEditorStore((s) => s.activeTilemapId);
   const map = useEditorStore((s) => s.activeScene?.entities.find((item) => item.entity_id === tilemapEntityId)?.components.tilemap);
+  const scenePath = useEditorStore((s) => s.activeScenePath);
+  const target = useEditorStore((s) => s.activeTarget);
   const [terrainMessage, setTerrainMessage] = useState("");
+  const [showSeam, setShowSeam] = useState(false);
+  const paletteGrid = useRef<HTMLDivElement>(null);
 
   const url = useMemo(() => convertFileSrc(tilesetAbsolutePath), [tilesetAbsolutePath]);
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
@@ -403,9 +408,19 @@ export function TilePalette({
         {terrainMessage && <p role="status">{terrainMessage}</p>}
       </div>}
 
+      {target === "megadrive" && tileSize === 8 && map && <details data-testid="tile-seam-preview"
+        className="mt-2 rounded border border-[var(--rds-border-subtle)] p-2 text-[10px]"
+        onToggle={(event) => setShowSeam(event.currentTarget.open)}>
+        <summary className="cursor-pointer font-semibold">Prévia de emenda <span className="text-[var(--rds-text-secondary)]">Experimental</span></summary>
+        {showSeam && <TileSeamPreview key={JSON.stringify([projectDir, scenePath, tilemapEntityId, map.tileset, map.map_width, map.map_height])}
+          project={projectDir} entityId={tilemapEntityId} map={map} tileCount={grid ? grid.cols * grid.rows : 0}
+          onLocate={(index) => paletteGrid.current?.querySelector<HTMLButtonElement>(`[data-testid="tile-palette-${index}"]`)?.focus()} />}
+      </details>}
+
       {/* Tile grid */}
       {grid ? (
         <div
+          ref={paletteGrid}
           className="mt-2 grid gap-[1px] overflow-hidden rounded border border-[#313244] bg-[#11111b]"
           style={{ gridTemplateColumns: `repeat(${grid.cols}, 1fr)` }}
         >

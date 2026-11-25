@@ -11013,6 +11013,99 @@ async function runSnesGuidedAuthoringScenario(sessionId, timeoutMs, onProjectCre
   finally { await writeFile(path.join(validationDir, `${prefix}-report.json`), JSON.stringify(report, null, 2)); }
 }
 
+async function verifyReferenceMotionTrace(sessionId, projectDir, timeoutMs, report, prefix) {
+  const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  const state = () => readAutomationState(sessionId);
+  const core = (command, args) => invokeCoreObserveCommand(sessionId, command, args);
+  const openTrace = async () => {
+    const summary = '[data-testid="viewport-motion-trace"] > summary';
+    if (!await executeScript(sessionId, `return document.querySelector(arguments[0])?.parentElement.open;`, [summary])) {
+      await clickElement(sessionId, await findElement(sessionId, summary));
+    }
+  };
+  const trace = (slot) => executeScript(sessionId, `
+    const row = document.querySelector('[data-testid="motion-trace-' + arguments[0] + '"]');
+    return row ? { ...row.dataset, text: row.textContent } : null;
+  `, [slot]);
+  const pauseBuild = async (label) => {
+    const built = await runBuildRunAndCollect(sessionId, label, timeoutMs, report, `${prefix}-${label}`, { nativeClick: true });
+    await click("viewport-pause");
+    await waitFor(async () => (await state())?.emulPaused, 15000, "A fase de movimento não pausou.", 100);
+    const paused = await invokeCoreObserve(sessionId);
+    const initialFrame = 240;
+    if (paused.frames_run >= initialFrame || paused.rom_sha256 !== built.rom_sha256) fail("A ROM não parou antes do quadro inicial de controle.");
+    if (!(await core("emulator_run_frames", { frames: initialFrame - paused.frames_run }))?.ok) fail("O core não alcançou a condição inicial.");
+    await openTrace();
+    return built.rom_sha256;
+  };
+  const capture = async (slot, expectedRom) => {
+    const neutral = { b: false, y: false, select: false, start: false, up: false, down: false, left: false, right: false, a: false, x: false, l: false, r: false };
+    const epoch = await invokeCoreObserveEpoch(sessionId);
+    const setInput = async (y) => {
+      const ack = await core("emulator_send_input", { joypad: { ...neutral, y }, sessionEpoch: epoch });
+      if (!ack?.ok) fail("O core não aceitou a entrada controlada do salto.");
+    };
+    await setInput(false);
+    const origin = await invokeCoreObserve(sessionId);
+    if (!origin.ok || expectedRom !== origin.rom_sha256 || !origin.disk_matches_loaded) fail("O traço começou em outra ROM.");
+    await activateByTestIdWithEnter(sessionId, `motion-trace-start-${slot}`);
+    const points = [];
+    const readSample = (frame) => waitFor(async () => {
+      const sample = await trace(slot);
+      return Number(sample?.lastFrame) === frame ? sample : false;
+    }, 10000, `O traço não apresentou a amostra do quadro ${frame}.`, 40);
+    const first = await readSample(origin.frames_run);
+    points.push([Number(first.lastX), Number(first.lastY)]);
+    for (let i = 1; i <= 54; i += 1) {
+      if (i === 3 || i === 6) await setInput(i === 3);
+      await activateByTestIdWithEnter(sessionId, "viewport-step-frame");
+      const sample = await readSample(origin.frames_run + i);
+      if (i >= 3 && i <= 5 && !sample.text.includes("entrada y")) fail("O traço não exibiu a entrada consumida do salto.");
+      points.push([Number(sample.lastX), Number(sample.lastY)]);
+    }
+    await activateByTestIdWithEnter(sessionId, "motion-trace-stop");
+    const observed = await trace(slot);
+    const markers = [observed.takeoff, observed.apex, observed.landing].map((frame) => Number(frame) - origin.frames_run);
+    if (observed.startSha !== origin.framebuffer_sha256 || observed.missing !== "0" || observed.samples !== "55"
+        || !markers.every(Number.isFinite) || markers[0] >= markers[1] || markers[1] >= markers[2]
+        || points[markers[1]][1] >= points[0][1] - 3 || !isDeepStrictEqual(points[0], points.at(-1))) {
+      fail(`Marcas observadas do salto inválidas: ${JSON.stringify({ markers, observed, points })}`);
+    }
+    return { sha: observed.startSha, markers, points };
+  };
+
+  await setSessionWindowRect(sessionId, 1366, 768);
+  await click("workspace-project-tab-scene");
+  await click("hierarchy-select-player");
+  const baseRom = await pauseBuild("traco-base");
+  if (!(await core("emulator_save_state"))?.ok || !(await core("emulator_run_frames", { frames: 1 }))?.ok) fail("O estado inicial do salto não ficou disponível.");
+  const first = await capture("a", baseRom);
+  if (!(await core("emulator_load_state"))?.ok || !(await core("emulator_run_frames", { frames: 1 }))?.ok) fail("O core não restaurou a origem para a repetição.");
+  const repeated = await capture("b", baseRom);
+  if (!isDeepStrictEqual(first, repeated)) fail(`A mesma entrada desviou após restaurar o estado: ${JSON.stringify({ first, repeated })}`);
+  await click("workspace-rail-scene");
+  const gravity = '[data-testid="movement-input-physics:gravity"]';
+  const section = '[data-testid="inspector-section-physics"]';
+  if (!await executeScript(sessionId, `return !!document.querySelector(arguments[0]);`, [gravity])) {
+    await clickElement(sessionId, await findElement(sessionId, `${section} button`));
+  }
+  await fillInputBySelector(sessionId, gravity, "9");
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  const disk = JSON.parse(await readFile(path.join(projectDir, "scenes", "main.json"), "utf8"));
+  if (disk.entities.find(({ entity_id }) => entity_id === "player")?.components.physics.gravity_strength !== 9) {
+    fail("O ajuste numérico da gravidade não chegou à cena salva.");
+  }
+  const changedRom = await pauseBuild("traco-gravidade");
+  if (!(await core("emulator_run_frames", { frames: 1 }))?.ok) fail("A nova ROM não atingiu o quadro inicial.");
+  const changed = await capture("b", changedRom);
+  if (baseRom === changedRom || !isDeepStrictEqual(first.points[0], changed.points[0])
+      || changed.points.some(([x], i) => x !== first.points[i][0])
+      || changed.points[changed.markers[1]][1] <= first.points[first.markers[1]][1]
+      || changed.markers[2] >= first.markers[2]) fail(`A gravidade mudou o controle ou a curva inesperadamente: ${JSON.stringify({ first, changed })}`);
+  addReportStep(report, "motion_trace_core_replay_and_gravity_control", "passed", { baseRom, changedRom, first, repeated, changed });
+  addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-sobreposicao.png`), "Sobreposição dos dois saltos no jogo pausado");
+}
+
 async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCreated) {
   if (process.env.RDS_AUTHORING_TARGET === "snes") return runSnesGuidedAuthoringScenario(sessionId, timeoutMs, onProjectCreated);
   const artifactPrefix = `reference-platformer-${artifactTimestamp()}`;
@@ -11093,6 +11186,22 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     await captureScreenshot(sessionId, `${artifactPrefix}-02-editor.png`),
     "reference platformer editor"
   );
+
+  if (process.env.RDS_REFERENCE_MOTION_TRACE === "1") {
+    report.scenario = "motion-trace";
+    try {
+      await verifyReferenceMotionTrace(sessionId, createdState.activeProjectDir, timeoutMs, report, artifactPrefix);
+      report.status = "passed";
+    } catch (error) {
+      report.status = "failed";
+      report.error = String(error);
+      throw error;
+    } finally {
+      report.generatedAt = new Date().toISOString();
+      await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+    }
+    return;
+  }
 
   await clickByTestId(sessionId, "hierarchy-entity-player");
   await waitFor(
@@ -17902,16 +18011,19 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
       return result.data[0] | (result.data[1] << 8);
     };
     const initial = await readCamera();
-    const warmed = await invokeCoreObserveCommand(sessionId, "emulator_run_frames", { frames: 160 });
+    const paused = await invokeCoreObserve(sessionId);
+    const warmFrames = moving ? 180 - paused.frames_run : 160;
+    if (warmFrames <= 0) fail("A ROM de câmera pausou depois do ponto inicial de medição.");
+    const warmed = await invokeCoreObserveCommand(sessionId, "emulator_run_frames", { frames: warmFrames });
     if (!warmed?.ok) fail("O core não avançou para a sala do efeito.");
     const camera = await readCamera();
     if (moving && !(camera > initial && camera < 64)) fail(`Deslocamento da câmera não observado: ${initial} → ${camera}.`);
     const samples = await executeAsyncScript(sessionId, `
-      const rom = arguments[0], camera = arguments[1], done = arguments[arguments.length - 1];
+      const rom = arguments[0], cameraAddress = arguments[1], done = arguments[arguments.length - 1];
       const invoke = window.__TAURI__?.core?.invoke ?? window.__TAURI_INTERNALS__?.invoke;
       (async () => {
         const samples = [];
-        const crop = (rgba, left) => {
+        const crop = (rgba, left, camera) => {
           const bytes = [];
           for (let y = 144; y < 160; y++) {
             const start = (y * 320 + left - camera) * 4;
@@ -17925,12 +18037,20 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
           if (!advance?.ok || !frame?.ok || !frame.disk_matches_loaded || frame.rom_sha256 !== rom
               || frame.framebuffer_width !== 320 || frame.framebuffer_height !== 224
               || samples.length && samples.at(-1).frame + 1 !== frame.frames_run) throw Error('Amostra do efeito não consecutiva ou identidade divergente.');
-          samples.push({ frame: frame.frames_run, target: crop(frame.framebuffer_rgba, 64), witness: crop(frame.framebuffer_rgba, 208) });
+          let camera = 0;
+          if (cameraAddress !== null) {
+            const memory = await invoke('emulator_read_memory', { region: 2, offset: cameraAddress, length: 2 });
+            if (!memory?.ok || memory.data?.length !== 2) throw Error('A posição da câmera não foi lida no quadro do efeito.');
+            camera = memory.data[0] | (memory.data[1] << 8);
+            if (camera >= 64 || (samples.length && camera < samples.at(-1).camera)) throw Error('O recorte avançou para fora do movimento previsto.');
+          }
+          samples.push({ frame: frame.frames_run, camera, target: crop(frame.framebuffer_rgba, 64, camera), witness: crop(frame.framebuffer_rgba, 208, camera) });
         }
         return samples;
       })().then(done, (error) => done({error: String(error)}));
-    `, [built.rom_sha256, camera]);
-    if (!Array.isArray(samples) || samples.length !== 40 || await readCamera() !== camera) fail(`Amostra indisponível para o efeito: ${JSON.stringify(samples?.error)}`);
+    `, [built.rom_sha256, moving ? link.camera.x & 0xffff : null]);
+    if (!Array.isArray(samples) || samples.length !== 40 || await readCamera() !== samples.at(-1).camera
+        || (moving && samples.at(-1).camera <= camera)) fail(`Amostra indisponível para o efeito: ${JSON.stringify(samples?.error)}`);
     const cycle = (name, period) => {
       const values = samples.map((sample) => sample[name]);
       if (values.slice(period).some((value, index) => value !== values[index])) fail(`Amostras fora do ciclo de ${period} quadros em ${name}.`);
@@ -17947,7 +18067,7 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
       return runs.map(({ value, length }) => [length, Buffer.from(value, "base64")]).sort(([a], [b]) => a - b);
     };
     return { rom: built.rom_sha256, core: await collectCoreIdentity(await invokeCoreObserve(sessionId)),
-      camera, initial, target: cycle("target", 18), witness: cycle("witness", 17) };
+      camera, initial, cameraPath: samples.map((sample) => sample.camera), target: cycle("target", 18), witness: cycle("witness", 17) };
   };
 
   await setSessionWindowRect(sessionId, 1366, 768);
@@ -18103,7 +18223,7 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
     if (!now.equals(wanted)) fail(`Pixel (${x},${y}) da ROM tem ${now.toString("hex")}, esperado ${wanted.toString("hex")}.`);
     if (!now.equals(rgba(original, i))) delta.push([x, y]);
   }
-  if (baseline.rom === edited.rom || baseline.camera !== edited.camera || delta.length !== 32
+  if (baseline.rom === edited.rom || baseline.camera !== edited.camera || !isDeepStrictEqual(baseline.cameraPath, edited.cameraPath) || delta.length !== 32
     || !isDeepStrictEqual(baseline.witness, edited.witness)
     || [2, 4, 7].some((key) => !baseTarget.get(key).equals(editedTarget.get(key)))) {
     fail(`A comparação do efeito alterou o controle, o ciclo ou a câmera (${delta.length} pixels).`);
@@ -18116,14 +18236,15 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
   addReportStep(report, "indexed_effect_and_control_in_core", "passed", { baseline: describe(baseline), edited: describe(edited), delta });
 }
 
-async function verifyTerrainAuthoring(sessionId, projectDir, report, prefix, timeoutMs) {
+async function verifyTerrainAuthoring(sessionId, projectDir, report, prefix, timeoutMs, seam = false) {
   const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
   const state = () => readAutomationState(sessionId);
-  const getCells = async () => {
+  const getMap = async () => {
     const scene = JSON.parse(await readFile(path.join(projectDir, "scenes", "main.json"), "utf8"));
-    return scene.entities.find((item) => item.entity_id === "terreno")?.components.tilemap?.cells;
+    return scene.entities.find((item) => item.entity_id === "terreno")?.components.tilemap;
   };
-  const samplePoints = [[95, 51], [96, 51], [99, 48], [99, 47]];
+  const getCells = async () => (await getMap())?.cells;
+  const samplePoints = seam ? [[96, 51], [99, 55], [95, 51], [99, 56]] : [[95, 51], [96, 51], [99, 48], [99, 47]];
   const controlPoint = [108, 52];
   const capture = async (name) => {
     const built = await runBuildRunAndCollect(sessionId, name, timeoutMs, report, `${prefix}-${name}`, { nativeClick: true });
@@ -18152,6 +18273,56 @@ async function verifyTerrainAuthoring(sessionId, projectDir, report, prefix, tim
   const opened = await executeScript(sessionId,
     `return document.querySelector('[data-testid="viewport-tile-flow-toggle"]')?.getAttribute('aria-expanded');`);
   if (opened === "false") await click("viewport-tile-flow-toggle");
+  if (seam) {
+    const summary = '[data-testid="tile-seam-preview"] > summary';
+    await clickElement(sessionId, await findElement(sessionId, summary));
+    const form = '[data-testid="tile-seam-area"]';
+    for (const [name, value] of Object.entries({ x: 11, y: 5, width: 2, height: 2 })) {
+      await fillInputBySelector(sessionId, `${form} [name="${name}"]`, String(value));
+    }
+    await activateByTestIdWithEnter(sessionId, "tile-seam-repeat");
+    const canvas = '[data-testid="tile-seam-canvas"]';
+    const readCopies = () => executeScript(sessionId, `
+      const canvas = document.querySelector(arguments[0]);
+      if (canvas.width !== 48 || canvas.height !== 48) return null;
+      const context = canvas.getContext('2d');
+      return Array.from({length: 9}, (_, i) => Array.from(context.getImageData(11 + (i % 3) * 16, 11 + Math.floor(i / 3) * 16, 1, 1).data));
+    `, [canvas]);
+    const before = await waitFor(readCopies, 10000, "O trecho de 2 × 2 não foi repetido.", 100);
+    await clickCanvasPointNatively(sessionId, canvas, 47 / 48, 47 / 48, "Abrir o canto da emenda");
+    await waitFor(() => executeScript(sessionId, `
+      const origin = document.querySelector('[data-testid="tile-seam-source"]');
+      return origin?.dataset.col === '12' && origin.dataset.row === '6'
+        && origin.textContent.includes('direita e inferior');
+    `), 10000, "A emenda não abriu o tile e as duas bordas de origem.", 100);
+    await fillInputBySelector(sessionId, '[data-testid="tile-seam-source"] [name="tile"]', "16");
+    await activateByTestIdWithEnter(sessionId, "tile-seam-apply");
+    const after = await waitFor(async () => {
+      const copies = await readCopies();
+      return copies?.every((pixel) => pixel[1] > 100 && pixel[3] === 255 && isDeepStrictEqual(pixel, copies[0])) ? copies : false;
+    }, 10000, "As nove cópias não acompanharam a mesma correção da célula.", 100);
+    if (isDeepStrictEqual(before, after)) fail("Nenhuma célula visível mudou na prévia da emenda.");
+    const expected = [...initial];
+    expected[6 * 40 + 12] = 16;
+    await waitFor(async () => isDeepStrictEqual(await getCells(), expected), 10000, "A correção da emenda não foi salva.", 100);
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-emenda.png`), "Nove repetições da mesma célula");
+    await clickTopBarMenuAction(sessionId, "Desfazer");
+    await clickTopBarMenuAction(sessionId, "Salvar");
+    await waitFor(async () => isDeepStrictEqual(await getCells(), initial), 10000, "Desfazer não recuperou a borda inicial.", 100);
+    await clickTopBarMenuAction(sessionId, "Refazer");
+    await clickTopBarMenuAction(sessionId, "Salvar");
+    await waitFor(async () => isDeepStrictEqual(await getCells(), expected), 10000, "Refazer não recuperou a borda editada.", 100);
+    const { map_width: width, map_height: height } = await getMap();
+    if (width !== 40 || height !== 28) fail("A ampliação da prévia escreveu outra dimensão no mapa.");
+    const edited = await capture("emenda-publicada");
+    if (baseline.rom === edited.rom || baseline.controlSha !== edited.controlSha
+        || edited.markers.slice(0, 2).some((pixel, index) => isDeepStrictEqual(pixel, baseline.markers[index]))
+        || !isDeepStrictEqual(edited.markers.slice(2), baseline.markers.slice(2))) {
+      fail(`A correção no core divergiu do limite da emenda: ${JSON.stringify({ baseline, edited })}`);
+    }
+    addReportStep(report, "seam_repetition_origin_and_core_control", "passed", { before, after, baseline, edited, samplePoints, width, height });
+    return;
+  }
   await click("tile-palette-1");
   await click("tile-tool-terrain");
   await click("viewport-tile-flow-toggle");
@@ -18305,7 +18476,7 @@ async function verifyLightingVariant(sessionId, projectDir, report, prefix, time
 async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
   const revision = process.env.RDS_POSE_PROOF || "baseline";
   const occlusionModes = ["occlusion", "occlusion-region", "occlusion-motion"];
-  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace", "linked-atlas", "asset-replace", "terrain", "lighting", ...occlusionModes, ...indexedEffectModes].includes(revision)) {
+  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace", "linked-atlas", "asset-replace", "terrain", "seam", "lighting", ...occlusionModes, ...indexedEffectModes].includes(revision)) {
     fail(`RDS_POSE_PROOF desconhecido: ${revision}.`);
   }
   const prefix = `pose-cadence-${artifactTimestamp()}`;
@@ -18331,11 +18502,11 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
       report.status = "passed";
       return;
     }
-    if (revision === "terrain") {
+    if (revision === "terrain" || revision === "seam") {
       await openSavedProjectWizard(sessionId, projectDir);
       await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir,
         60000, "A sala de terreno não abriu.", 200);
-      await verifyTerrainAuthoring(sessionId, projectDir, report, prefix, timeoutMs);
+      await verifyTerrainAuthoring(sessionId, projectDir, report, prefix, timeoutMs, revision === "seam");
       report.status = "passed";
       return;
     }

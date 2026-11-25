@@ -18,6 +18,7 @@ import type {
 } from "../ipc/sceneService";
 import type { BuildSourceMap } from "../nodegraph/buildProvenance";
 import type { RuntimeLink } from "../runtimeLink";
+import type { MotionTraceSession } from "../motionTrace";
 import type { TestAdjustment } from "../testAdjustments";
 import type { RexBridgeRequest } from "../rexBridge";
 import type {
@@ -352,6 +353,7 @@ export interface StoreState {
   lastBuildTest: BuildTestReceipt | null;
   /** Ajustes temporários da sessão de teste (não são do projeto até "Aplicar ao projeto"). */
   testAdjustments: TestAdjustment[];
+  motionTraceSession: MotionTraceSession | null;
   /** Pedido para abrir o editor de perfil REX numa instância comprovada (Experimental). */
   rexBridgeRequest: RexBridgeRequest | null;
   /** Última operação de arquivo com cópia de segurança (renomear asset, aplicar ao modelo). */
@@ -445,6 +447,7 @@ export interface StoreActions {
   setLastRuntimeLink: (link: RuntimeLink | null) => void;
   setLastBuildSceneRevision: (revision: number | null) => void;
   recordBuildTestFrame: (coreEpoch: number, romSha256: string, frameIndex: number) => void;
+  updateMotionTrace: (update: (current: MotionTraceSession | null) => MotionTraceSession | null) => void;
   setTestAdjustments: (adjustments: TestAdjustment[]) => void;
   setRexBridgeRequest: (request: RexBridgeRequest | null) => void;
   setLastFileBackup: (backup: { id: string; reason: string } | null) => void;
@@ -1026,6 +1029,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   recordNativeCodeEdit: () => set((state) => ({ nativeCodeRevision: state.nativeCodeRevision + 1 })),
   setLastBuildSourceMap: (sourceMap) => set({ lastBuildSourceMap: sourceMap, lastBuildArtifact: null }),
   lastRuntimeLink: null,
+  motionTraceSession: null,
+  updateMotionTrace: (update) => set((state) => ({ motionTraceSession: update(state.motionTraceSession) })),
   setLastRuntimeLink: (link) => set({ lastRuntimeLink: link }),
   lastBuildSceneRevision: null,
   setLastBuildSceneRevision: (revision) => set({ lastBuildSceneRevision: revision }),

@@ -77,6 +77,7 @@ import { TilePalette } from "../tools/ContextualPalette";
 import { getGameViewportScale } from "./gameViewportScale";
 import { paintGameFrame } from "./gameFramePresentation";
 import RuntimeInspectOverlay from "./RuntimeInspectOverlay";
+import MotionTracePanel from "./MotionTracePanel";
 import { gameMayTakeKeyDown } from "../../core/keyboardFocus";
 import TestAdjustPanel from "./TestAdjustPanel";
 import PoseDurationField from "../artstudio/PoseDurationField";
@@ -6262,6 +6263,7 @@ export default function ViewportPanel({
                 ? `${emulatorRomIdentity.sourceLabel} · ROM ${emulatorRomIdentity.sha256} · ${emulatorRomIdentity.size} bytes · ${emulatorRomIdentity.coreLabel} · frames renderizados ${renderedFrameCount} · input ACK ${lastJoypadAck?.seq ?? 0}`
                 : "Identidade da ROM ainda não observada"}
             </div>
+            <MotionTracePanel renderedFrames={renderedFrameCount} paused={emulPaused} />
           </div>
         )}
 

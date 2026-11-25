@@ -26,4 +26,11 @@ describe("native desktop regression gates", () => {
     }
     expect(() => verifyDesktopScenarios("wrong", {})).toThrow("Alvo");
   });
+
+  it("requires all extended authoring groups in the dedicated run", () => {
+    const authoring = ["indexed_effects", "palette_and_atlas", "terrain_and_seam", "motion_trace"];
+    expect(verifyDesktopScenarios("authoring", outcomes(authoring))).toBe(4);
+    expect(() => verifyDesktopScenarios("authoring", outcomes(authoring.slice(1)))).toThrow("indexed_effects=ausente");
+    expect(() => verifyDesktopScenarios("authoring", { ...outcomes(authoring), terrain_and_seam: { outcome: "failure" } })).toThrow("terrain_and_seam=failure");
+  });
 });
