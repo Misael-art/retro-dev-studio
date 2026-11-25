@@ -2194,6 +2194,7 @@ interface EmptyStateOverlayProps {
   selectedEntityLabel?: string | null;
   templates: QuickActionTemplate[];
   roleHint?: string | null;
+  contextOpen: boolean;
 }
 
 function EmptyStateOverlay({
@@ -2201,24 +2202,21 @@ function EmptyStateOverlay({
   selectedEntityLabel,
   templates,
   roleHint,
+  contextOpen,
 }: EmptyStateOverlayProps) {
   return (
     <div
       data-testid="nodegraph-empty-overlay"
-      className="absolute bottom-0 left-0 top-0 z-10 flex justify-center overflow-y-auto bg-[#11111b]/60 px-6 pb-8 pt-14"
-      style={{ right: 288 }}
+      className="absolute bottom-0 left-0 top-0 z-10 flex justify-center overflow-y-auto bg-[#11111b]/60 px-3 pb-6 pt-10"
+      style={{ right: contextOpen ? 288 : 0 }}
     >
-      <div className="h-fit w-full max-w-6xl rounded-2xl border border-dashed border-[#45475a] bg-[#181825]/95 p-6 shadow-2xl backdrop-blur-sm">
+      <div className="h-fit w-full max-w-6xl rounded-2xl border border-dashed border-[#45475a] bg-[#181825]/95 p-4 shadow-2xl backdrop-blur-sm">
         <div className="mb-5 flex flex-col gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#89b4fa]">
-            Guided Empty State
-          </p>
-          <h2 className="text-xl font-semibold text-[#cdd6f4]">
-            Comece o primeiro fluxo sem precisar descobrir a paleta inteira
+          <h2 className="text-base font-semibold text-[#cdd6f4]">
+            Crie um comportamento
           </h2>
-          <p className="max-w-3xl text-sm text-[#a6adc8]">
-            Escolha um atalho para gerar um grafo base com nos ja conectados. Depois voce pode ajustar os parametros,
-            trocar nos e expandir o fluxo pela paleta lateral.
+          <p className="max-w-3xl text-xs text-[#a6adc8]">
+            Escolha um modelo com nós conectados ou abra a paleta para montar o fluxo.
           </p>
           {selectedEntityLabel && (
             <p className="max-w-3xl text-xs text-[#89b4fa]" data-testid="nodegraph-empty-target-hint">
@@ -2234,7 +2232,7 @@ function EmptyStateOverlay({
           ) : null}
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3">
           {templates.map((template) => (
             <button
               key={template.id}
@@ -2243,20 +2241,13 @@ function EmptyStateOverlay({
               onClick={() => onApplyTemplate(template)}
               className="flex h-full flex-col rounded-xl border border-[#313244] bg-[#11111b]/90 p-4 text-left transition-colors hover:border-[#89b4fa]/60 hover:bg-[#1e1e2e]"
             >
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#89b4fa]">
-                Quick Action
-              </span>
-              <span className="mt-2 text-sm font-semibold text-[#cdd6f4]">{template.actionLabel}</span>
+              <span className="text-sm font-semibold text-[#cdd6f4]">{template.actionLabel}</span>
               <span className="mt-2 text-xs leading-5 text-[#a6adc8]">{template.summary}</span>
               <span className="mt-3 text-[10px] leading-4 text-[#6c7086]">{template.hardwareNote}</span>
             </button>
           ))}
         </div>
 
-        <p className="mt-4 text-[11px] text-[#6c7086]">
-          Esses atalhos usam somente nos ja suportados no pipeline atual. O objetivo aqui e acelerar descoberta, nao
-          criar um fluxo paralelo.
-        </p>
       </div>
     </div>
   );
@@ -4930,6 +4921,7 @@ export default function NodeGraphEditor() {
             selectedEntityLabel={quickActionContext.selectedEntityLabel}
             templates={orderedQuickActionTemplates}
             roleHint={importedSemantics?.entity_role?.trim() || null}
+            contextOpen={contextOpen}
           />
         )}
         {!selectedEntity && graph.nodes.length === 0 && (
