@@ -279,6 +279,22 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Add-Content -Path (Join-Path $env:RUNNER_TEMP 'desktop-e2e-passed.txt') -Value 'live_stale_snes'
 
+      - name: Restore a C draft and observe its applied revision in the Mega Drive core
+        id: code_draft
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
+        run: |
+          node scripts/e2e-tauri-build-run.mjs --skip-build --scenario code-draft-roundtrip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'code_draft'
+
+      - name: Verify shared and instance C edits in the desktop editor
+        id: code_scope
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
+        run: |
+          node scripts/e2e-tauri-build-run.mjs --skip-build --scenario code-instance-scope
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'code_scope'
+
       - name: Report step outcomes before verification
         if: always()
         shell: pwsh
@@ -307,6 +323,8 @@ jobs:
         shell: pwsh
         run: |
           $scenarioOutcomes = [ordered]@{
+            code_draft = '${{ steps.code_draft.outcome }}'
+            code_scope = '${{ steps.code_scope.outcome }}'
             smoke_md = '${{ steps.smoke_md.outcome }}'
             reference_goal = '${{ steps.reference_goal.outcome }}'
             smoke_snes = '${{ steps.smoke_snes.outcome }}'
@@ -326,6 +344,13 @@ jobs:
             live_stale_snes = '${{ steps.live_stale_snes.outcome }}'
           }
 
+          if ($env:RDS_E2E_TARGET -in @('all', 'megadrive')) {
+            foreach ($step in @('code_draft', 'code_scope')) {
+              if ($scenarioOutcomes[$step] -ne 'success') {
+                throw "Required Mega Drive editor scenario $step ended with $($scenarioOutcomes[$step])"
+              }
+            }
+          }
           $failed = @(
             $scenarioOutcomes.GetEnumerator() | Where-Object {
               $_.Value -ne 'success' -and $_.Value -ne 'skipped'
@@ -361,6 +386,8 @@ jobs:
             "- Build debug: ${{ steps.build_debug.outcome }}",
             "- Smoke Mega Drive: ${{ steps.smoke_md.outcome }}",
             "- Reference gameplay passage: ${{ steps.reference_goal.outcome }}",
+            "- C draft, reopen and ROM: ${{ steps.code_draft.outcome }}",
+            "- C shared / instance scope: ${{ steps.code_scope.outcome }}",
             "- Smoke SNES: ${{ steps.smoke_snes.outcome }}",
             "- Live overflow MD: ${{ steps.live_overflow_md.outcome }}",
             "- Live overflow SNES: ${{ steps.live_overflow_snes.outcome }}",
