@@ -12791,6 +12791,8 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   // Explicitly empty cell (distinct from 0 = base map).
   await clickByTestId(sessionId, "tile-palette-empty");
   await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-tile-flow-toggle", "recolher paleta para pintar o fosso");
+  const fitPit = async () => clickElement(sessionId, await findElement(sessionId, 'button[title="Resetar vista (zoom + pan)"]'));
+  await fitPit();
   for (const [col, row] of pitCells) {
     const point = cellPoint(col, row);
     await clickCanvasPointNatively(sessionId, "[data-testid='viewport-scene-overlay']", point.x, point.y, `apagar visual ${col},${row}`);
@@ -12809,6 +12811,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     await executeScript(sessionId, "document.querySelector('[data-testid=\"viewport-scene-overlay\"]')?.focus?.();");
     await sendNativeGameKey(sessionId, "KeyC", "keyDown", "modo colisao").catch(() => {});
   }
+  await fitPit();
   for (const [col, row] of pitCells) {
     const point = cellPoint(col, row);
     await clickCanvasPointNatively(sessionId, "[data-testid='viewport-scene-overlay']", point.x, point.y, `apagar colisao ${col},${row}`, 2);
@@ -17065,6 +17068,12 @@ async function editPoseThroughDesktop(initialSessionId, projectDir, app, report,
   const read = (id, attribute) => executeScript(sessionId,
     `return document.querySelector('[data-testid="' + arguments[0] + '"]')?.getAttribute(arguments[1]);`, [id, attribute]);
   const input = (id, value) => fillInputBySelector(sessionId, `[data-testid="${id}"]`, String(value));
+  const savedStudio = () => executeScript(sessionId, `
+    try {
+      const saved = JSON.parse(localStorage.getItem('rds.studioContext.v1:' + arguments[0]) ?? 'null');
+      return saved && {scene: saved.scenePath, focus: saved.focus};
+    } catch { return null; }
+  `, [projectDir]);
   const focus = async () => {
     const s = await state();
     return s?.selectedEntityId === "raposa" && s?.studio?.focus?.animation === "passo"
@@ -17167,12 +17176,15 @@ async function editPoseThroughDesktop(initialSessionId, projectDir, app, report,
   await ticks(4);
   addReportStep(report, "nodes_duration_shared_with_code_and_timeline", "passed");
   await save();
+  report.coldReopen = { beforeClose: await savedStudio() };
   await deleteSession(sessionId);
   sessionId = await createSession(app);
   currentE2eRunContext.sessionId = sessionId;
   await waitForAppWindowReady(sessionId, 30000, "O Tauri não abriu após fechar a sala.");
+  report.coldReopen.afterLaunch = await savedStudio();
   await setSessionWindowRect(sessionId, 1366, 768);
   await openRoom();
+  report.coldReopen.afterOpen = await savedStudio();
   await waitFor(async () => (await focus())?.activeWorkspace === "scene"
     && (await readTicks("inspector-pose-duration")) === "4" && (await readTicks("canvas-pose-duration")) === "4",
   15000, "A cena reaberta não restaurou a raposa, o2 e os 4 ticks no Canvas e no Inspector.", 150);
@@ -17215,11 +17227,54 @@ async function addPoseEventThroughDesktop(sessionId, prefix, report) {
   return sound;
 }
 
+async function authorPoseStrikeThroughDesktop(sessionId, prefix, report) {
+  const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  await setSessionWindowRect(sessionId, 1366, 768);
+  await selectPoseActorsOnCanvas(sessionId);
+  await click("viewport-open-animation");
+  await click("character-occurrence-o2");
+  await click("character-box-add-clsn1");
+  const rightEdge = '[data-testid="character-box-field-x2"]';
+  await fillInputBySelector(sessionId, rightEdge, "160");
+  const input = await findElement(sessionId, rightEdge);
+  await webdriverRequest("POST", `/session/${sessionId}/element/${input}/value`, { text: "\uE007", value: ["\uE007"] });
+  await waitFor(async () => executeScript(sessionId, `
+    return document.querySelector('[data-testid="character-box-attack"]')?.dataset.rect.endsWith(',160,32');
+  `), 10000, "A caixa de ataque não alcançou o alvo pelo ajuste numérico.", 100);
+  await click("character-occurrence-o4");
+  if (await executeScript(sessionId, `return Boolean(document.querySelector('[data-testid="character-box-attack"]'));`)) {
+    fail("A ocorrência o4 recebeu a caixa apesar de apenas reutilizar a imagem de o2.");
+  }
+  await click("studio-return-origin");
+  await click("hierarchy-entity-testemunha");
+  await click("viewport-open-animation");
+  await click("character-occurrence-o2");
+  await click("character-box-add-clsn2");
+  addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-caixa.png`), "Caixa de corpo nesta ocorrência da testemunha");
+  await click("studio-return-origin");
+  await click("inspector-open-actions");
+  await click("logic-view-nodes");
+  const railHidden = await executeScript(sessionId, `return document.querySelector('[data-testid="nodegraph-context-rail"]')?.hidden;`);
+  if (railHidden) await click("nodegraph-toggle-context");
+  await click("behavior-add-strike");
+  await selectOptionByTestIdNative(sessionId, "behavior-param-attacker", "raposa");
+  await selectOptionByTestIdNative(sessionId, "behavior-param-target", "testemunha");
+  await click("behavior-apply");
+  await waitFor(async () => executeScript(sessionId, `
+    return [...document.querySelectorAll('[data-testid^="behavior-instance-"]')].some((el) => el.textContent.includes('Golpe autoral'));
+  `), 10000, "A regra de golpe não foi gravada pelo editor Nós.", 100);
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  await waitFor(async () => executeScript(sessionId, `
+    return document.querySelector('[data-testid="scene-save-status"]')?.dataset.status === 'saved';
+  `), 15000, "A cena com as duas caixas não foi salva.", 100);
+  addReportStep(report, "instance_boxes_and_strike_authored", "passed");
+}
+
 // Mede pixels no core, depois do Build & Run pelo desktop. O cenário recebe
 // uma das salas de create-pose-authoring-demo.mjs (ou sua revisão editada).
 async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
   const revision = process.env.RDS_POSE_PROOF || "baseline";
-  if (!["baseline", "aligned-4", "journey", "events"].includes(revision)) fail("RDS_POSE_PROOF deve ser baseline, aligned-4, journey ou events.");
+  if (!["baseline", "aligned-4", "journey", "events", "boxes"].includes(revision)) fail("RDS_POSE_PROOF deve ser baseline, aligned-4, journey, events ou boxes.");
   const prefix = `pose-cadence-${artifactTimestamp()}`;
   const report = { scenario: "pose-cadence", fixture: path.basename(projectDir), revision, status: "failed", samples: [], steps: [], artifacts: [] };
   const alignedTarget = revision === "aligned-4" || revision === "journey";
@@ -17252,8 +17307,9 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
         fail("A arte compartilhada foi alterada durante a prova.");
       }
       const control = sprite("testemunha").animations.passo;
-      if (controlBefore && !isDeepStrictEqual(controlBefore, control)) fail("A edição alterou os dados da animação de controle.");
-      controlBefore = control;
+      const comparison = revision === "boxes" ? { ...control, hitboxes: undefined } : control;
+      if (controlBefore && !isDeepStrictEqual(controlBefore, comparison)) fail("A edição alterou os dados da animação de controle.");
+      controlBefore = comparison;
       return createHash("sha256").update(bytes).digest("hex");
     };
     report.sceneSha256 = await confirmScene(revision === "aligned-4" ? expectedTarget : expectedControl);
@@ -17284,7 +17340,28 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
         fail("O evento salvo perdeu a identidade da ocorrência ou do som.");
       }
     }
+    if (revision === "boxes") {
+      await authorPoseStrikeThroughDesktop(sessionId, prefix, report);
+      report.sceneSha256 = await confirmScene(expectedTarget);
+      const saved = JSON.parse(await readFile(scenePath, "utf8"));
+      const boxes = (id) => saved.entities.find((entity) => entity.entity_id === id).components.sprite.animations.passo.hitboxes;
+      if (boxes("raposa")?.length !== 1 || boxes("raposa")[0].occurrence_id !== "o2"
+        || boxes("raposa")[0].kind !== "attack" || boxes("raposa")[0].width !== 144
+        || boxes("testemunha")?.length !== 1 || boxes("testemunha")[0].occurrence_id !== "o2"
+        || boxes("testemunha")[0].kind !== "hurt") fail("As caixas salvas não correspondem às duas poses editadas.");
+    }
     report.build = await runBuildRunAndCollect(sessionId, "ensaio de poses", timeoutMs, report, prefix, { nativeClick: true });
+    let strikeOffsets;
+    if (revision === "boxes") {
+      const elf = await readFile(path.join(projectDir, "build", "megadrive", "out", "rom.out"));
+      const symbols = parseElf32Symbols(elf);
+      strikeOffsets = Object.fromEntries(["hits", "hp", "overlaps"].map((field) => {
+        const matches = [...symbols].filter(([name]) => name.startsWith("rds_strike_") && name.endsWith(`_${field}`));
+        if (matches.length !== 1) fail(`O ELF não expôs o contador '${field}' do golpe autoral.`);
+        return [field, matches[0][1] & 0xffff];
+      }));
+      report.strike = { elfSha256: createHash("sha256").update(elf).digest("hex"), offsets: strikeOffsets };
+    }
     if (journey) {
       const compiledCode = await readFile(path.join(projectDir, "build", "megadrive", "src", "main.c"), "utf8");
       if (!compiledCode.replaceAll("\r\n", "\n").includes(journey.code.trim())) fail("O campo de C vinculado está ausente do código compilado.");
@@ -17315,6 +17392,14 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
       if (tick && frame.frames_run !== report.samples[tick - 1].frame + 1) fail("A captura saltou ou repetiu um quadro do core.");
       const pixels = Buffer.from(frame.framebuffer_rgba);
       const sample = { frame: frame.frames_run };
+      if (strikeOffsets) {
+        sample.strike = {};
+        for (const [field, offset] of Object.entries(strikeOffsets)) {
+          const memory = await invokeCoreObserveCommand(sessionId, "emulator_read_memory", { region: 2, offset, length: 2 });
+          if (memory?.data?.length !== 2) fail(`A RAM não retornou '${field}' no quadro ${sample.frame}.`);
+          sample.strike[field] = Buffer.from(memory.data).readUInt16LE();
+        }
+      }
       if (audioFrom !== null) {
         const end = await waitFor(async () => {
           const received = await audioSamples(0, 0);
@@ -17349,6 +17434,22 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
         fail(`O PCM observado não acompanhou o tick local e a repetição da ocorrência: ${JSON.stringify(onsets)}.`);
       }
       addReportStep(report, "event_audio_at_the_bound_occurrence", "passed");
+    }
+    if (strikeOffsets) {
+      const { phase, period } = report.target;
+      const changes = report.samples.slice(1).map((sample, index) => ({
+        phase: (phase + index + 1) % period, frame: sample.frame,
+        hits: sample.strike.hits - report.samples[index].strike.hits,
+        overlaps: sample.strike.overlaps - report.samples[index].strike.overlaps,
+      }));
+      report.strike.hits = changes.filter((sample) => sample.hits);
+      report.strike.overlaps = changes.filter((sample) => sample.overlaps);
+      if (report.strike.hits.length < 2 || report.strike.overlaps.length < 6
+        || report.strike.hits.some((sample) => sample.hits !== 1)
+        || changes.some((sample) => (sample.phase < 4 || sample.phase > 8) && (sample.hits || sample.overlaps))) {
+        fail("As caixas não tocaram exclusivamente durante a segunda ocorrência. Confira hits, overlaps e fase no relatório.");
+      }
+      addReportStep(report, "authored_boxes_hit_only_on_o2_in_core", "passed");
     }
     report.feet = [];
     for (const actor of ["control", "target"]) {
@@ -27593,6 +27694,7 @@ async function main() {
   console.log(options.externalDriver ? "== Using external tauri-driver ==" : "== Starting tauri-driver ==");
   const driverLogs = [];
   let driverProcess = null;
+  let desktopProfileDir = null;
   let driverExited = false;
   let driverExitCode = null;
   if (!options.externalDriver) {
@@ -27613,8 +27715,13 @@ async function main() {
     }
 
     try {
+      // Mantenha o mesmo perfil entre as sessões de uma reabertura real no Edge.
+      if (process.platform === "win32" && options.scenario === "pose-cadence") {
+        desktopProfileDir = await mkdtemp(path.join(os.tmpdir(), "rds-desktop-e2e-webview-"));
+      }
       driverProcess = spawn(tauriDriverPath, ["--native-driver", nativeDriverPath], {
         cwd: repoRoot,
+        env: desktopProfileDir ? { ...process.env, WEBVIEW2_USER_DATA_FOLDER: desktopProfileDir } : process.env,
         // In this Windows host, stdio=pipe can be blocked by policy (spawn EPERM).
         stdio: "inherit",
         shell: false,
@@ -32082,6 +32189,11 @@ async function main() {
       }
     }
     await cleanupOwnedProcesses();
+    if (desktopProfileDir) {
+      await rm(desktopProfileDir, { recursive: true, force: true, maxRetries: 3 }).catch((error) => {
+        console.warn(`[cleanup] Perfil WebView2 temporário preservado para diagnóstico: ${error.message}`);
+      });
+    }
     if (temporaryProjectDir && process.env.RDS_E2E_KEEP_PROJECT === "1") {
       console.warn(`[cleanup] RDS_E2E_KEEP_PROJECT=1: projeto temporario preservado para diagnostico: ${temporaryProjectDir}`);
     } else if (temporaryProjectDir) {
