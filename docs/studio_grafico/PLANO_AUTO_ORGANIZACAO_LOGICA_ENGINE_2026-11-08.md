@@ -550,4 +550,22 @@ sha256sum -c /home/deck/Projects/RetroDevStudio/data/studio_grafico/mockups-work
 
 **Como usar na revisão.** Coloque a imagem correspondente ao lado da captura da mesma tarefa no candidato. Registre nome da imagem, SHA do candidato, sistema, escala da interface, gesto executado e divergência observada. Confira acesso, precisão, escopo, reversibilidade e retorno à seleção. Para a jornada de animação, use as imagens 01, 02, 06 e 08 em sequência e registre a duração efetivamente observada no core. A aceitação de usabilidade permanece vinculada ao roteiro humano do projeto.
 
+Para abrir a mesa de conferência, execute `node scripts/qa/review-workspace.mjs --referencias`. O programa verifica os 12 PNGs e gera uma página local na pasta de sessões. Depois da captura, passe o caminho de um JSON de rodada ao mesmo comando. Use uma rodada por binário, sistema, área útil e escala. Os caminhos no JSON são relativos à pasta dele. A página mostra os pares que já têm captura e permite ampliar as imagens. O registro anexo guarda os hashes dos dois lados e do executável. A avaliação funcional e os resultados da ROM entram no relatório do teste correspondente.
+
+```json
+{
+  "commit": "<SHA Git completo do candidato testado>",
+  "binary": "<caminho do executável usado na rodada>",
+  "system": "Windows 11",
+  "viewport": [1366, 768],
+  "scalePercent": 125,
+  "screens": [{
+    "name": "02-animacao.png",
+    "capture": "<caminho do PNG capturado no Tauri>",
+    "gesture": "<gesto executado sobre a segunda ocorrência>",
+    "observation": "<resultado observado e divergência, se houver>"
+  }]
+}
+```
+
 Em 24/11 o operador autorizou a execução do [prompt integral](../handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#prompt-entrega-integral-workspace) e pediu a comparação de cada tela com estes 12 mockups. A execução começa pelo aceite do editor C em Linux e Windows. As cinco vistas complementares do plano de 08/11 seguem como propostas para revisão visual com o operador.
