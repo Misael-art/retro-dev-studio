@@ -68,6 +68,19 @@ pendente em dez trocas. Recibos em `sessions/pose-candidate-lZGDJiys/` e
 `sessions/pose-candidate-OGnhtbZT/`. A conferência Windows e o restante do
 aceite da mesa permanecem na [matriz da jornada](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#conferência-por-item-da-autoria-de-fase).
 
+Em `8432c16`, o Tauri BigLinux repetiu o rascunho e os escopos C, compilou as
+duas salas a 949×593 e retornou a `raposa/passo/o2` após fechar e reabrir
+com o contexto local removido. O core observou 18 ticks no ator editado e 17
+na testemunha. A mesa simples estreita passou. A mesa densa estreita falhou
+na restauração da disposição nomeada e as mesas largas apresentaram falhas
+de tamanho e seleção. O cálculo de proporções pela largura efetiva do grupo
+e a barra compacta em divisão estão em `b70431d`. A revisão de Windows
+`21924ef8`, merge de teste com `9bf900f`, passou na composição por plano e
+nas mesas estreitas. As mesas largas e o retorno à árvore da fase de
+referência seguem abertos. A execução dedicada de `9bf900f` passou nos oito
+cenários SNES. A [matriz da jornada](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#conferência-por-item-da-autoria-de-fase)
+vincula capturas, ROMs e binários. O operador ainda está sem participantes.
+
 ### Continuidade antes da formatação — 2026-11-22
 
 Retomar na branch `codex/new-host-cohesion-20261024`, pelo
