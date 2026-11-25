@@ -2470,16 +2470,17 @@ fn index_image_with_palette(
     })
 }
 
-/// Paleta embutida (PLTE) de um PNG indexado com 2..=16 entradas, como o SGDK a usa: o indice 0
-/// e a transparencia e a ordem das cores e preservada. `None` para PNG nao indexado, com mais
-/// de 16 entradas ou com a cor do indice 0 repetida (ambiguidade: cai na indexacao por aparicao).
-pub(crate) fn indexed_png_palette(path: &Path) -> Option<Vec<[u8; 3]>> {
+/// Paleta de um PNG indexado de até 16 cores e presença de transparência explícita no índice 0.
+/// Sem tRNS, a convenção legada usa a cor da primeira entrada como chave quando ela é única.
+fn indexed_png_palette(path: &Path) -> Option<(Vec<[u8; 3]>, bool)> {
     let bytes = fs::read(path).ok()?;
     if bytes.len() < 8 || &bytes[..8] != b"\x89PNG\r\n\x1a\n" {
         return None;
     }
     let mut offset = 8usize;
     let mut indexed = false;
+    let mut colors = Vec::new();
+    let mut explicit_zero = false;
     while offset + 8 <= bytes.len() {
         let length = u32::from_be_bytes(bytes[offset..offset + 4].try_into().ok()?) as usize;
         let kind = &bytes[offset + 4..offset + 8];
@@ -2487,31 +2488,37 @@ pub(crate) fn indexed_png_palette(path: &Path) -> Option<Vec<[u8; 3]>> {
         match kind {
             b"IHDR" => indexed = data.get(9) == Some(&3),
             b"PLTE" if indexed => {
-                let colors: Vec<[u8; 3]> =
-                    data.chunks_exact(3).map(|c| [c[0], c[1], c[2]]).collect();
-                let key = *colors.first()?;
-                let ok = (2..=16).contains(&colors.len()) && !colors[1..].contains(&key);
-                return ok.then_some(colors);
+                colors = data.chunks_exact(3).map(|c| [c[0], c[1], c[2]]).collect();
             }
-            b"IDAT" | b"IEND" => return None,
+            b"tRNS" if indexed => {
+                explicit_zero =
+                    matches!(data.split_first(), Some((0, rest)) if rest.iter().all(|&a| a == 255));
+            }
+            b"IDAT" | b"IEND" => break,
             _ => {}
         }
         offset += 12 + length;
     }
-    None
+    let key = *colors.first()?;
+    let valid = (2..=16).contains(&colors.len()) && (explicit_zero || !colors[1..].contains(&key));
+    valid.then_some((colors, explicit_zero))
 }
 
-/// Abre um asset de sprite. Se for PNG indexado (ver `indexed_png_palette`), os pixels da cor do
-/// indice 0 viram transparentes e a paleta-semente preserva a ordem do arquivo; senao, a paleta
-/// comeca so com a transparencia (ordem de primeira aparicao).
+/// Abre um sprite usando os slots do PNG indexado. Uma chave RGB legada só é aplicada quando
+/// o arquivo não declara a transparência do índice 0 por tRNS.
 pub(crate) fn open_sgdk_sprite_image(
     path: &Path,
 ) -> Result<(image::DynamicImage, Vec<[u8; 4]>), String> {
     let image =
         image::open(path).map_err(|e| format!("Falha ao ler '{}': {}", path.display(), e))?;
-    let Some(plte) = indexed_png_palette(path) else {
+    let Some((plte, explicit_zero)) = indexed_png_palette(path) else {
         return Ok((image, vec![[0, 0, 0, 0]]));
     };
+    let mut seed = vec![[0, 0, 0, 0]];
+    seed.extend(plte[1..].iter().map(|c| [c[2], c[1], c[0], 0]));
+    if explicit_zero {
+        return Ok((image, seed));
+    }
     let key = plte[0];
     let mut rgba = image.to_rgba8();
     for pixel in rgba.pixels_mut() {
@@ -2519,8 +2526,6 @@ pub(crate) fn open_sgdk_sprite_image(
             pixel[3] = 0;
         }
     }
-    let mut seed = vec![[0, 0, 0, 0]];
-    seed.extend(plte[1..].iter().map(|c| [c[2], c[1], c[0], 0]));
     Ok((image::DynamicImage::ImageRgba8(rgba), seed))
 }
 
@@ -3879,7 +3884,7 @@ mod tests {
     use super::*;
 
     /// PNG indexado de 4x1 (8 bits/pixel), PLTE dado, sem compressao (deflate "stored").
-    fn indexed_png(plte: &[[u8; 3]], pixels: &[u8]) -> Vec<u8> {
+    fn indexed_png(plte: &[[u8; 3]], pixels: &[u8], explicit_zero: bool) -> Vec<u8> {
         fn crc32(data: &[u8]) -> u32 {
             let mut crc = 0xFFFF_FFFFu32;
             for byte in data {
@@ -3919,6 +3924,9 @@ mod tests {
         ihdr.extend_from_slice(&[8, 3, 0, 0, 0]);
         chunk(&mut out, b"IHDR", &ihdr);
         chunk(&mut out, b"PLTE", &plte.concat());
+        if explicit_zero {
+            chunk(&mut out, b"tRNS", &[0]);
+        }
         chunk(&mut out, b"IDAT", &zlib);
         chunk(&mut out, b"IEND", &[]);
         out
@@ -3931,8 +3939,8 @@ mod tests {
         // Magenta no indice 0 (chave), cores em ordem que difere da ordem de aparicao.
         let plte = [[255, 0, 255], [10, 20, 30], [40, 50, 60], [70, 80, 90]];
         let path = dir.join("frame.png");
-        fs::write(&path, indexed_png(&plte, &[3, 0, 1, 3])).expect("png");
-        assert_eq!(indexed_png_palette(&path), Some(plte.to_vec()));
+        fs::write(&path, indexed_png(&plte, &[3, 0, 1, 3], false)).expect("png");
+        assert_eq!(indexed_png_palette(&path), Some((plte.to_vec(), false)));
         let (colors, quantized, distinct) = sgdk_asset_palette(&dir, "frame.png", None)
             .map(|_| ())
             .and_then(|_| {
@@ -3961,6 +3969,28 @@ mod tests {
         assert_eq!(colors.len(), 4, "magenta nao vira cor visivel");
         assert_eq!(colors[1], [30, 20, 10, 0]);
         assert_eq!((quantized, distinct), (0, 2));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn indexed_png_with_explicit_transparency_keeps_shared_slots_after_erasing_a_color() {
+        let dir = std::env::temp_dir().join(format!("rds-plte-trns-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let plte = [[0, 0, 0], [214, 31, 88], [122, 201, 105], [0, 0, 0]];
+        let original = dir.join("original.png");
+        let changed = dir.join("changed.png");
+        fs::write(&original, indexed_png(&plte, &[2, 1, 0, 3], true)).unwrap();
+        fs::write(&changed, indexed_png(&plte, &[2, 0, 0, 3], true)).unwrap();
+
+        let (base_image, base_seed) = open_sgdk_sprite_image(&original).unwrap();
+        let (image, mut seed) = open_sgdk_sprite_image(&changed).unwrap();
+        assert_eq!(base_seed, seed);
+        assert_eq!(base_image.to_rgba8().get_pixel(3, 0).0, [0, 0, 0, 255]);
+        let indexed =
+            index_image_with_palette(&image, 4, 1, 16, &mut seed, &mut Default::default(), true)
+                .unwrap();
+        assert_eq!(indexed.indices, [2, 0, 0, 3]);
+        assert_eq!(indexed.palette_bgr0, base_seed);
         let _ = fs::remove_dir_all(&dir);
     }
 
