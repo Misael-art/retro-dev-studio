@@ -46,6 +46,7 @@ export interface StudioFocus {
 
 export interface WorkspaceCamera {
   zoom: number;
+  scenePath?: string;
   /** Deslocamento da câmera do editor (pan), em pixels de tela. */
   panX: number;
   panY: number;

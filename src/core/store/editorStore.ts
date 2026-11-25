@@ -942,7 +942,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     saveStudioContext(activeProjectDir, studio, get().activeScenePath);
   },
   rememberWorkspaceCamera: (workspace, camera) =>
-    set((state) => ({ studio: rememberWorkspaceCameraState(state.studio, workspace, camera) })),
+    set((state) => {
+      const previous = state.studio.cameras[workspace];
+      if (previous?.zoom === camera.zoom && previous.panX === camera.panX && previous.panY === camera.panY
+          && previous.scenePath === camera.scenePath) return state;
+      return { studio: rememberWorkspaceCameraState(state.studio, workspace, camera) };
+    }),
 
   activeWorkspace: "scene",
   setActiveWorkspace: (workspace) => set({ activeWorkspace: workspace }),

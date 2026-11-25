@@ -25,7 +25,8 @@ import {
   useDefaultLayout,
 } from "react-resizable-panels";
 import Console from "./components/common/Console";
-import LayoutSplitter from "./components/common/LayoutSplitter";
+import LayoutSplitter, { type LayoutResizeIntent } from "./components/common/LayoutSplitter";
+import WorkspaceTabs from "./components/common/WorkspaceTabs";
 import { StudioContextBar } from "./components/common/StudioContextBar";
 import DeliveryPanel from "./components/tools/DeliveryPanel";
 import UnifiedTopBar, {
@@ -155,12 +156,17 @@ import {
   type ShortcutConflict,
 } from "./core/shortcuts";
 import {
+  DEFAULT_SCENE_DESK,
   getLayoutStorageKeyForDensity,
-  getPresetLayout,
   getShellDensity,
+  normalizeTimelinePercent,
+  placeScenePanels,
+  readWorkspaceLayout,
   resolveWorkspaceShellConfig,
   type LayoutMap,
-  type LayoutPresetId,
+  type ProjectPanelTab,
+  type SceneDesk,
+  type SceneDeskPreferences,
 } from "./core/workspaceLayout";
 import {
   SHELL_PERSONAS,
@@ -190,6 +196,7 @@ const ExplorerWorkspace = lazy(() => import("./components/explorer/ExplorerWorks
 const InspectorPanel = lazy(() => import("./components/inspector/InspectorPanel"));
 const ToolsPanel = lazy(() => import("./components/tools/ToolsPanel"));
 const ViewportPanel = lazy(() => import("./components/viewport/ViewportPanel"));
+const CharacterTimelinePanel = lazy(() => import("./components/artstudio/CharacterTimelinePanel"));
 
 function looksLikeRuntimeDependencyFailure(message: string): boolean {
   const lower = message.toLowerCase();
@@ -273,6 +280,10 @@ function ToolbarButton({
 type WorkspaceGroupId = "core" | "authoring" | "advanced";
 
 const LAYOUT_STORAGE_KEY = "retrodev-shell-saved-layout";
+
+function workspaceLayoutKey(workspace: EditorWorkspace, density: ReturnType<typeof getShellDensity>) {
+  return getLayoutStorageKeyForDensity(`${LAYOUT_STORAGE_KEY}::${workspace}`, density);
+}
 const WORKSPACE_GUIDE_STORAGE_KEY = "retrodev-workspace-guide-expanded";
 const SRAM_SIZE_OPTIONS = [2048, 8192, 16384, 32768, 65536];
 
@@ -1750,16 +1761,20 @@ export default function App() {
   const [toolPanelActive, setToolPanelActive] = useState<ToolTab>("setup");
   const [toolPanelWorkspace, setToolPanelWorkspace] = useState<ToolWorkspace>("editing");
   const [toolPanelShowAdvanced, setToolPanelShowAdvanced] = useState(false);
-  const [leftPanelTab, setLeftPanelTab] = useState<"scene" | "layers">("scene");
+  const [sceneDesk, setSceneDesk] = useState<SceneDeskPreferences>(() =>
+    readWorkspaceLayout(localStorage.getItem(`${LAYOUT_STORAGE_KEY}::last-scene-desk`))?.scene ?? DEFAULT_SCENE_DESK
+  );
+  const [layoutNameDraft, setLayoutNameDraft] = useState<string | null>(null);
   const [focusedShell, setFocusedShell] = useState(false);
   const [compactPanel, setCompactPanel] = useState<"hierarchy" | "canvas" | "inspector">("canvas");
-  const [layoutPreset, setLayoutPreset] = useState<LayoutPresetId>("authoring");
+  const [hiddenSidePanels, setHiddenSidePanels] = useState({ left: false, right: false });
   const [shellWidth, setShellWidth] = useState(
     typeof window !== "undefined"
       ? window.innerWidth / (Number.parseFloat(getComputedStyle(document.documentElement).zoom) || 1)
       : 1440
   );
   const [shellPersona, setShellPersona] = useState<ShellPersona>(() => loadShellPersona());
+  const [showAllAreas, setShowAllAreas] = useState(false);
   const [personaSuggestion, setPersonaSuggestion] = useState<ShellPersona | null>(null);
   const [pendingSceneDraft, setPendingSceneDraft] = useState<SceneDraftRecord | null>(null);
   const dismissedDraftRef = useRef<{ session: number; raw?: string } | null>(null);
@@ -1940,8 +1955,12 @@ export default function App() {
   const panelGroupRef = useRef<GroupImperativeHandle | null>(null);
   const leftPanelRef = useRef<PanelImperativeHandle | null>(null);
   const rightPanelRef = useRef<PanelImperativeHandle | null>(null);
-  const lastNonFocusLayoutRef = useRef<LayoutMap | null>(null);
-  const applyingLayoutRef = useRef(false);
+  const workspaceLayoutsRef = useRef(new Map<string, LayoutMap>());
+  const settledLayoutRef = useRef<string | null>(null);
+  const timelinePanelRef = useRef<PanelImperativeHandle | null>(null);
+  const timelineShareRef = useRef(normalizeTimelinePercent(Number(localStorage.getItem(`${LAYOUT_STORAGE_KEY}::timeline`))));
+  const sidebarRestoreRef = useRef(new Map<string, number>());
+  const compactBeforeFocus = useRef<typeof compactPanel>("canvas");
   const tauriInternals =
     (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
   const automationEnabled =
@@ -1951,7 +1970,7 @@ export default function App() {
     String(import.meta.env.TAURI_ENV_DEBUG ?? "") === "1" ||
     new URLSearchParams(window.location.search).has("e2e");
 
-  const { defaultLayout, onLayoutChanged } = useDefaultLayout({
+  const { defaultLayout: legacyDefaultLayout } = useDefaultLayout({
     id: "retrodev-layout",
     storage: typeof window !== "undefined" ? localStorage : undefined,
     panelIds: ["left", "center", "right"],
@@ -2009,16 +2028,26 @@ export default function App() {
   const workspaceMeta =
     WORKSPACE_ITEMS.find((workspace) => workspace.id === activeWorkspace) ?? WORKSPACE_ITEMS[0];
   const shellConfig = resolveWorkspaceShellConfig(activeWorkspace, shellWidth);
+  const layoutKey = workspaceLayoutKey(activeWorkspace, shellDensity);
   const compactShell = shellWidth < 960;
+  const propertiesLeft = activeWorkspace === "scene" && sceneDesk.propertiesLeft;
+  const layoutRevision = `${layoutKey}:${propertiesLeft}:${focusedShell}`;
+  const splitTimeline = activeWorkspace === "scene" && activeViewportTab === "scene" && sceneDesk.desk === "animate" && !focusedShell;
+  const leftMinimum = propertiesLeft ? 320 : 200;
+  const rightMinimum = propertiesLeft ? 200 : 320;
+  const leftAvailable = propertiesLeft ? shellConfig.showRight : shellConfig.showLeft;
+  const rightAvailable = propertiesLeft ? shellConfig.showLeft : shellConfig.showRight;
+  const workspaceDefaultLayout = placeScenePanels(shellConfig.panels, propertiesLeft);
   const compactVisiblePanel = focusedShell ||
     (compactPanel === "hierarchy" && !shellConfig.showLeft) ||
     (compactPanel === "inspector" && !shellConfig.showRight)
     ? "canvas"
     : compactPanel;
   const compactTabs: ["canvas" | "hierarchy" | "inspector", string][] = [
+    ...(propertiesLeft && !focusedShell ? [["inspector", "Propriedades"]] as ["inspector", string][] : []),
     ["canvas", workspaceMeta.label],
-    ...(shellConfig.showLeft && !focusedShell ? [["hierarchy", "Hierarquia"]] as ["hierarchy", string][] : []),
-    ...(shellConfig.showRight && !focusedShell ? [["inspector", "Inspector"]] as ["inspector", string][] : []),
+    ...(shellConfig.showLeft && !focusedShell ? [["hierarchy", "Projeto e camadas"]] as ["hierarchy", string][] : []),
+    ...(shellConfig.showRight && !propertiesLeft && !focusedShell ? [["inspector", "Propriedades"]] as ["inspector", string][] : []),
   ];
   useEffect(() => {
     setCompactPanel(activeWorkspace === "debug" && shellConfig.showRight ? "inspector" : "canvas");
@@ -2076,8 +2105,15 @@ export default function App() {
 
   function openToolsCommand(activeTool: ToolTab, workspace: ToolWorkspace, showAdvanced = false) {
     const currentShell = resolveWorkspaceShellConfig(activeWorkspace, shellWidth);
+    setFocusedShell(false);
     if (!currentShell.showRight) {
       handleWorkspaceSelect(workspace === "debug" || activeTool === "setup" ? "debug" : "scene");
+    } else if (!compactShell) {
+      const side = propertiesLeft ? "left" : "right";
+      if (hiddenSidePanels[side] && !focusedShell) sidebarAction(side);
+    }
+    if (compactShell) {
+      window.requestAnimationFrame(() => setCompactPanel("inspector"));
     }
     openToolsWorkspace(activeTool, workspace, showAdvanced);
   }
@@ -2217,38 +2253,86 @@ export default function App() {
   }
 
   function applyShellLayout(nextLayout: LayoutMap) {
-    applyingLayoutRef.current = true;
-    if (nextLayout.left > 0 && leftPanelRef.current?.isCollapsed()) {
-      leftPanelRef.current.expand();
+    const applied = panelGroupRef.current?.setLayout(nextLayout);
+    if (applied) updateHiddenSidePanels(applied);
+  }
+
+  function updateHiddenSidePanels(layout: Record<string, number>) {
+    const left = (layout.left ?? 0) < 0.01;
+    const right = (layout.right ?? 0) < 0.01;
+    setHiddenSidePanels((current) => current.left === left && current.right === right ? current : { left, right });
+  }
+
+  function getCurrentLayout(): LayoutMap | undefined {
+    const layout = panelGroupRef.current?.getLayout();
+    if (!layout || !("center" in layout)) return undefined;
+    return { left: layout.left ?? 0, center: layout.center, right: layout.right ?? 0 };
+  }
+
+  function getRememberedLayout() {
+    const remembered = workspaceLayoutsRef.current.get(layoutKey)
+      ?? readWorkspaceLayout(localStorage.getItem(`${layoutKey}::current`))?.layout;
+    if (remembered) return placeScenePanels(remembered, propertiesLeft);
+    if (activeWorkspace !== "scene") return workspaceDefaultLayout;
+    const legacy = readWorkspaceLayout(localStorage.getItem(getLayoutStorageKeyForDensity(LAYOUT_STORAGE_KEY, shellDensity)))
+      ?? readWorkspaceLayout(localStorage.getItem(LAYOUT_STORAGE_KEY))
+      ?? readWorkspaceLayout(JSON.stringify(legacyDefaultLayout ?? null));
+    return legacy && legacy.layout.left > 0 && legacy.layout.right > 0
+      ? placeScenePanels(legacy.layout, propertiesLeft)
+      : workspaceDefaultLayout;
+  }
+
+  function rememberLayout(layout: LayoutMap, propertiesOnLeft = propertiesLeft) {
+    const semanticWidths = placeScenePanels(layout, propertiesOnLeft);
+    workspaceLayoutsRef.current.set(layoutKey, semanticWidths);
+    localStorage.setItem(`${layoutKey}::current`, JSON.stringify({ layout: semanticWidths }));
+  }
+
+  function changeSceneDesk(desk: SceneDesk) {
+    setSceneDesk((current) => ({ ...current, desk }));
+    setFocusedShell(false);
+    setCompactPanel("canvas");
+    if (activeWorkspace !== "scene") handleWorkspaceSelect("scene");
+  }
+
+  function moveProperties() {
+    const previous = getCurrentLayout() ?? getRememberedLayout();
+    rememberLayout(previous);
+    setSceneDesk((current) => ({ ...current, propertiesLeft: !current.propertiesLeft }));
+    if (compactShell) setCompactPanel("inspector");
+  }
+
+  function sidebarAction(side: "left" | "right", intent?: LayoutResizeIntent) {
+    const panel = side === "left" ? leftPanelRef.current : rightPanelRef.current;
+    if (!panel) return;
+    const size = panel.getSize();
+    const minimum = side === "left" ? leftMinimum : rightMinimum;
+    const restoreKey = `${layoutKey}:${propertiesLeft}:${side}`;
+    if (!intent) {
+      if (panel.isCollapsed()) {
+        panel.resize(sidebarRestoreRef.current.get(restoreKey) ?? `${workspaceDefaultLayout[side]}%`);
+      } else {
+        sidebarRestoreRef.current.set(restoreKey, size.inPixels);
+        panel.collapse();
+      }
+    } else if (intent.type === "step") {
+      const delta = side === "left" ? intent.delta : -intent.delta;
+      panel.resize(Math.max(minimum, size.inPixels + delta));
+    } else if (intent.type === "minimum") {
+      panel.resize(minimum);
+    } else if (intent.type === "maximum") {
+      panel.resize("55%");
+    } else {
+      panel.resize(`${workspaceDefaultLayout[side]}%`);
     }
-    if (nextLayout.right > 0 && rightPanelRef.current?.isCollapsed()) {
-      rightPanelRef.current.expand();
-    }
-    panelGroupRef.current?.setLayout(nextLayout);
-    if (nextLayout.left > 0 && (leftPanelRef.current?.getSize().inPixels ?? 0) < 190) {
-      leftPanelRef.current?.resize("200px");
-    }
-    if (nextLayout.right > 0 && (rightPanelRef.current?.getSize().inPixels ?? 0) < 300) {
-      rightPanelRef.current?.resize("320px");
-    }
-    onLayoutChanged(nextLayout);
-    window.setTimeout(() => {
-      applyingLayoutRef.current = false;
-    }, 0);
   }
 
   function toggleFocusMode() {
     if (!focusedShell) {
-      const currentLayout = panelGroupRef.current?.getLayout();
-      if (currentLayout) {
-        lastNonFocusLayoutRef.current = {
-          left: currentLayout.left ?? 0,
-          center: currentLayout.center ?? 100,
-          right: currentLayout.right ?? 0,
-        };
-      }
+      const currentLayout = getCurrentLayout();
+      if (currentLayout) rememberLayout(currentLayout);
+      compactBeforeFocus.current = compactPanel;
       setFocusedShell(true);
-      applyShellLayout({ left: 0, center: 100, right: 0 });
       if (consoleVisible) {
         toggleConsole();
       }
@@ -2256,88 +2340,63 @@ export default function App() {
     }
 
     setFocusedShell(false);
-    applyShellLayout(
-      lastNonFocusLayoutRef.current ?? getPresetLayout(layoutPreset, shellWidth)
-    );
+    setCompactPanel(compactBeforeFocus.current);
   }
 
-  function saveCurrentLayout() {
-    const layout = panelGroupRef.current?.getLayout();
-    if (!layout) {
-      return;
-    }
-
-    localStorage.setItem(
-      getLayoutStorageKeyForDensity(LAYOUT_STORAGE_KEY, shellDensity),
-      JSON.stringify({
-        left: layout.left ?? 0,
-        center: layout.center ?? 100,
-        right: layout.right ?? 0,
-      } satisfies LayoutMap)
-    );
-    logMessage(
-      "success",
-      `[Layout] Layout atual salvo para o perfil de densidade "${shellDensity}".`
-    );
+  function saveCurrentLayout(name?: string) {
+    const layout = (!focusedShell && getCurrentLayout()) || getRememberedLayout();
+    const savedName = name?.trim().slice(0, 60) || readWorkspaceLayout(localStorage.getItem(layoutKey))?.name || "Minha disposição";
+    localStorage.setItem(layoutKey, JSON.stringify({ layout, scene: sceneDesk, name: savedName, timelinePercent: timelineShareRef.current }));
+    logMessage("success", `[Layout] ${savedName} salva para a densidade ${shellDensity}.`);
   }
 
   function restoreSavedLayout() {
-    // Perfil de densidade primeiro; chave legada como fallback para layouts antigos.
-    const raw =
-      localStorage.getItem(getLayoutStorageKeyForDensity(LAYOUT_STORAGE_KEY, shellDensity)) ??
-      localStorage.getItem(LAYOUT_STORAGE_KEY);
-    if (!raw) {
+    const saved = readWorkspaceLayout(localStorage.getItem(layoutKey))
+      ?? readWorkspaceLayout(localStorage.getItem(getLayoutStorageKeyForDensity(LAYOUT_STORAGE_KEY, shellDensity)))
+      ?? readWorkspaceLayout(localStorage.getItem(LAYOUT_STORAGE_KEY));
+    if (!saved) {
       logMessage("warn", "[Layout] Nenhum layout salvo neste host.");
       return;
     }
-
-    try {
-      const parsed = JSON.parse(raw) as Partial<LayoutMap>;
-      const nextLayout: LayoutMap = {
-        left: Number(parsed.left ?? 18),
-        center: Number(parsed.center ?? 60),
-        right: Number(parsed.right ?? 22),
-      };
-      setFocusedShell(false);
-      lastNonFocusLayoutRef.current = nextLayout;
-      applyShellLayout(nextLayout);
-      logMessage("success", "[Layout] Layout salvo restaurado.");
-    } catch {
-      logMessage("error", "[Layout] Falha ao ler layout salvo neste host.");
+    rememberLayout(saved.layout, activeWorkspace === "scene" && saved.scene.propertiesLeft);
+    if (activeWorkspace === "scene") {
+      timelineShareRef.current = saved.timelinePercent;
+      timelinePanelRef.current?.resize(`${saved.timelinePercent}%`);
+      localStorage.setItem(`${LAYOUT_STORAGE_KEY}::timeline`, String(saved.timelinePercent));
+      setSceneDesk(saved.scene);
     }
+    setFocusedShell(false);
+    applyShellLayout(saved.layout);
+    logMessage("success", `[Layout] ${saved.name || "Disposição salva"} restaurada.`);
+  }
+
+  function restoreDefaultLayout() {
+    const layout = shellConfig.panels;
+    rememberLayout(layout, false);
+    if (activeWorkspace === "scene") setSceneDesk(DEFAULT_SCENE_DESK);
+    setCompactPanel("canvas");
+    setFocusedShell(false);
+    applyShellLayout(layout);
   }
 
   useEffect(() => {
-    if (focusedShell) {
-      return;
-    }
+    localStorage.setItem(`${LAYOUT_STORAGE_KEY}::last-scene-desk`, JSON.stringify({
+      layout: { left: 0, center: 100, right: 0 }, scene: sceneDesk,
+    }));
+  }, [sceneDesk]);
 
-    // A biblioteca pode recalcular os limites depois do primeiro frame ao
-    // expandir painéis que estavam recolhidos no workspace Jogo/Lógica.
-    // Confirme a largura real e repita apenas durante esta transição.
-    const config = resolveWorkspaceShellConfig(activeWorkspace, shellWidth);
-    setLayoutPreset(config.preset);
-    let followupFrame = 0;
-    const panelNeedsRestore = () => {
-      const left = document.querySelector<HTMLElement>('[data-panel][id="left"]');
-      const right = document.querySelector<HTMLElement>('[data-panel][id="right"]');
-      return (config.showLeft && config.panels.left > 0 && (left?.getBoundingClientRect().width ?? 0) < 190) ||
-        (config.showRight && config.panels.right > 0 && (right?.getBoundingClientRect().width ?? 0) < 300);
-    };
-    const restoreIfCollapsed = () => {
-      if (panelNeedsRestore()) applyShellLayout(config.panels);
-    };
+  useEffect(() => {
+    if (compactShell) return;
+    const layout = focusedShell ? shellConfig.focusLayout : getRememberedLayout();
     const frame = window.requestAnimationFrame(() => {
-      applyShellLayout(config.panels);
-      followupFrame = window.requestAnimationFrame(restoreIfCollapsed);
+      applyShellLayout(layout);
+      settledLayoutRef.current = layoutRevision;
     });
-    const timeout = window.setTimeout(restoreIfCollapsed, 180);
     return () => {
+      settledLayoutRef.current = null;
       window.cancelAnimationFrame(frame);
-      window.cancelAnimationFrame(followupFrame);
-      window.clearTimeout(timeout);
     };
-  }, [activeWorkspace, shellWidth, focusedShell, showProjectWizard, activeProjectDir]);
+  }, [layoutKey, propertiesLeft, compactShell, focusedShell, showProjectWizard]);
 
   useEffect(() => {
     if (focusedShell) {
@@ -2795,20 +2854,40 @@ export default function App() {
       ],
     },
     {
-      title: "Layout",
+      title: "Disposição",
       actions: [
+        { label: "Compor fase", onClick: () => changeSceneDesk("compose"), testId: "workspace-preset-compose" },
+        { label: "Animar", onClick: () => changeSceneDesk("animate"), testId: "workspace-preset-animate" },
+        { label: "Depurar", onClick: () => {
+          setFocusedShell(false);
+          handleWorkspaceSelect("debug");
+          if (emulatorLoaded) setActiveViewportTab("game");
+        }, testId: "workspace-preset-debug" },
+        ...(activeWorkspace === "scene" ? [{
+          label: propertiesLeft ? "Mover Propriedades para a direita" : "Mover Propriedades para a esquerda",
+          onClick: moveProperties,
+          testId: "workspace-move-properties",
+        }] : []),
         {
-          label: "Salvar layout",
-          onClick: saveCurrentLayout,
+          label: "Salvar disposição com nome…",
+          onClick: () => setLayoutNameDraft(readWorkspaceLayout(localStorage.getItem(layoutKey))?.name || "Minha disposição"),
           shortcut: getShortcutLabel("layout.save", shortcuts),
-          title: getShortcutTitle("layout.save", "Salvar layout local do workspace", shortcuts),
+          title: getShortcutTitle("layout.save", "Salvar a disposição local", shortcuts),
+          testId: "workspace-save-layout",
         },
         {
-          label: "Restaurar layout",
+          label: "Restaurar disposição salva",
           onClick: restoreSavedLayout,
           shortcut: getShortcutLabel("layout.restore", shortcuts),
-          title: getShortcutTitle("layout.restore", "Restaurar layout salvo neste host", shortcuts),
+          title: getShortcutTitle("layout.restore", "Restaurar disposição salva neste host", shortcuts),
+          testId: "workspace-restore-layout",
         },
+        { label: "Restaurar disposição padrão", onClick: restoreDefaultLayout, testId: "workspace-reset-layout" },
+      ],
+    },
+    {
+      title: "Comandos",
+      actions: [
         {
           label: "Command Palette",
           onClick: openCommandPalette,
@@ -2931,7 +3010,8 @@ export default function App() {
       if (!animation) focus.animation = null;
       if (!focus.occurrenceId || !ids?.includes(focus.occurrenceId)) focus.occurrenceId = null;
       useEditorStore.setState((state) => ({
-        studio: { ...state.studio, focus, cameras: remembered.cameras, restoreSeq: state.studio.restoreSeq + 1 },
+        studio: { ...state.studio, focus, cameras: remembered.cameras, savedScenePath: sceneData.scene_path,
+          restoreSeq: state.studio.restoreSeq + 1 },
         viewportZoom: remembered.cameras.scene?.zoom ?? state.viewportZoom,
       }));
     }
@@ -4108,9 +4188,6 @@ export default function App() {
 
     setActiveViewportTab(workspace);
 
-    if (workspace === "scene") {
-      setLeftPanelTab("scene");
-    }
   }
 
   const workspaceGuide = activeProjectDir
@@ -4954,31 +5031,25 @@ export default function App() {
   }, [automationEnabled, rightPanelMode]);
 
   const hierarchyPanelContent = shellConfig.showLeft ? (
-    <>
-      <div className="flex shrink-0 border-b border-[#313244] bg-[#11111b]">
-        <button
-          onClick={() => setLeftPanelTab("scene")}
-          className={`flex-1 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] transition-colors ${
-            leftPanelTab === "scene" ? "bg-[#313244] text-[#cdd6f4]" : "text-[#45475a] hover:text-[#a6adc8]"
-          }`}
-        >
-          {activeWorkspace === "logic" ? "Contexto" : "Cena"}
-        </button>
-        <button
-          onClick={() => setLeftPanelTab("layers")}
-          className={`flex-1 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] transition-colors ${
-            leftPanelTab === "layers" ? "bg-[#313244] text-[#cdd6f4]" : "text-[#45475a] hover:text-[#a6adc8]"
-          }`}
-        >
-          Camadas
-        </button>
+    <div className="flex h-full min-h-0 flex-col" data-testid="workspace-project-panel">
+      <WorkspaceTabs<ProjectPanelTab>
+        name="workspace-project"
+        label="Painéis do projeto"
+        tabs={[["scene", "Projeto"], ["layers", "Camadas"]]}
+        value={sceneDesk.projectTab}
+        onChange={(projectTab) => setSceneDesk((current) => ({ ...current, projectTab }))}
+      />
+      <div id="workspace-project-panel-scene" role="tabpanel" aria-labelledby="workspace-project-tab-scene"
+        className="min-h-0 flex-1 overflow-hidden" hidden={sceneDesk.projectTab !== "scene"}>
+        <HierarchyPanel onOpenProject={() => void handleOpenProject()} />
       </div>
-      <div className="min-h-0 flex-1 overflow-hidden">
-        {leftPanelTab === "layers" ? <LayerPanel /> : <HierarchyPanel onOpenProject={() => void handleOpenProject()} />}
+      <div id="workspace-project-panel-layers" role="tabpanel" aria-labelledby="workspace-project-tab-layers"
+        className="min-h-0 flex-1 overflow-hidden" hidden={sceneDesk.projectTab !== "layers"}>
+        <LayerPanel />
       </div>
-    </>
+    </div>
   ) : null;
-  const workspacePanelContent = activeWorkspace === "explorer" ? (
+  const workspaceEditor = activeWorkspace === "explorer" ? (
     <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Explorer..." />}>
       <ExplorerWorkspace
         onSelectionChange={setExplorerBreadcrumb}
@@ -4990,8 +5061,46 @@ export default function App() {
       <ViewportPanel showWorkspaceTabs={false} />
     </Suspense>
   );
+  const animationActor = splitTimeline ? activeScene?.entities.find((entity) => entity.entity_id === selectedEntityId) : undefined;
+  const canAnimate = nativeAnimationNames(animationActor?.components.sprite, activeTarget, projectSourceKind).length > 0;
+  const workspacePanelContent = (
+    <Group orientation="vertical" id="workspace-editor" className="h-full min-h-0" data-testid="workspace-editor-stack"
+      onLayoutChanged={(layout) => {
+        const share = layout["workspace-timeline"];
+        if (!splitTimeline || !(share > 0 && share <= 71)) return;
+        timelineShareRef.current = share;
+        localStorage.setItem(`${LAYOUT_STORAGE_KEY}::timeline`, String(share));
+      }}>
+      <Panel id="workspace-primary" minSize={splitTimeline ? 29 : 0} className="overflow-hidden">
+        {workspaceEditor}
+      </Panel>
+      {splitTimeline ? (
+        <LayoutSplitter id="workspace-timeline-divider" orientation="vertical" ariaLabel="Redimensionar Canvas e timeline"
+          onResizeIntent={(intent) => {
+            const panel = timelinePanelRef.current;
+            if (!panel) return;
+            if (intent.type === "step") panel.resize(Math.max(110, panel.getSize().inPixels - intent.delta));
+            else if (intent.type === "minimum") panel.resize(110);
+            else if (intent.type === "maximum") panel.resize("71%");
+            else panel.resize("42%");
+          }} />
+      ) : null}
+      {splitTimeline ? (
+        <Panel id="workspace-timeline" panelRef={timelinePanelRef} defaultSize={`${timelineShareRef.current}%`}
+          minSize="110px" maxSize="71%" className="overflow-hidden">
+          {animationActor && canAnimate ? (
+            <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando timeline…" />}>
+              <CharacterTimelinePanel key={animationActor.entity_id} entity={animationActor} authored />
+            </Suspense>
+          ) : (
+            <div className="p-3 text-sm text-[var(--rds-text-secondary)]">Selecione no Canvas um ator com animações do projeto.</div>
+          )}
+        </Panel>
+      ) : null}
+    </Group>
+  );
   const inspectorPanelContent = shellConfig.showRight ? (
-    <div className="flex h-full min-h-0 flex-col bg-[#09090b]">
+    <div data-testid="workspace-properties-panel" className="flex h-full min-h-0 flex-col bg-[#09090b]">
       <div className={`flex flex-col gap-2 border-b border-[#27272a] bg-[#111827] ${compactShell ? "px-2 py-1" : "px-3 py-2"}`}>
         <div className="min-w-0">
           <div className={`${compactShell ? "sr-only" : "text-[10px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]"}`}>
@@ -5048,12 +5157,53 @@ export default function App() {
     </div>
   ) : null;
 
+  function renderSidePanel(side: "left" | "right") {
+    const left = side === "left";
+    const showProperties = propertiesLeft === left;
+    const available = left ? leftAvailable : rightAvailable;
+    return (
+      <Panel key={showProperties ? "properties" : "project"} id={side}
+        panelRef={left ? leftPanelRef : rightPanelRef}
+        defaultSize={`${workspaceDefaultLayout[side]}%`}
+        minSize={available && !focusedShell ? (left ? leftMinimum : rightMinimum) : 0}
+        collapsible
+        className={`overflow-hidden ${left ? "border-r" : "border-l"} border-[#313244]`}>
+        <div className="h-full min-h-0" inert={!available || focusedShell || hiddenSidePanels[side]}>
+          {showProperties ? inspectorPanelContent : hierarchyPanelContent}
+        </div>
+      </Panel>
+    );
+  }
+
   return (
     <div
       data-density={shellDensity}
       data-shell-persona={shellPersona}
+      data-testid="studio-workspace-shell"
+      data-scene-desk={sceneDesk.desk}
+      data-properties-side={propertiesLeft ? "left" : "right"}
       className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--rds-surface-panel-strong)] text-[var(--rds-text-primary)]"
     >
+      <Dialog open={layoutNameDraft !== null} title="Salvar disposição" onClose={() => setLayoutNameDraft(null)}
+        testId="workspace-layout-name-dialog">
+        <form onSubmit={(event) => {
+          event.preventDefault();
+          if (!layoutNameDraft?.trim()) return;
+          saveCurrentLayout(layoutNameDraft);
+          setLayoutNameDraft(null);
+        }} className="flex flex-col gap-3">
+          <label className="flex flex-col gap-1 text-sm">
+            Nome da disposição
+            <input required type="text" maxLength={60} data-rds-dialog-initial-focus data-testid="workspace-layout-name"
+              value={layoutNameDraft ?? ""} onChange={(event) => setLayoutNameDraft(event.target.value)}
+              className="rounded border border-[var(--rds-border-subtle)] bg-[var(--rds-surface-panel)] px-2 py-1" />
+          </label>
+          <div className="flex justify-end gap-2">
+            <button type="button" className="rounded px-2 py-1" onClick={() => setLayoutNameDraft(null)}>Cancelar</button>
+            <button type="submit" className="rounded bg-[var(--rds-action-primary)] px-2 py-1 text-[var(--rds-on-accent)]">Salvar disposição</button>
+          </div>
+        </form>
+      </Dialog>
       {showProjectWizard && <ProjectStartWizard
         activeProject={Boolean(activeProjectDir)} busy={creatingProject} loading={templatesLoading}
         name={newProjName} target={newProjTarget} templates={projectTemplates}
@@ -5668,6 +5818,7 @@ export default function App() {
               label={focusedShell ? "Sair do foco" : "Focus"}
               onClick={toggleFocusMode}
               title={getShortcutTitle("layout.focus", "Maximizar ou restaurar a area central", shortcuts)}
+              testId="workspace-focus"
             />
             <ToolbarButton
               label="Console"
@@ -5784,7 +5935,7 @@ export default function App() {
               const groupItems = WORKSPACE_ITEMS.filter(
                 (workspace) =>
                   workspace.group === group.id &&
-                  isSurfaceVisibleForPersona(workspace, shellPersona)
+                  (showAllAreas || isSurfaceVisibleForPersona(workspace, shellPersona))
               );
               if (groupItems.length === 0) {
                 return null;
@@ -5820,52 +5971,40 @@ export default function App() {
               );
             })}
           </div>
+          <div className="flex shrink-0 flex-wrap justify-center gap-1 border-t border-[var(--rds-border-subtle)] p-1.5">
+            {WORKSPACE_ITEMS.some((workspace) => !isSurfaceVisibleForPersona(workspace, shellPersona)) ? (
+              <button type="button" aria-pressed={showAllAreas} data-testid="workspace-show-all-areas"
+                onClick={() => setShowAllAreas((visible) => !visible)}
+                className="w-full rounded px-1 py-1 text-[10px] font-semibold focus-visible:ring-2 focus-visible:ring-[var(--rds-focus-ring)]">
+                {showAllAreas ? "Áreas do modo" : "Todas as áreas"}
+              </button>
+            ) : null}
+            {!compactShell && !focusedShell ? (["left", "right"] as const).map((side) => {
+              if (!(side === "left" ? leftAvailable : rightAvailable)) return null;
+              const isProperties = propertiesLeft === (side === "left");
+              const name = isProperties ? (activeWorkspace === "debug" ? "Ferramentas" : "Propriedades") : "Projeto e camadas";
+              const expanded = !hiddenSidePanels[side];
+              const label = `${expanded ? "Recolher" : "Fixar"} ${name}`;
+              return <button key={side} type="button" title={label} aria-label={label} aria-expanded={expanded} aria-controls={side}
+                data-testid={`workspace-sidebar-${side}`} onClick={() => sidebarAction(side)}
+                className="rounded p-1 text-[var(--rds-text-secondary)] hover:text-[var(--rds-text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--rds-focus-ring)]">
+                <Icon name={expanded ? "sidebar-collapse" : "sidebar-expand"} className="h-4 w-4" />
+              </button>;
+            }) : null}
+          </div>
         </aside>
 
         {compactShell ? (
           <div data-testid="compact-workspace-shell" className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            <div role="tablist" aria-label="Painéis do workspace" className="flex shrink-0 overflow-x-auto border-b border-[#313244] bg-[#111827]">
-              {compactTabs.map(([panel, label], index) => (
-                <button
-                  key={panel}
-                  id={`compact-shell-tab-${panel}`}
-                  type="button"
-                  role="tab"
-                  data-testid={`compact-shell-tab-${panel}`}
-                  aria-selected={compactVisiblePanel === panel}
-                  aria-controls="compact-shell-panel"
-                  tabIndex={compactVisiblePanel === panel ? 0 : -1}
-                  onClick={() => setCompactPanel(panel)}
-                  onKeyDown={(event) => {
-                    let nextIndex: number;
-                    if (event.key === "ArrowRight") nextIndex = (index + 1) % compactTabs.length;
-                    else if (event.key === "ArrowLeft") nextIndex = (index - 1 + compactTabs.length) % compactTabs.length;
-                    else if (event.key === "Home") nextIndex = 0;
-                    else if (event.key === "End") nextIndex = compactTabs.length - 1;
-                    else return;
-                    event.preventDefault();
-                    const nextPanel = compactTabs[nextIndex][0];
-                    setCompactPanel(nextPanel);
-                    document.getElementById(`compact-shell-tab-${nextPanel}`)?.focus();
-                  }}
-                  className={`shrink-0 px-3 py-1.5 text-[11px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--rds-focus-ring)] ${
-                    compactVisiblePanel === panel ? "border-b-2 border-[var(--rds-action-primary)] text-[var(--rds-text-primary)]" : "text-[var(--rds-text-secondary)]"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div
-              id="compact-shell-panel"
-              role="tabpanel"
-              aria-labelledby={`compact-shell-tab-${compactVisiblePanel}`}
-              className="min-h-0 min-w-0 flex-1 overflow-hidden"
-            >
-              {compactVisiblePanel === "hierarchy" ? (
-                <div className="flex h-full min-h-0 flex-col">{hierarchyPanelContent}</div>
-              ) : compactVisiblePanel === "inspector" ? inspectorPanelContent : workspacePanelContent}
-            </div>
+            <WorkspaceTabs name="compact-shell" label="Painéis do workspace" tabs={compactTabs}
+              value={compactVisiblePanel} onChange={setCompactPanel} />
+            {(["canvas", "hierarchy", "inspector"] as const).map((panel) => (
+              <div key={panel} id={`compact-shell-panel-${panel}`} role="tabpanel"
+                aria-labelledby={`compact-shell-tab-${panel}`} hidden={compactVisiblePanel !== panel}
+                className="min-h-0 min-w-0 flex-1 overflow-hidden">
+                {panel === "canvas" ? workspacePanelContent : panel === "hierarchy" ? hierarchyPanelContent : inspectorPanelContent}
+              </div>
+            ))}
           </div>
         ) : (
         <Group
@@ -5873,43 +6012,23 @@ export default function App() {
           orientation="horizontal"
           groupRef={panelGroupRef}
           className="min-w-0 flex flex-1 overflow-hidden"
-          defaultLayout={defaultLayout}
           onLayoutChanged={(layout) => {
-            if (!focusedShell) {
-              lastNonFocusLayoutRef.current = {
-                left: layout.left ?? 0,
-                center: layout.center ?? 100,
-                right: layout.right ?? 0,
-              };
+            updateHiddenSidePanels(layout);
+            if (!focusedShell && settledLayoutRef.current === layoutRevision) {
+              const next = { left: layout.left ?? 0, center: layout.center ?? 100, right: layout.right ?? 0 };
+              rememberLayout(next);
             }
-            onLayoutChanged(layout);
           }}
         >
-          <Panel
-            id="left"
-            panelRef={leftPanelRef}
-            defaultSize={shellConfig.panels.left}
-            minSize={shellConfig.showLeft && !focusedShell && shellWidth >= 960 ? "200px" : 0}
-            collapsible
-            className="flex flex-col overflow-hidden border-r border-[#313244]"
-          >
-            {hierarchyPanelContent}
-          </Panel>
-          <LayoutSplitter />
-          <Panel id="center" minSize={shellWidth < 960 ? 0 : 20} className="overflow-hidden">
+          {renderSidePanel("left")}
+          <LayoutSplitter key="divider-left" id="workspace-divider-left" disabled={focusedShell || !leftAvailable}
+            onResizeIntent={(intent) => sidebarAction("left", intent)} />
+          <Panel id="center" key="center" minSize="20%" className="overflow-hidden">
             {workspacePanelContent}
           </Panel>
-          <LayoutSplitter />
-          <Panel
-            id="right"
-            panelRef={rightPanelRef}
-            defaultSize={shellConfig.panels.right}
-            minSize={shellConfig.showRight && !focusedShell ? (shellWidth < 960 ? "260px" : "320px") : 0}
-            collapsible
-            className="overflow-hidden border-l border-[#313244]"
-          >
-            {inspectorPanelContent}
-          </Panel>
+          <LayoutSplitter key="divider-right" id="workspace-divider-right" disabled={focusedShell || !rightAvailable}
+            onResizeIntent={(intent) => sidebarAction("right", intent)} />
+          {renderSidePanel("right")}
         </Group>
         )}
       </div>

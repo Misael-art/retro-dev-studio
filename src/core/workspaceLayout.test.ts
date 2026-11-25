@@ -3,11 +3,33 @@ import {
   getLayoutStorageKeyForDensity,
   getPresetLayout,
   getShellDensity,
+  placeScenePanels,
+  readWorkspaceLayout,
   resolveLayoutPreset,
   resolveWorkspaceShellConfig,
 } from "./workspaceLayout";
 
 describe("workspaceLayout", () => {
+  it("restores legacy widths and reads a named layout with its active panels", () => {
+    const widths = { left: 20, center: 55, right: 25 };
+    expect(readWorkspaceLayout(JSON.stringify(widths))).toEqual({
+      layout: widths, scene: { desk: "compose", propertiesLeft: false, projectTab: "scene" }, name: "", timelinePercent: 42,
+    });
+    const scene = { desk: "animate", propertiesLeft: true, projectTab: "layers" };
+    expect(readWorkspaceLayout(JSON.stringify({ layout: widths, scene, name: "  Porto  ", timelinePercent: 38 }))).toEqual({
+      layout: widths, scene, name: "Porto", timelinePercent: 38,
+    });
+    expect(readWorkspaceLayout('{"left":35,"center":15,"right":50}')).toBeNull();
+    expect(readWorkspaceLayout('{"left":0,"center":90,"right":"10"}')).toBeNull();
+  });
+
+  it("moves the side panels with their widths and preserves the central space", () => {
+    const widths = { left: 0, center: 65, right: 35 };
+    const inverted = placeScenePanels(widths, true);
+    expect(inverted).toEqual({ left: 35, center: 65, right: 0 });
+    expect(placeScenePanels(inverted, true)).toEqual(widths);
+  });
+
   it("maximizes center for playtest and art presets", () => {
     expect(getPresetLayout("playtest", 1920)).toEqual({ left: 0, center: 100, right: 0 });
     expect(getPresetLayout("art", 1920)).toEqual({ left: 0, center: 100, right: 0 });

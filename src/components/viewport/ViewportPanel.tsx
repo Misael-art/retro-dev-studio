@@ -80,8 +80,7 @@ import { gameMayTakeKeyDown } from "../../core/keyboardFocus";
 import TestAdjustPanel from "./TestAdjustPanel";
 import PoseDurationField from "../artstudio/PoseDurationField";
 const GameCodeLogic = lazy(() => import("../nodegraph/GameCodeLogic").then((m) => ({ default: m.GameCodeLogic })));
-const InstanceCodeView = lazy(() => import("../nodegraph/InstanceCodeView").then((m) => ({ default: m.InstanceCodeView })));
-const LogicViewTabs = lazy(() => import("../nodegraph/InstanceCodeView").then((m) => ({ default: m.LogicViewTabs })));
+const LogicAuthoringWorkspace = lazy(() => import("../nodegraph/LogicAuthoringWorkspace"));
 import { bankLetter, entityPaletteMarks } from "../../core/palettePlan";
 import { layoutTags } from "./viewportTagLayout";
 import { useCodeFocusStore } from "../../core/codeFocusStore";
@@ -534,7 +533,6 @@ export default function ViewportPanel({
   const nativeCProject = hwStatus?.analysis_mode === "native_c";
   const logicSource = useCodeFocusStore((s) => s.logicSource);
   const setLogicSource = useCodeFocusStore((s) => s.setLogicSource);
-  const logicView = useCodeFocusStore((s) => s.logicView);
   const paletteMapEnabled = usePalettePlanStore((s) => s.mapEnabled);
   const paletteBankFilter = usePalettePlanStore((s) => s.bankFilter);
   const palettePlan = usePalettePlanStore((s) => s.plan);
@@ -578,15 +576,36 @@ export default function ViewportPanel({
   const [showPerformanceOverlay, setShowPerformanceOverlay] = useState(true);
   const [assetCacheVersion, setAssetCacheVersion] = useState(0);
   const [sceneMousePos, setSceneMousePos] = useState<{ x: number; y: number } | null>(null);
-  const [viewportPan, setViewportPan] = useState({ x: 0, y: 0 });
-  // Câmera do editor de cena faz parte do contexto compartilhado: lembrada ao sair e
-  // reaplicada quando o usuário volta à origem (REQ-02).
+  const rememberedSceneCamera = studio.cameras.scene;
+  const canResumeSceneView = rememberedSceneCamera && activeScenePath
+    && (rememberedSceneCamera.scenePath ?? studio.savedScenePath) === activeScenePath;
+  const sceneViewKey = `${activeProjectDir}:${activeScenePath}:${activeScene?.scene_id ?? ""}`;
+  const [viewportPan, setViewportPan] = useState(() => canResumeSceneView
+    ? { x: rememberedSceneCamera.panX, y: rememberedSceneCamera.panY }
+    : { x: 0, y: 0 });
+  const latestSceneCamera = useRef({ zoom: viewportZoom, panX: viewportPan.x, panY: viewportPan.y });
+  if (activeViewportTab === "scene") latestSceneCamera.current = { zoom: viewportZoom, panX: viewportPan.x, panY: viewportPan.y };
+  // Debounce panning while the scene is visible. Flush the latest pose of the
+  // editor camera when another workspace replaces the viewport.
   useEffect(() => {
-    const handle = window.setTimeout(() => {
-      rememberWorkspaceCamera("scene", { zoom: viewportZoom, panX: viewportPan.x, panY: viewportPan.y });
-    }, 120);
+    if (activeViewportTab !== "scene" || !activeScenePath) return;
+    const handle = window.setTimeout(() => rememberWorkspaceCamera("scene", {
+      scenePath: activeScenePath, zoom: viewportZoom, panX: viewportPan.x, panY: viewportPan.y,
+    }), 120);
     return () => window.clearTimeout(handle);
-  }, [rememberWorkspaceCamera, viewportPan.x, viewportPan.y, viewportZoom]);
+  }, [activeScenePath, activeViewportTab, rememberWorkspaceCamera, viewportPan.x, viewportPan.y, viewportZoom]);
+  useEffect(() => {
+    if (activeViewportTab !== "scene" || !activeScenePath) return;
+    return () => {
+      const state = useEditorStore.getState();
+      if (state.activeProjectDir === activeProjectDir && state.activeScenePath === activeScenePath
+          && state.studio.restoreSeq === studio.restoreSeq) {
+        rememberWorkspaceCamera("scene", { scenePath: activeScenePath, ...latestSceneCamera.current });
+      }
+    };
+  }, [activeProjectDir, activeScenePath, activeViewportTab, rememberWorkspaceCamera, studio.restoreSeq]);
+  const initialSceneFocusRef = useRef<string | null>(canResumeSceneView ? sceneViewKey : null);
+  const autoFitRef = useRef<{ zoom: number; width: number; height: number; touched: boolean } | null>(null);
   const lastAppliedRestoreSeq = useRef(studio.restoreSeq);
   useEffect(() => {
     if (lastAppliedRestoreSeq.current === studio.restoreSeq) {
@@ -595,9 +614,11 @@ export default function ViewportPanel({
     lastAppliedRestoreSeq.current = studio.restoreSeq;
     const camera = studio.cameras.scene;
     if (camera) {
+      initialSceneFocusRef.current = sceneViewKey;
+      autoFitRef.current = null;
       setViewportPan({ x: camera.panX, y: camera.panY });
     }
-  }, [studio.cameras.scene, studio.restoreSeq]);
+  }, [sceneViewKey, studio.cameras.scene, studio.restoreSeq]);
   const [clampViewportToWorld, setClampViewportToWorld] = useState(true);
   const [spacePressed, setSpacePressed] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
@@ -1202,7 +1223,6 @@ export default function ViewportPanel({
 
   useEffect(() => {
     if (activeViewportTab !== "scene") {
-      setViewportPan({ x: 0, y: 0 });
       panDragRef.current = null;
       setIsPanning(false);
     }
@@ -1237,26 +1257,23 @@ export default function ViewportPanel({
     });
   }, [clampPanToStage]);
 
-  const initialSceneFocusRef = useRef<string | null>(null);
-  const autoFitRef = useRef<{ zoom: number; width: number; height: number; touched: boolean } | null>(null);
   const viewportZoomRef = useRef(viewportZoom);
   viewportZoomRef.current = viewportZoom;
   useEffect(() => {
     if (activeViewportTab !== "scene" || !activeScene?.scene_id || !sceneStageSize.width || !sceneStageSize.height) {
       return;
     }
-    const key = `${activeProjectDir}:${activeScenePath}:${activeScene.scene_id}`;
     // O painel pode mudar de tamanho depois do primeiro enquadramento (layout reaplicado ao
     // abrir o projeto); reenquadra so ate a primeira interacao na cena, para nao mover o que o usuario mira.
     const fit = autoFitRef.current;
-    if (initialSceneFocusRef.current === key) {
+    if (initialSceneFocusRef.current === sceneViewKey) {
       if (!fit || fit.touched || fit.zoom !== viewportZoomRef.current) return;
       if (Math.abs(fit.width - sceneStageSize.width) < 2 && Math.abs(fit.height - sceneStageSize.height) < 2) return;
     }
-    initialSceneFocusRef.current = key;
+    initialSceneFocusRef.current = sceneViewKey;
     const zoom = resetSceneView();
     autoFitRef.current = zoom === null ? null : { zoom, width: sceneStageSize.width, height: sceneStageSize.height, touched: false };
-  }, [activeProjectDir, activeScene?.scene_id, activeScenePath, activeViewportTab, resetSceneView, sceneStageSize]);
+  }, [activeScene?.scene_id, activeViewportTab, resetSceneView, sceneStageSize, sceneViewKey]);
 
   useEffect(() => {
     setSceneGuides(loadSceneGuides(sceneGuideStorageKey));
@@ -6070,6 +6087,11 @@ export default function ViewportPanel({
         )}
 
         {activeViewportTab === "logic" && (
+          !nativeCProject && activeProjectDir ? (
+            <Suspense fallback={<WorkspaceViewportFallback label="Carregando Lógica..." />}>
+              <LogicAuthoringWorkspace showNativePoses={showNativePoses} />
+            </Suspense>
+          ) : (
           <div className="flex h-full w-full flex-col">
             {nativeCProject && activeProjectDir ? (
               <div role="tablist" aria-label="Origem da lógica" className="flex shrink-0 items-center gap-1 border-b border-[#313244] bg-[#11111b] px-2 py-1 text-[11px]">
@@ -6093,22 +6115,11 @@ export default function ViewportPanel({
                   </button>
                 ))}
               </div>
-            ) : activeProjectDir ? (
-              <LogicViewTabs />
-            ) : null}
-            {!nativeCProject && logicView === "nodes" && showNativePoses ? (
-              <div className="flex shrink-0 items-center border-b border-[#313244] px-2 py-1">
-                <PoseDurationField testId="nodes-pose-duration" />
-              </div>
             ) : null}
             <div className="relative min-h-0 flex-1">
               {nativeCProject && activeProjectDir && logicSource === "code" ? (
                 <Suspense fallback={<WorkspaceViewportFallback label="Carregando código..." />}>
                   <GameCodeLogic projectDir={activeProjectDir} />
-                </Suspense>
-              ) : !nativeCProject && activeProjectDir && logicView === "code" ? (
-                <Suspense fallback={<WorkspaceViewportFallback label="Carregando código..." />}>
-                  <InstanceCodeView />
                 </Suspense>
               ) : (
                 <Suspense fallback={<WorkspaceViewportFallback label="Carregando Logic..." />}>
@@ -6117,6 +6128,7 @@ export default function ViewportPanel({
               )}
             </div>
           </div>
+          )
         )}
 
         {activeViewportTab === "retrofx" && (

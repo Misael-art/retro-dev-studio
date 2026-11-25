@@ -4,6 +4,7 @@ import { persistActiveScene, registerPendingEditFlusher } from "../../core/scene
 import { openProjectSourcePath } from "../../core/ipc/projectService";
 import { parseSceneJson, resolveScenePrefabs } from "../../core/ipc/sceneService";
 import { useEditorStore, type HwStatus } from "../../core/store/editorStore";
+import { logicSelectionKey, useCodeFocusStore } from "../../core/codeFocusStore";
 import { collectDeclaredTransitions, describeGraphScope, resolveGraphScope, searchTransitions } from "../../core/sceneComposition";
 import { listScenes } from "../../core/ipc/sceneService";
 import { getEntityDisplayName } from "../../core/entityDisplay";
@@ -2266,6 +2267,7 @@ function EmptyStateOverlay({
 export default function NodeGraphEditor() {
   const activeProjectDir = useEditorStore((state) => state.activeProjectDir);
   const activeScene = useEditorStore((state) => state.activeScene);
+  const activeScenePath = useEditorStore((state) => state.activeScenePath);
   const activeTarget = useEditorStore((state) => state.activeTarget);
   const activeSceneSource = useEditorStore((state) => state.activeSceneSource);
   const selectedEntityId = useEditorStore((state) => state.selectedEntityId);
@@ -2313,6 +2315,7 @@ export default function NodeGraphEditor() {
     setGraphState(next);
   }, []);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectionKey = logicSelectionKey(activeProjectDir, activeScenePath, selectedEntityId);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [dragging, setDragging] = useState<{
     nodeIds: string[];
@@ -2632,12 +2635,14 @@ export default function NodeGraphEditor() {
   );
 
   useEffect(() => {
-    if (!initialFocusPendingRef.current || !graph.nodes.length || !canvasSize.width || !canvasSize.height) return;
-    const first = graph.nodes.find((node) => EVENT_NODE_TYPES.includes(node.type)) ?? graph.nodes[0];
+    if (!initialFocusPendingRef.current || graph !== currentGraphRef.current || !graph.nodes.length || !canvasSize.width || !canvasSize.height) return;
+    const remembered = useCodeFocusStore.getState().graphNode;
+    const previous = remembered?.key === selectionKey ? graph.nodes.find((node) => node.id === remembered.nodeId) : null;
+    const first = previous ?? graph.nodes.find((node) => EVENT_NODE_TYPES.includes(node.type)) ?? graph.nodes[0];
     initialFocusPendingRef.current = false;
     setSelectedId(first.id);
     setView(getNodeEditingView({ ...nodeSizeOf(first), x: first.x, y: first.y }, canvasSize));
-  }, [canvasSize, graph.nodes, nodeSizeOf]);
+  }, [canvasSize, graph, nodeSizeOf, selectionKey]);
 
   const onCardMeasure = useCallback((nodeId: string, metrics: NodeCardMetrics) => {
     setCardMetrics((current) => {
@@ -2834,6 +2839,10 @@ export default function NodeGraphEditor() {
   }, [connectPorts, pendingEdge]);
 
   const selectedNode = graph.nodes.find((node) => node.id === selectedId) ?? null;
+  useEffect(() => {
+    if (!selectedId || !selectedEntityId || hydratedEntityIdRef.current !== selectedEntityId || graph !== currentGraphRef.current) return;
+    if (selectedNode?.id === selectedId) useCodeFocusStore.getState().setGraphNode(selectionKey, selectedId);
+  }, [graph, selectedEntityId, selectedId, selectionKey, selectedNode?.id]);
   const selectedEntitySourceRefs = useMemo(
     () => resolveEntitySourceRefs(selectedEntity),
     [selectedEntity]

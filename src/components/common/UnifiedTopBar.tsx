@@ -114,8 +114,9 @@ export default function UnifiedTopBar({
                         disabled={action.disabled}
                         title={action.title}
                         data-testid={action.testId}
-                        onClick={() => {
+                        onClick={(event) => {
                           setMenuOpen(false);
+                          if (document.activeElement === event.currentTarget) triggerRef.current?.focus();
                           action.onClick();
                         }}
                         className={`flex items-center justify-between rounded border px-3 py-2 text-left text-[12px] font-medium transition-colors ${menuActionTone(action.accent)} disabled:cursor-not-allowed disabled:opacity-40`}

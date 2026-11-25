@@ -1,8 +1,8 @@
 // Vista «Código» da Lógica autoral (Experimental, incremento 1 do editor de C/SGDK).
 // Mostra a projeção de código da instância selecionada, região por node, e envia cada
 // edição como transação: o modelo (cena/grafo) continua sendo a única fonte de verdade.
-// O editor profissional (Monaco, clangd, vista Dividido) pertence ao incremento 2.
-import { useCallback, useEffect, useMemo, useState } from "react";
+// Monaco e clangd pertencem ao incremento profissional.
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   bindingRegion,
   buildCodeEditTransaction,
@@ -14,39 +14,24 @@ import {
   type PoseCodeBinding,
 } from "../../core/codeDocument";
 import { loadCodeDocument, submitCodeEdit } from "../../core/codeEditApply";
-import { useCodeFocusStore } from "../../core/codeFocusStore";
+import { logicSelectionKey, useCodeFocusStore } from "../../core/codeFocusStore";
 import { getEntityDisplayName } from "../../core/entityDisplay";
 import { deserializeNodeGraph } from "../../core/nodegraph/nodeDefinitions";
 import { NODE_CATALOG } from "../../core/nodegraph/nodeCatalog";
 import { isNodeType } from "../../core/nodegraph/nodeTypes";
 import { useEditorStore } from "../../core/store/editorStore";
+import WorkspaceTabs from "../common/WorkspaceTabs";
 
 const VIEWS = [
-  ["nodes", "Nós", "Lógica visual da instância"],
-  ["code", "Código (Experimental)", "Projeção em C da mesma lógica; o modelo da cena governa o build"],
+  ["nodes", "Nós"],
+  ["code", "Código (Experimental)"],
+  ["split", "Dividido"],
 ] as const;
 
 export function LogicViewTabs() {
   const logicView = useCodeFocusStore((s) => s.logicView);
   const setLogicView = useCodeFocusStore((s) => s.setLogicView);
-  return (
-    <div role="tablist" aria-label="Vista da lógica" className="flex shrink-0 items-center gap-1 border-b border-[#313244] bg-[#11111b] px-2 py-1 text-[11px]">
-      {VIEWS.map(([view, label, hint]) => (
-        <button
-          key={view}
-          type="button"
-          role="tab"
-          data-testid={`logic-view-${view}`}
-          aria-selected={logicView === view}
-          title={hint}
-          onClick={() => setLogicView(view)}
-          className={`rounded px-2 py-0.5 ${logicView === view ? "bg-[#1e3a5f] font-semibold text-white" : "text-[#93c5fd] hover:bg-[#1e293b]"}`}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
+  return <WorkspaceTabs name="logic-view" label="Vista da lógica" tabs={VIEWS} value={logicView} onChange={setLogicView} testIdPrefix="logic-view" />;
 }
 
 function stageLabel(stage: string): string {
@@ -54,13 +39,14 @@ function stageLabel(stage: string): string {
 }
 
 function RegionEditor({
-  document, binding, draft, scope, onResult,
+  document, binding, draft, scope, onResult, selected = false,
 }: {
   document: CodeDocument;
   binding: CodeBinding | PoseCodeBinding;
   draft: string | null;
   scope: CodeEditScope;
   onResult: (message: string) => void;
+  selected?: boolean;
 }) {
   const poseBinding = "pose" in binding ? binding : null;
   const region = poseBinding ? poseBinding.location : bindingRegion(binding as CodeBinding);
@@ -74,6 +60,10 @@ function RegionEditor({
   const text = pending?.text ?? draft ?? projected;
   const conflict = pending !== undefined && pending.base !== projected;
   const [busy, setBusy] = useState(false);
+  const regionRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (selected) regionRef.current?.scrollIntoView({ block: "nearest" });
+  }, [selected]);
 
   const apply = useCallback(async () => {
     if (busy || conflict || (text === projected && draft === null)) return;
@@ -96,7 +86,8 @@ function RegionEditor({
 
   const id = "pose" in binding ? "code-pose-duration" : `code-region-${binding.node_id}`;
   return (
-    <section data-testid={id} className="rounded border border-[#313244] bg-[#181825]">
+    <section ref={regionRef} data-testid={id} aria-current={selected || undefined}
+      className={`rounded border bg-[#181825] ${selected ? "border-[var(--rds-action-primary)]" : "border-[#313244]"}`}>
       <header className="flex items-center justify-between gap-2 border-b border-[#313244] px-2 py-1 text-[11px]">
         <label htmlFor={`${id}-text`} className="min-w-0 truncate font-semibold text-[#cdd6f4]">
           {"pose" in binding ? <>Duração · {binding.pose.animation} · {binding.pose.occurrence_id}</>
@@ -143,13 +134,18 @@ function RegionEditor({
 }
 
 export function InstanceCodeView() {
+  const activeProjectDir = useEditorStore((s) => s.activeProjectDir);
+  const activeScenePath = useEditorStore((s) => s.activeScenePath);
   const activeScene = useEditorStore((s) => s.activeScene);
   const sceneRevision = useEditorStore((s) => s.sceneRevision);
   const selectedEntityId = useEditorStore((s) => s.selectedEntityId);
   const studioFocus = useEditorStore((s) => s.studio.focus);
   const [document, setDocument] = useState<CodeDocument | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [scope, setScope] = useState<CodeEditScope>("instance");
+  const key = logicSelectionKey(activeProjectDir, activeScenePath, selectedEntityId);
+  const scope = useCodeFocusStore((s) => s.editScope?.key === key ? s.editScope.scope : "instance");
+  const setEditScope = useCodeFocusStore((s) => s.setEditScope);
+  const activeNode = useCodeFocusStore((s) => s.graphNode?.key === key ? s.graphNode.nodeId : null);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -161,10 +157,10 @@ export function InstanceCodeView() {
       );
     }, 200);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [sceneRevision, activeScene?.scene_id]);
+  }, [activeProjectDir, activeScenePath, sceneRevision, activeScene?.scene_id]);
 
   const entity = activeScene?.entities.find((item) => item.entity_id === selectedEntityId) ?? null;
-  useEffect(() => { setScope("instance"); setMessage(""); }, [selectedEntityId]);
+  useEffect(() => { setMessage(""); }, [key]);
 
   const sharedUses = useMemo(() => {
     const reference = entity?.components.logic?.graph_ref?.trim();
@@ -202,7 +198,7 @@ export function InstanceCodeView() {
         {sharedUses.length > 0 ? (
           <label className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
             Alcance da edição
-            <select data-testid="instance-code-scope" value={scope} onChange={(event) => setScope(event.target.value as CodeEditScope)}
+            <select data-testid="instance-code-scope" value={scope} onChange={(event) => setEditScope(key, event.target.value as CodeEditScope)}
               className="rounded border border-[#313244] bg-[#181825] px-1 py-0.5">
               <option value="instance">Só esta instância (passa a ter lógica própria)</option>
               <option value="shared">Definição compartilhada ({sharedUses.length + 1} usos)</option>
@@ -227,7 +223,7 @@ export function InstanceCodeView() {
         ) : null}
         {document ? regions.map((binding) => (
           <RegionEditor key={`${binding.instance_id}:${binding.node_id}`} document={document} binding={binding}
-            draft={drafts.get(binding.node_id) ?? null} scope={scope} onResult={setMessage} />
+            draft={drafts.get(binding.node_id) ?? null} scope={scope} selected={binding.node_id === activeNode} onResult={setMessage} />
         )) : null}
       </div>
       <p role="status" aria-live="polite" data-testid="instance-code-status" className="shrink-0 border-t border-[#313244] px-3 py-1 text-[11px] text-[#a6adc8]">
