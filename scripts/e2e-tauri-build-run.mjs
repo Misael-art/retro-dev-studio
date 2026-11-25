@@ -4899,10 +4899,12 @@ async function runBuildRunAndCollect(sessionId, label, timeoutMs, report, artifa
       return refused.length > 0 ? `build falhou: ${String(refused.at(-1).message).slice(0, 400)}` : null;
     }
   ).catch(async (error) => {
+    const failureState = await readAutomationState(sessionId).catch(() => null);
     const diagnosticPayload = {
       label,
       cause: error instanceof Error ? error.message : String(error),
       diagnostics: lastBuildRunDiagnostics,
+      finalConsoleTail: (failureState?.consoleEntries ?? []).slice(-30),
     };
     const safeLabel = label.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
     const diagnosticsPath = path.join(

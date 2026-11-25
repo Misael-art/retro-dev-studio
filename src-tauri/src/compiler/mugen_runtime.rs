@@ -689,6 +689,11 @@ fn visit_ops(ops: &[LogicOp], f: &mut dyn FnMut(&LogicOp)) {
                 visit_ops(body, f);
                 visit_ops(done, f);
             }
+            LogicOp::TimelineSequence { slots, .. } => {
+                for slot in slots {
+                    visit_ops(&slot.actions, f);
+                }
+            }
             LogicOp::HardwareBudgetCheck { if_ok, if_warn, .. } => {
                 visit_ops(if_ok, f);
                 visit_ops(if_warn, f);
@@ -705,6 +710,45 @@ fn visit_ops(ops: &[LogicOp], f: &mut dyn FnMut(&LogicOp)) {
             }
             _ => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::compiler::ast_generator::{LogicScript, LogicTimelineSlot};
+
+    #[test]
+    fn strike_inside_a_timeline_slot_is_available_to_the_hud() {
+        let ast = AstOutput {
+            nodes: Vec::new(),
+            sprite_assets: Vec::new(),
+            logic_scripts: vec![LogicScript {
+                ops: vec![LogicOp::TimelineSequence {
+                    counter_var: "delay".into(),
+                    slots: vec![LogicTimelineSlot {
+                        delay_frames: 12,
+                        actions: vec![LogicOp::AuthoredStrike {
+                            strike_id: "golpe".into(),
+                            attacker_var: "spr_raposa".into(),
+                            target_var: "spr_testemunha".into(),
+                            damage: 99,
+                            health: 99,
+                        }],
+                    }],
+                }],
+            }],
+        };
+        assert_eq!(
+            collect_strikes(&ast),
+            vec![(
+                "golpe".to_string(),
+                "spr_raposa".to_string(),
+                "spr_testemunha".to_string(),
+                99,
+                99
+            )]
+        );
     }
 }
 
