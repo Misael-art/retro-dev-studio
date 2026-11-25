@@ -16984,22 +16984,8 @@ async function runCameraWorkflowScenario(sessionId, timeoutMs, onProjectCreated)
   finally{await closeGame().catch(()=>{});await writeFile(path.join(artifactDir,"report.json"),JSON.stringify(report,null,2));await writeFile(path.join(validationDir,`${prefix}.json`),JSON.stringify(report,null,2));}
 }
 
-async function observePoseEditorAccess(sessionId, report, prefix) {
-  const start = Date.now();
-  const access = { steps: [] };
-  report.editorAccess = access;
-  await setSessionWindowRect(sessionId, 1366, 768);
-  access.window = await executeScript(sessionId,
-    "return { cssWidth: innerWidth, cssHeight: innerHeight, scale: devicePixelRatio };");
-  const capture = async (label) => {
-    const state = await readAutomationState(sessionId);
-    access.steps.push({ label, elapsedMs: Date.now() - start, workspace: state.activeWorkspace,
-      entity: state.selectedEntityId, zoom: state.viewportZoom, undoDepth: state.undoDepth,
-      sceneRevision: state.sceneRevision, focus: state.studio?.focus });
-    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${label}.png`), label);
-    return state;
-  };
-  const before = await capture("sala");
+async function selectPoseActorsOnCanvas(sessionId) {
+  const before = await readAutomationState(sessionId);
   if (before.activeWorkspace !== "scene") await clickButtonByTestIdNativeWhenReady(sessionId, "workspace-rail-scene");
   if (before.editorMode !== "select") await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-tool-select");
   const fit = await findElement(sessionId, 'button[title="Resetar vista (zoom + pan)"]');
@@ -17021,6 +17007,25 @@ async function observePoseEditorAccess(sessionId, report, prefix) {
     await waitFor(async () => (await readAutomationState(sessionId))?.selectedEntityId === entityId,
       10000, `O clique no Canvas não selecionou ${entityId}.`, 100);
   }
+}
+
+async function observePoseEditorAccess(sessionId, report, prefix) {
+  const start = Date.now();
+  const access = { steps: [] };
+  report.editorAccess = access;
+  await setSessionWindowRect(sessionId, 1366, 768);
+  access.window = await executeScript(sessionId,
+    "return { cssWidth: innerWidth, cssHeight: innerHeight, scale: devicePixelRatio };");
+  const capture = async (label) => {
+    const state = await readAutomationState(sessionId);
+    access.steps.push({ label, elapsedMs: Date.now() - start, workspace: state.activeWorkspace,
+      entity: state.selectedEntityId, zoom: state.viewportZoom, undoDepth: state.undoDepth,
+      sceneRevision: state.sceneRevision, focus: state.studio?.focus });
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${label}.png`), label);
+    return state;
+  };
+  await capture("sala");
+  await selectPoseActorsOnCanvas(sessionId);
   const selected = await capture("selecao-canvas");
   await clickButtonByTestIdNativeWhenReady(sessionId, "inspector-open-character");
   const surface = await waitFor(async () => executeScript(sessionId, `
@@ -17043,11 +17048,113 @@ async function observePoseEditorAccess(sessionId, report, prefix) {
   }
 }
 
+async function editPoseThroughDesktop(initialSessionId, projectDir, app, report, prefix) {
+  let sessionId = initialSessionId;
+  const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  const state = () => readAutomationState(sessionId);
+  const read = (id, attribute) => executeScript(sessionId,
+    `return document.querySelector('[data-testid="' + arguments[0] + '"]')?.getAttribute(arguments[1]);`, [id, attribute]);
+  const input = (id, value) => fillInputBySelector(sessionId, `[data-testid="${id}"]`, String(value));
+  const focus = async () => {
+    const s = await state();
+    return s?.selectedEntityId === "raposa" && s?.studio?.focus?.animation === "passo"
+      && s.studio.focus.occurrenceId === "o2" ? s : null;
+  };
+  const ticks = (value) => waitFor(async () => (await read("character-occurrence-o2", "data-ticks")) === String(value),
+    10000, `A ocorrência o2 não mostra ${value} ticks.`, 100);
+  const openRoom = async () => {
+    await openSavedProjectWizard(sessionId, projectDir);
+    await waitFor(async () => (await state())?.activeProjectDir === projectDir, 60000, "A sala não reabriu.", 200);
+  };
+  const save = async () => {
+    await clickTopBarMenuAction(sessionId, "Salvar");
+    await waitFor(async () => (await read("scene-save-status", "data-status")) === "saved", 15000, "A cena não confirmou o salvamento.", 100);
+  };
+
+  await setSessionWindowRect(sessionId, 1366, 768);
+  await selectPoseActorsOnCanvas(sessionId);
+  await click("inspector-open-character");
+  await click("character-anim-passo");
+  await click("character-occurrence-o1");
+  await click("character-align-poses");
+  await input("character-anchor-x", 14);
+  await input("character-anchor-y", 27);
+  await click("character-anchor-reference");
+  await click("character-occurrence-o2");
+  await input("character-anchor-x", 13);
+  await input("character-anchor-y", 26);
+  const beforeAlign = await state();
+  await click("character-align-apply");
+  await waitFor(async () => (await state())?.undoDepth === beforeAlign.undoDepth + 1,
+    10000, "O alinhamento não foi confirmado em uma única operação.", 100);
+  addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-pe-alinhado.png`), "Pé alinhado na Arte");
+  await ticks(3);
+
+  const grip = await executeScript(sessionId, `
+    const element = document.querySelector('[data-testid="character-duration-grip-o2"]');
+    if (!element) return null;
+    element.scrollIntoView({block:"center",inline:"center"});
+    const box = element.getBoundingClientRect();
+    const x = Math.round(box.left + box.width / 2);
+    const y = Math.round(box.top + box.height / 2);
+    const step = Number(element.dataset.tickPx);
+    return document.elementFromPoint(x,y) === element && step > 0 ? {x,y,step} : null;
+  `);
+  if (!grip) fail("A alça de duração de o2 está indisponível.");
+  const beforeDrag = await state();
+  await webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [{
+    type: "pointer", id: "pose-cadence-drag", parameters: { pointerType: "mouse" },
+    actions: [
+      { type: "pointerMove", origin: "viewport", x: grip.x, y: grip.y },
+      { type: "pointerDown", button: 0 },
+      { type: "pointerMove", origin: "viewport", x: Math.round(grip.x + 3 * grip.step), y: grip.y, duration: 300 },
+      { type: "pointerUp", button: 0 },
+    ],
+  }] });
+  await ticks(6);
+  if ((await state()).undoDepth !== beforeDrag.undoDepth + 1) fail("Um gesto de duração precisa gerar uma entrada de Undo.");
+  addReportStep(report, "timeline_o2_3_to_6", "passed");
+
+  await click("character-open-duration-code");
+  const readCode = () => executeScript(sessionId,
+    `return document.querySelector('[data-testid="code-pose-duration-text"]')?.value;`);
+  const code = await waitFor(async () => {
+    const text = await readCode();
+    return /\s=\s6;/.test(text ?? "") ? text : null;
+  }, 15000, "O campo C vinculado não apresentou 6 ticks.", 150);
+  const editedCode = code.replace(/(\s=\s)6;/, (_, assignment) => `${assignment}4;`);
+  await input("code-pose-duration-text", editedCode);
+  const beforeCode = await state();
+  await click("code-pose-duration-apply");
+  await waitFor(async () => (await state())?.undoDepth === beforeCode.undoDepth + 1 && /\s=\s4;/.test(await readCode()),
+    15000, "A edição vinculada não gravou 4 ticks como uma única operação.", 150);
+  addReportStep(report, "c_o2_6_to_4", "passed");
+  await click("studio-return-origin");
+  await ticks(4);
+  await clickTopBarMenuAction(sessionId, "Desfazer");
+  await ticks(6);
+  await clickTopBarMenuAction(sessionId, "Refazer");
+  await ticks(4);
+  if (!(await focus()) || (await read("character-occurrence-o4", "data-ticks")) !== "2") fail("A pose em foco ou a outra ocorrência da imagem mudou.");
+  await save();
+  await deleteSession(sessionId);
+  sessionId = await createSession(app);
+  currentE2eRunContext.sessionId = sessionId;
+  await waitForAppWindowReady(sessionId, 30000, "O Tauri não abriu após fechar a sala.");
+  await setSessionWindowRect(sessionId, 1366, 768);
+  await openRoom();
+  await waitFor(focus, 15000, "A sessão reaberta não restaurou a raposa e a ocorrência o2.", 100);
+  if (!(await read("character-timeline", "data-occurrence-id"))) await click("inspector-open-character");
+  await ticks(4);
+  addReportStep(report, "undo_redo_save_cold_reopen", "passed");
+  return { sessionId, code: editedCode, focus };
+}
+
 // Mede pixels no core, depois do Build & Run pelo desktop. O cenário recebe
 // uma das salas de create-pose-authoring-demo.mjs (ou sua revisão editada).
 async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
   const revision = process.env.RDS_POSE_PROOF || "baseline";
-  if (!["baseline", "aligned-4"].includes(revision)) fail("RDS_POSE_PROOF deve ser baseline ou aligned-4.");
+  if (!["baseline", "aligned-4", "journey"].includes(revision)) fail("RDS_POSE_PROOF deve ser baseline, aligned-4 ou journey.");
   const prefix = `pose-cadence-${artifactTimestamp()}`;
   const report = { scenario: "pose-cadence", revision, status: "failed", samples: [], steps: [], artifacts: [] };
   const expectedTarget = revision === "baseline" ? [5, 3, 7, 2] : [5, 4, 7, 2];
@@ -17062,14 +17169,28 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
     if (report.atlasSha256 !== "8f104172610518705021450603f04bfd4d2fc0ed997e7c71de21cdb54874c735") fail("O atlas da prova mudou.");
     const atlas = decodeWindowPng(atlasBytes);
     report.executableSha256 = createHash("sha256").update(await readFile(app)).digest("hex");
-    const sceneBytes = await readFile(path.join(projectDir, "scenes", "main.json"));
-    report.sceneSha256 = createHash("sha256").update(sceneBytes).digest("hex");
-    const scene = JSON.parse(sceneBytes);
-    for (const [id, expected] of [["raposa", expectedTarget], ["testemunha", expectedControl]]) {
-      const animation = scene.entities.find((entity) => entity.entity_id === id)?.components.sprite?.animations.passo;
-      if (JSON.stringify(animation?.frame_durations) !== JSON.stringify(expected)
-        || JSON.stringify(animation?.frames) !== "[0,1,2,1]") fail(`Animação inicial inesperada em ${id}.`);
-    }
+    const scenePath = path.join(projectDir, "scenes", "main.json");
+    let controlBefore;
+    const confirmScene = async (targetTicks) => {
+      const bytes = await readFile(scenePath);
+      const scene = JSON.parse(bytes);
+      const sprite = (id) => scene.entities.find((entity) => entity.entity_id === id)?.components.sprite;
+      for (const [id, expected] of [["raposa", targetTicks], ["testemunha", expectedControl]]) {
+        const animation = sprite(id)?.animations.passo;
+        if (JSON.stringify(animation?.frame_durations) !== JSON.stringify(expected)
+          || JSON.stringify(animation?.frames) !== "[0,1,2,1]") fail(`A cena salva contém uma animação inesperada em ${id}.`);
+      }
+      if (sprite("raposa").asset !== sprite("testemunha").asset) fail("Os dois atores precisam conservar o mesmo atlas.");
+      if (sprite("raposa").asset !== "assets/sprites/fox-five-frame-32-runtime.png"
+        || createHash("sha256").update(await readFile(path.join(projectDir, sprite("raposa").asset))).digest("hex") !== report.atlasSha256) {
+        fail("A arte compartilhada foi alterada durante a prova.");
+      }
+      const control = JSON.stringify(sprite("testemunha").animations.passo);
+      if (controlBefore && controlBefore !== control) fail("A edição alterou os dados da animação de controle.");
+      controlBefore = control;
+      return createHash("sha256").update(bytes).digest("hex");
+    };
+    report.sceneSha256 = await confirmScene(revision === "aligned-4" ? expectedTarget : expectedControl);
     await openSavedProjectWizard(sessionId, projectDir);
     await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir,
       60000, "A sala de poses não abriu.", 200);
@@ -17082,7 +17203,17 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
         if (shot) addReportArtifact(report, shot, "Acesso à edição de poses");
       }
     }
+    let journey;
+    if (revision === "journey") {
+      journey = await editPoseThroughDesktop(sessionId, projectDir, app, report, prefix);
+      sessionId = journey.sessionId;
+      report.sceneSha256 = await confirmScene(expectedTarget);
+    }
     report.build = await runBuildRunAndCollect(sessionId, "ensaio de poses", timeoutMs, report, prefix, { nativeClick: true });
+    if (journey) {
+      const compiledCode = await readFile(path.join(projectDir, "build", "megadrive", "src", "main.c"), "utf8");
+      if (!compiledCode.replaceAll("\r\n", "\n").includes(journey.code.trim())) fail("O campo de C vinculado está ausente do código compilado.");
+    }
     await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-pause");
     await waitFor(async () => (await readAutomationState(sessionId))?.emulPaused, 15000, "A ROM não pausou.", 100);
     addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-paused.png`), "ROM pausada no Tauri");
@@ -17122,7 +17253,7 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
     for (const actor of ["control", "target"]) {
       for (const occurrence of [0, 1, 3]) {
         const image = images[occurrence];
-        const aligned = actor === "target" && revision === "aligned-4" && occurrence === 1;
+        const aligned = actor === "target" && revision !== "baseline" && occurrence === 1;
         const hash = report[actor].hashesByPose[aligned ? "aligned" : image];
         const observed = locatePoseFoot(atlas, image, crops.get(hash));
         const expected = image === 0 || aligned ? [14, 27] : [13, 26];
@@ -17134,11 +17265,19 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
         }
       }
     }
+    if (journey) {
+      await clickButtonByTestIdNativeWhenReady(sessionId, "studio-return-origin");
+      await waitFor(async () => {
+        const restored = await journey.focus();
+        return restored && restored.activeWorkspace !== "game";
+      }, 15000, "A volta do teste não restaurou a ocorrência o2 da raposa.", 150);
+      addReportStep(report, "rom_observed_and_returned_to_o2", "passed");
+    }
     if (report.editorAccessError) fail(report.editorAccessError);
     report.status = "passed";
   } catch (error) {
     report.error = String(error);
-    const shot = await captureScreenshot(sessionId, `${prefix}-failure.png`).catch(() => null);
+    const shot = await captureScreenshot(currentE2eRunContext?.sessionId ?? sessionId, `${prefix}-failure.png`).catch(() => null);
     if (shot) addReportArtifact(report, shot, "Estado da janela na falha");
     throw error;
   } finally {
