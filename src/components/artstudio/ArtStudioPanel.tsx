@@ -41,6 +41,7 @@ import type {
   SpriteAnimationOnionSkin,
   SpriteCommandBinding,
   SpriteComponent,
+  Scene,
 } from "../../core/ipc/sceneService";
 import {
   formatInputCommandSequence,
@@ -52,6 +53,7 @@ import { constrainSpriteFrameSize } from "../../core/sceneConstraints";
 import { useSpriteAnimator } from "./useSpriteAnimator";
 import { getEntityDisplayName } from "../../core/entityDisplay";
 import { buildTilemapAuthoringBrush, resolvePrimaryAuthoringSurface } from "../../core/entityAuthoring";
+import { occurrenceDurations, occurrenceIds, setOccurrenceDuration } from "../../core/characterTimeline";
 
 const ARTSTUDIO_SUPPORTED_FORMATS_LABEL = "PNG, BMP, JPG/JPEG, GIF, WebP e PPM";
 const ARTSTUDIO_CANVAS_MIN_ZOOM = 0.2;
@@ -393,6 +395,30 @@ function sanitizeArtStudioHitboxes(
     }));
 }
 
+function withArtStudioFrameOrder(sequence: SpriteSequence, frames: number[], order: number[], newTicks?: number): SpriteSequence {
+  const source = sequence.sourceAnimation;
+  if (!source) return { ...sequence, frames };
+  const ids = occurrenceIds(source);
+  const nextIds = order.map((index) => ids[index] ?? `pose-${crypto.randomUUID()}`);
+  const keep = new Set(nextIds);
+  const hitboxes = sequence.hitboxes?.filter((box) => box.occurrence_id ? keep.has(box.occurrence_id) : frames.includes(box.frame));
+  const loopOccurrence = ids[sequence.loopStart ?? 0];
+  const loopStart = sequence.loopStart === undefined ? undefined : Math.max(0, nextIds.indexOf(loopOccurrence));
+  const sourceAnimation: AnimationDef = {
+    ...source,
+    frames,
+    occurrence_ids: nextIds,
+    ...(source.frame_durations ? {
+      frame_durations: order.map((index, position) => source.frame_durations?.[index] ?? newTicks ?? normalizeFrameDuration(sequence.frameDurations?.[frames[position]])),
+    } : {}),
+    ...(source.frame_events ? { frame_events: source.frame_events.filter((event) => keep.has(event.occurrence)) } : {}),
+    ...(source.pose_alignment ? { pose_alignment: Object.fromEntries(Object.entries(source.pose_alignment).filter(([id]) => keep.has(id))) } : {}),
+    ...(source.pose_code_drafts ? { pose_code_drafts: Object.fromEntries(Object.entries(source.pose_code_drafts).filter(([id]) => keep.has(id))) } : {}),
+    ...(loopStart !== undefined ? { loop_start: loopStart } : {}),
+  };
+  return { ...sequence, frames, sourceAnimation, loopStart, ...(hitboxes ? { hitboxes } : {}) };
+}
+
 export function moveArtStudioSequenceFrame(
   sequence: SpriteSequence,
   fromIndex: number,
@@ -410,7 +436,9 @@ export function moveArtStudioSequenceFrame(
   }
   const [frame] = frames.splice(fromIndex, 1);
   frames.splice(toIndex, 0, frame);
-  return { ...sequence, frames };
+  const order = sequence.frames.map((_, index) => index);
+  order.splice(toIndex, 0, ...order.splice(fromIndex, 1));
+  return withArtStudioFrameOrder(sequence, frames, order);
 }
 
 export function duplicateArtStudioSequenceFrame(
@@ -422,7 +450,9 @@ export function duplicateArtStudioSequenceFrame(
   }
   const frames = [...sequence.frames];
   frames.splice(index + 1, 0, frames[index]);
-  return { ...sequence, frames };
+  const order = sequence.frames.map((_, position) => position);
+  order.splice(index + 1, 0, -1);
+  return withArtStudioFrameOrder(sequence, frames, order, sequence.sourceAnimation?.frame_durations?.[index]);
 }
 
 export function removeArtStudioSequenceFrame(
@@ -434,6 +464,9 @@ export function removeArtStudioSequenceFrame(
   }
   const removedFrame = sequence.frames[index];
   const frames = sequence.frames.filter((_, frameIndex) => frameIndex !== index);
+  if (sequence.sourceAnimation) {
+    return withArtStudioFrameOrder(sequence, frames, sequence.frames.map((_, position) => position).filter((position) => position !== index));
+  }
   const frameStillExists = frames.includes(removedFrame);
   const frameDurations = sequence.frameDurations
     ? Object.fromEntries(
@@ -675,7 +708,7 @@ export function buildArtStudioAnimations(
   const usedKeys = new Set<string>();
 
   for (const sequence of sequences) {
-    const normalizedFrames = Array.from(
+    const normalizedFrames = sequence.sourceAnimation ? sequence.frames : Array.from(
       new Set(sequence.frames.filter((frame) => Number.isInteger(frame) && frame >= 0))
     ).sort((left, right) => left - right);
 
@@ -699,11 +732,12 @@ export function buildArtStudioAnimations(
 
     usedKeys.add(key);
     const animation: AnimationDef = {
+      ...sequence.sourceAnimation,
       frames: normalizedFrames,
-      fps: Math.max(1, Math.min(60, Math.trunc(sequence.fps || 12))),
+      fps: sequence.fps === sequence.sourceAnimation?.fps ? sequence.fps : Math.max(1, Math.min(60, Math.trunc(sequence.fps || 12))),
       loop: sequence.loop,
     };
-    if (sequence.frameDurations && Object.keys(sequence.frameDurations).length > 0) {
+    if (!sequence.sourceAnimation && sequence.frameDurations && Object.keys(sequence.frameDurations).length > 0) {
       animation.frame_durations = normalizedFrames.map((frame) =>
         normalizeFrameDuration(sequence.frameDurations?.[frame])
       );
@@ -723,7 +757,7 @@ export function buildArtStudioAnimations(
       };
     }
     const hitboxes = sanitizeArtStudioHitboxes(sequence.hitboxes, normalizedFrames);
-    if (hitboxes.length > 0) {
+    if (hitboxes.length > 0 || sequence.sourceAnimation?.hitboxes) {
       animation.hitboxes = hitboxes;
     }
     animations[key] = animation;
@@ -773,6 +807,13 @@ export interface SpriteSequence {
   loopStart?: number;
   onionSkin?: SpriteAnimationOnionSkin;
   hitboxes?: SpriteAnimationHitbox[];
+  sourceAnimation?: AnimationDef;
+}
+
+function hasOccurrenceData(animation: AnimationDef): boolean {
+  return !animation.mugen_frames && Boolean(animation.occurrence_ids || animation.frame_events?.length
+    || animation.pose_alignment || animation.pose_code_drafts
+    || new Set(animation.frames).size < animation.frames.length);
 }
 
 const DEFAULT_ARTSTUDIO_SEQUENCES: SpriteSequence[] = [
@@ -877,6 +918,7 @@ export function buildArtStudioSequencesFromSpriteMetadata(
       frames: [...animation.frames],
       fps: animation.fps,
       loop: animation.loop,
+      ...(hasOccurrenceData(animation) ? { sourceAnimation: animation } : {}),
       ...(frameDurations && Object.keys(frameDurations).length > 0 ? { frameDurations } : {}),
       ...(Number.isInteger(animation.loop_start) ? { loopStart: animation.loop_start } : {}),
       ...(animation.onion_skin ? { onionSkin: { ...animation.onion_skin } } : {}),
@@ -1063,7 +1105,7 @@ type ArtStudioAction =
   | { type: "MOVE_SEQUENCE_FRAME"; id: string; fromIndex: number; toIndex: number }
   | { type: "DUPLICATE_SEQUENCE_FRAME"; id: string; index: number }
   | { type: "REMOVE_SEQUENCE_FRAME"; id: string; index: number }
-  | { type: "SET_SEQUENCE_FRAME_DURATION"; id: string; frame: number; duration: number }
+  | { type: "SET_SEQUENCE_FRAME_DURATION"; id: string; frame: number; duration: number; projectFps?: number }
   | { type: "SET_SEQUENCE_LOOP_START"; id: string; loopStart: number }
   | { type: "SET_SEQUENCE_ONION_SKIN"; id: string; onionSkin: SpriteAnimationOnionSkin }
   | { type: "UPSERT_SEQUENCE_HITBOX"; id: string; hitbox: SpriteAnimationHitbox }
@@ -1215,6 +1257,11 @@ function artStudioReducer(state: ArtStudioState, action: ArtStudioAction): ArtSt
         return state;
       }
       const frameIndex = active.frames.indexOf(action.cellIndex);
+      if (active.sourceAnimation) {
+        const next = frameIndex >= 0 ? removeArtStudioSequenceFrame(active, frameIndex)
+          : withArtStudioFrameOrder(active, [...active.frames, action.cellIndex], [...active.frames.map((_, index) => index), -1]);
+        return { ...state, sequences: state.sequences.map((sequence) => sequence.id === active.id ? next : sequence) };
+      }
       const frames =
         frameIndex >= 0
           ? active.frames.filter((_, index) => index !== frameIndex)
@@ -1229,18 +1276,18 @@ function artStudioReducer(state: ArtStudioState, action: ArtStudioAction): ArtSt
     case "SET_SEQUENCE_FRAMES":
       return {
         ...state,
-        sequences: state.sequences.map((sequence) =>
-          sequence.id === action.id
-            ? {
-                ...sequence,
-                frames: Array.from(
-                  new Set(
-                    action.frames.filter((frame) => Number.isInteger(frame) && frame >= 0)
-                  )
-                ).sort((left, right) => left - right),
-              }
-            : sequence
-        ),
+        sequences: state.sequences.map((sequence) => {
+          if (sequence.id !== action.id) return sequence;
+          const frames = action.frames.filter((frame) => Number.isInteger(frame) && frame >= 0);
+          if (!sequence.sourceAnimation) return { ...sequence, frames: [...new Set(frames)].sort((left, right) => left - right) };
+          const used = new Set<number>();
+          const order = frames.map((frame) => {
+            const index = sequence.frames.findIndex((image, position) => image === frame && !used.has(position));
+            if (index >= 0) used.add(index);
+            return index;
+          });
+          return withArtStudioFrameOrder(sequence, frames, order);
+        }),
       };
     case "MOVE_SEQUENCE_FRAME":
       return {
@@ -1269,21 +1316,29 @@ function artStudioReducer(state: ArtStudioState, action: ArtStudioAction): ArtSt
             : sequence
         ),
       };
-    case "SET_SEQUENCE_FRAME_DURATION":
+    case "SET_SEQUENCE_FRAME_DURATION": {
+      const sequence = state.sequences.find((item) => item.id === action.id);
+      if (!sequence) return state;
+      const duration = normalizeFrameDuration(action.duration);
+      let sourceAnimation = sequence.sourceAnimation;
+      if (sourceAnimation) {
+        const ids = occurrenceIds(sourceAnimation);
+        for (const [index, frame] of sequence.frames.entries()) {
+          if (frame !== action.frame) continue;
+          const changed = setOccurrenceDuration(sourceAnimation, ids[index], String(duration), action.projectFps);
+          if (!changed.ok) return { ...state, validationError: changed.message };
+          sourceAnimation = changed.def;
+        }
+      }
       return {
         ...state,
-        sequences: state.sequences.map((sequence) =>
-          sequence.id === action.id
-            ? {
-                ...sequence,
-                frameDurations: {
-                  ...(sequence.frameDurations ?? {}),
-                  [action.frame]: normalizeFrameDuration(action.duration),
-                },
-              }
-            : sequence
+        validationError: null,
+        sequences: state.sequences.map((item) => item.id === sequence.id
+          ? { ...item, sourceAnimation, frameDurations: { ...item.frameDurations, [action.frame]: duration } }
+          : item
         ),
       };
+    }
     case "SET_SEQUENCE_LOOP_START":
       return {
         ...state,
@@ -1930,7 +1985,14 @@ function ArtStudioInspectorSection() {
           ? "border-[#a6e3a1]/35 bg-[#a6e3a1]/10 text-[#bbf7d0]"
           : "border-[#334155] bg-[#111827] text-[#94a3b8]";
   const activeFrame = activeSequence?.frames[0] ?? 0;
-  const activeFrameDuration = activeSequence?.frameDurations?.[activeFrame] ?? 1;
+  const projectFps = useEditorStore((editor) => editor.projectFps);
+  const occurrenceAnimation = activeSequence?.sourceAnimation;
+  const imageDurations = occurrenceAnimation
+    ? new Set(occurrenceDurations({ ...occurrenceAnimation, fps: activeSequence?.fps ?? occurrenceAnimation.fps }, projectFps)
+      .filter((_, index) => occurrenceAnimation.frames[index] === activeFrame))
+    : null;
+  const activeFrameDuration = imageDurations && imageDurations.size > 1
+    ? "" : imageDurations?.values().next().value ?? activeSequence?.frameDurations?.[activeFrame] ?? 1;
   const activeHitbox = activeSequence?.hitboxes?.find((hitbox) => !hitbox.occurrence_id && hitbox.frame === activeFrame) ?? {
     frame: activeFrame,
     kind: "attack" as SpriteAnimationHitboxKind,
@@ -2088,20 +2150,24 @@ function ArtStudioInspectorSection() {
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <label className="space-y-1 text-[11px] text-[#94a3b8]">
-                    <span>Duracao</span>
+                    <span>{activeSequence.sourceAnimation ? "Duração da imagem" : "Duração"}</span>
                     <input
                       type="number"
                       min={1}
+                      title={activeSequence.sourceAnimation ? "Afeta as ocorrências desta imagem. Use a timeline para ajustar uma só ocorrência." : undefined}
                       value={activeFrameDuration}
+                      placeholder="Varia"
                       disabled={activeSequence.frames.length === 0}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        if (!event.target.value) return;
                         dispatch({
                           type: "SET_SEQUENCE_FRAME_DURATION",
                           id: activeSequence.id,
                           frame: activeFrame,
                           duration: Number(event.target.value) || 1,
-                        })
-                      }
+                          projectFps,
+                        });
+                      }}
                       className="w-full rounded-lg border border-[#334155] bg-[#0b1220] px-2 py-1.5 font-mono text-[12px] text-[#e2e8f0]"
                     />
                   </label>
@@ -3450,8 +3516,7 @@ export default function ArtStudioPanel() {
       });
       return false;
     }
-    // Sequencias do ArtStudio nao representam ocorrencias repetidas, ordem, eixo, caixas nem eventos
-    // MUGEN; aplicar aqui apagaria esses dados. A edicao de personagem MUGEN fica no editor Personagem.
+    // O editor Personagem preserva eixo, flags e caixas originais do AIR.
     if (
       targetSprite &&
       Object.values(targetSprite.animations ?? {}).some((animation) => Array.isArray(animation.mugen_frames))
@@ -3555,60 +3620,74 @@ export default function ArtStudioPanel() {
         animations,
         commands: commandBindings,
       };
-      updateEntity(
-        targetEntityId,
-        {
-          components: {
-            sprite: nextSprite,
-          },
-        },
-        { recordHistory: false }
-      );
-
-      const postUpdateSprite = useEditorStore
-        .getState()
-        .activeScene?.entities.find((entity) => entity.entity_id === targetEntityId)
-        ?.components?.sprite;
-      const attackApplied = Boolean(
-        postUpdateSprite &&
-          Object.prototype.hasOwnProperty.call(postUpdateSprite.animations ?? {}, "attack")
-      );
-      const commandsApplied = (postUpdateSprite?.commands?.length ?? 0) > 0;
-      const assetApplied = postUpdateSprite?.asset === artState.spritePath;
-
-      if (!attackApplied || !commandsApplied || !assetApplied) {
-        useEditorStore.setState((store) => {
-          if (!store.activeScene) {
-            return {};
-          }
-
-          const patchEntity = (entity: (typeof store.activeScene.entities)[number]) =>
-            entity.entity_id === targetEntityId
-              ? {
-                  ...entity,
-                  components: {
-                    ...entity.components,
-                    sprite: nextSprite,
-                  },
-                }
-              : entity;
-
-          return {
-            activeScene: {
-              ...store.activeScene,
-              entities: store.activeScene.entities.map(patchEntity),
-            },
-            ...(store.activeSceneSource
-              ? {
-                  activeSceneSource: {
-                    ...store.activeSceneSource,
-                    entities: store.activeSceneSource.entities.map(patchEntity),
-                  },
-                }
-              : {}),
-            sceneRevision: store.sceneRevision + 1,
-          };
+      if (artState.sequences.some((sequence) => sequence.sourceAnimation)
+        || Object.values(targetSprite?.animations ?? {}).some(hasOccurrenceData)) {
+        const editor = useEditorStore.getState();
+        const source = editor.activeSceneSource?.entities.some((entity) => entity.entity_id === targetEntityId)
+          ? editor.activeSceneSource : scene;
+        const replaceSprite = (current: Scene): Scene => ({
+          ...current,
+          entities: current.entities.map((entity) => entity.entity_id === targetEntityId ? {
+            ...entity, components: { ...entity.components, sprite: nextSprite },
+          } : entity),
         });
+        editor.replaceScenesWithHistory(replaceSprite(scene), replaceSprite(source));
+      } else {
+        updateEntity(
+          targetEntityId,
+          {
+            components: {
+              sprite: nextSprite,
+            },
+          },
+          { recordHistory: false }
+        );
+
+        const postUpdateSprite = useEditorStore
+          .getState()
+          .activeScene?.entities.find((entity) => entity.entity_id === targetEntityId)
+          ?.components?.sprite;
+        const attackApplied = Boolean(
+          postUpdateSprite &&
+            Object.prototype.hasOwnProperty.call(postUpdateSprite.animations ?? {}, "attack")
+        );
+        const commandsApplied = (postUpdateSprite?.commands?.length ?? 0) > 0;
+        const assetApplied = postUpdateSprite?.asset === artState.spritePath;
+
+        if (!attackApplied || !commandsApplied || !assetApplied) {
+          useEditorStore.setState((store) => {
+            if (!store.activeScene) {
+              return {};
+            }
+
+            const patchEntity = (entity: (typeof store.activeScene.entities)[number]) =>
+              entity.entity_id === targetEntityId
+                ? {
+                    ...entity,
+                    components: {
+                      ...entity.components,
+                      sprite: nextSprite,
+                    },
+                  }
+                : entity;
+
+            return {
+              activeScene: {
+                ...store.activeScene,
+                entities: store.activeScene.entities.map(patchEntity),
+              },
+              ...(store.activeSceneSource
+                ? {
+                    activeSceneSource: {
+                      ...store.activeSceneSource,
+                      entities: store.activeSceneSource.entities.map(patchEntity),
+                    },
+                  }
+                : {}),
+              sceneRevision: store.sceneRevision + 1,
+            };
+          });
+        }
       }
 
       logMessage("success", "[ArtStudio] Entidade atualizada com animacoes.");
@@ -3769,7 +3848,7 @@ export default function ArtStudioPanel() {
         return true;
       },
       setFrameDuration: (sequenceId: string, frame: number, duration: number) => {
-        dispatch({ type: "SET_SEQUENCE_FRAME_DURATION", id: sequenceId, frame, duration });
+        dispatch({ type: "SET_SEQUENCE_FRAME_DURATION", id: sequenceId, frame, duration, projectFps: useEditorStore.getState().projectFps });
         return true;
       },
       setLoopStart: (sequenceId: string, loopStart: number) => {

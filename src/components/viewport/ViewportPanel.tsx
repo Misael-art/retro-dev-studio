@@ -4966,7 +4966,7 @@ export default function ViewportPanel({
                   Animar
                 </button>
               ) : null}
-              {editorMode === "select" && showNativePoses ? <PoseDurationField testId="canvas-pose-duration" /> : null}
+              {editorMode === "select" && showNativePoses ? <PoseDurationField testId="canvas-pose-duration" canvas /> : null}
               <button
                 type="button"
                 data-testid="viewport-move-layer"

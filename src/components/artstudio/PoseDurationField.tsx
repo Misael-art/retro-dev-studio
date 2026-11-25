@@ -1,7 +1,8 @@
 import { describeOccurrences, nativeAnimationNames, setOccurrenceDuration } from "../../core/characterTimeline";
+import { describeEntityEditLock, entityEditLock, entityLockScopeKey } from "../../core/sceneComposition";
 import { useEditorStore } from "../../core/store/editorStore";
 
-export default function PoseDurationField({ testId }: { testId: string }) {
+export default function PoseDurationField({ testId, canvas = false }: { testId: string; canvas?: boolean }) {
   const { entityId, animation, occurrenceId } = useEditorStore((state) => state.studio.focus);
   const selectedEntityId = useEditorStore((state) => state.selectedEntityId);
   const activeTarget = useEditorStore((state) => state.activeTarget);
@@ -11,6 +12,9 @@ export default function PoseDurationField({ testId }: { testId: string }) {
   const scenePath = useEditorStore((state) => state.activeScenePath);
   const sprite = useEditorStore((state) => state.activeScene?.entities
     .find((entity) => entity.entity_id === entityId)?.components.sprite);
+  const blocked = useEditorStore((state) => canvas && entityId ? describeEntityEditLock(entityEditLock(
+    entityId, state.activeScene?.layers, state.lockedEntityIdsByScene[entityLockScopeKey(state.activeProjectDir, state.activeScenePath)] ?? [],
+  )) : "");
   if (!sprite || !entityId || entityId !== selectedEntityId || !animation || !occurrenceId
     || !nativeAnimationNames(sprite, activeTarget, projectSourceKind).includes(animation)) return null;
   const def = sprite.animations?.[animation];
@@ -26,6 +30,8 @@ export default function PoseDurationField({ testId }: { testId: string }) {
         type="text"
         inputMode="numeric"
         data-testid={testId}
+        title={blocked || undefined}
+        readOnly={Boolean(blocked)}
         defaultValue={pose.ticks}
         className="w-14 rounded border border-[#45475a] bg-[#11111b] px-1 font-mono text-[#cdd6f4]"
         onKeyDown={(event) => {
@@ -38,6 +44,10 @@ export default function PoseDurationField({ testId }: { testId: string }) {
         }}
         onBlur={(event) => {
           const input = event.currentTarget;
+          if (blocked) {
+            input.value = String(pose.ticks);
+            return;
+          }
           if (input.value === String(pose.ticks)) return;
           const editor = useEditorStore.getState();
           const currentSprite = editor.activeScene?.entities.find((entity) => entity.entity_id === entityId)?.components.sprite;
