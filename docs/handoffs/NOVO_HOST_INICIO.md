@@ -75,6 +75,33 @@ Os recibos e capturas desta tentativa ficam em
 `$HOME/RetroDevStudio-work/sessions/win-74672bf-kalhNHI9/`.
 A matriz registra as duas falhas de interação. [Execução Windows](https://github.com/Misael-art/retro-dev-studio/actions/runs/45523347244)
 
+Em `064f3cd`, o Tauri Windows selecionou os dois atores no Canvas, abriu a
+arte do ator principal e voltou à cena com seleção, zoom, revisão e Undo
+conservados, em 1366×768 CSS px. A segunda ocorrência ainda não aparece na
+timeline deste ator autoral. O core reproduziu a cadência e as posições
+de apoio iniciais nas duas salas. O executável de referência tem SHA-256
+`a541e1442045d504b7e6b9a0b5f740264b1b28d0c25fb822b32a4335db86db9c`.
+A ROM densa tem SHA-256
+`b0be2449e51400a49499492a70613e14d025d806640a8890b5eb333bd2810d69`.
+O seletor de instância estava dentro de Comportamentos recolhido.
+[Windows em 064f3cd](https://github.com/Misael-art/retro-dev-studio/actions/runs/45526894666)
+
+O Tauri Windows de `8f57b4d5c847045282dee07e4f5d948e87bbb9dc` abriu
+Comportamentos antes de selecionar a instância. Passou a troca 7→19 nos
+dois usos da definição, seguida de 19→31 em apenas uma instância. Passaram
+também o rascunho C e as duas salas no core. O app tem SHA-256
+`09032182eb3c6e9adf603b1c33f07aed2d65bd793f6a7d02430f27e3bb7794ec`.
+Os recibos ficam em `$HOME/RetroDevStudio-work/sessions/win-8f57b4d-iN3Nqe02/`.
+[Repetição da prova C no Windows](https://github.com/Misael-art/retro-dev-studio/actions/runs/45571084492)
+
+Em 25/11, o provisionamento Linux terminou e o diagnóstico completo deu
+`READY`, com fingerprint
+`f2a865e69b9ea5c9569b847afdf116de6dd08a46ee3d46eec9991b4256a21390`.
+O recibo do launcher está em
+`$HOME/RetroDevStudio-work/sessions/2026-11-25T02-35-45-526Z-303720/receipt.json`.
+Os registros do build e dos cenários nativos da revisão `8f57b4d` usam
+`$HOME/RetroDevStudio-work/sessions/native-c-K0yQzh3J/`.
+
 ## Retomada após formatação — 2026-11-22
 
 O checkout oficial é [Misael-art/retro-dev-studio](https://github.com/Misael-art/retro-dev-studio),
