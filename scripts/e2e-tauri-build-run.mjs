@@ -19324,7 +19324,14 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
 
   await click("workspace-rail-logic");
   await click("logic-view-nodes");
-  await summary("event-sequence-composer");
+  if (await executeScript(sessionId, `return !!document.querySelector('[data-testid="nodegraph-open-composer"]');`)) {
+    await activateByTestIdWithEnter(sessionId, "nodegraph-open-composer");
+  } else {
+    if (await executeScript(sessionId, `return document.querySelector('[data-testid="nodegraph-toggle-context"]')?.getAttribute('aria-expanded') === 'false';`)) {
+      await click("nodegraph-toggle-context");
+    }
+    await summary("event-sequence-composer");
+  }
   await input("event-sequence-ticks-1", "6");
   await activateByTestIdWithEnter(sessionId, "event-sequence-ticks-1");
   const withFlash = report.revision === "advanced-flash";
@@ -19418,6 +19425,8 @@ async function verifyFloatingStudioPanels(sessionId, projectDir, report, prefix,
           ready: document.readyState, width: innerWidth, height: innerHeight,
           contents: document.body?.textContent.trim().slice(0, 250) };
       `).catch(() => null);
+      await switchTo(before[0]).catch(() => null);
+      report.floatingConsole = (await state().catch(() => null))?.consoleEntries?.slice(-10);
       throw error;
     }
     return child;

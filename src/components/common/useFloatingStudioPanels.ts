@@ -68,7 +68,7 @@ function mountPopup(popup: Window, panel: FloatingStudioPanel, host: HTMLElement
   dock.focus();
 }
 
-export function useFloatingStudioPanels(reportFailure: () => void) {
+export function useFloatingStudioPanels(reportFailure: (reason: string) => void) {
   const [hosts] = useState(() => ({ timeline: makeHost(), properties: makeHost() }));
   const docks = useRef<Partial<Record<FloatingStudioPanel, HTMLElement>>>({});
   const windows = useRef<Partial<Record<FloatingStudioPanel, Window>>>({});
@@ -94,9 +94,10 @@ export function useFloatingStudioPanels(reportFailure: () => void) {
     const url = new URL("/src/studio-panel.html", window.location.href);
     url.searchParams.set("panel", name);
     const popup = window.open(url.href, "rds-" + name, "popup,resizable,width=750,height=524");
-    if (!popup) { reportFailure(); return; }
+    if (!popup) { reportFailure("A janela auxiliar foi recusada."); return; }
     windows.current[name] = popup;
     let attempts = 0;
+    let reason = "O documento do painel ainda não foi apresentado.";
     const mount = () => {
       if (windows.current[name] !== popup) return;
       try {
@@ -105,11 +106,12 @@ export function useFloatingStudioPanels(reportFailure: () => void) {
           setOpen((current) => ({ ...current, [name]: true }));
           return;
         }
-      } catch {
-        // O WebView nativo ainda está carregando a página do painel.
+        if (!popup.closed) reason = "O WebView apresentou " + popup.document.URL;
+      } catch (error) {
+        reason = error instanceof Error ? error.message : String(error);
       }
       if (++attempts < 100 && !popup.closed) window.setTimeout(mount, 50);
-      else { dockPanel(name); reportFailure(); }
+      else { dockPanel(name); reportFailure(reason); }
     };
     window.setTimeout(mount, 0);
   }, [dockPanel, hosts, reportFailure]);

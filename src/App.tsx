@@ -2060,8 +2060,8 @@ export default function App() {
   const propertiesLeft = activeWorkspace === "scene" && sceneDesk.propertiesLeft;
   const layoutRevision = `${layoutKey}:${propertiesLeft}:${focusedShell}`;
   const splitTimeline = activeWorkspace === "scene" && activeViewportTab === "scene" && sceneDesk.desk === "animate" && !focusedShell;
-  const floating = useFloatingStudioPanels(useCallback(() => {
-    useEditorStore.getState().logMessage("error", "O painel não abriu em outra janela. A disposição atual foi recuperada.");
+  const floating = useFloatingStudioPanels(useCallback((reason: string) => {
+    useEditorStore.getState().logMessage("error", "O painel não abriu em outra janela. A disposição atual foi recuperada. " + reason);
   }, []));
   const leftMinimum = propertiesLeft ? 320 : 200;
   const rightMinimum = propertiesLeft ? 200 : 320;

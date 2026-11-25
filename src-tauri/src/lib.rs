@@ -6750,6 +6750,11 @@ pub fn run() {
                             ),
                             _ => return NewWindowResponse::Deny,
                         };
+                        if cfg!(target_os = "windows") {
+                            // WebView2 owns its related popup and supplies the WindowProxy.
+                            // Programmatic creation can leave a detached CoreWebView2 on older runtimes.
+                            return NewWindowResponse::Allow;
+                        }
                         if handle.get_webview_window(label).is_some() {
                             return NewWindowResponse::Deny;
                         }

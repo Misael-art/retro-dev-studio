@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type Ref } from "react";
 import type { GraphNode, NodeGraph, NodeType } from "../../core/nodegraph/nodeTypes";
 
 const field = "min-w-0 rounded border border-[#45475a] bg-[#11111b] px-1 py-1";
@@ -11,6 +11,7 @@ const slotTypes: Array<{ type: NodeType; label: string }> = [
 ];
 
 type Props = {
+  panelRef: Ref<HTMLDetailsElement>;
   graph: NodeGraph;
   palettes: readonly { id?: string; name?: string }[];
   targets: readonly { id: string; name: string }[];
@@ -51,7 +52,7 @@ function Delay({ value, axis, slot, onEdit }: { value: number; axis: number; slo
   );
 }
 
-export default function EventSequencePanel({ graph, palettes, targets, selected, onCreate, onSelectNode, onParam, onAddAction }: Props) {
+export default function EventSequencePanel({ panelRef, graph, palettes, targets, selected, onCreate, onSelectNode, onParam, onAddAction }: Props) {
   const [sequenceId, setSequenceId] = useState("");
   const [portId, setPortId] = useState("");
   const sequences = graph.nodes.filter((node) => node.type === "timeline_sequence");
@@ -65,7 +66,7 @@ export default function EventSequencePanel({ graph, palettes, targets, selected,
   const incoming = graph.edges.find((edge) => edge.toNode === sequence?.id && edge.toPort === "exec");
   const source = graph.nodes.find((node) => node.id === incoming?.fromNode);
   return (
-    <details data-testid="event-sequence-composer" className="rounded border border-[#313244] bg-[#11111b] p-2 text-[11px]">
+    <details ref={panelRef} data-testid="event-sequence-composer" className="rounded border border-[#313244] bg-[#11111b] p-2 text-[11px]">
       <summary className="cursor-pointer font-semibold text-[#89b4fa]">Compositor de eventos</summary>
       <div className="mt-2 grid gap-2">
         {selected && selected.type !== "timeline_sequence" && port && (

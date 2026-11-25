@@ -2340,6 +2340,7 @@ export default function NodeGraphEditor() {
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [paletteOpen, setPaletteOpen] = useState(() => window.innerWidth >= 1100);
   const [contextOpen, setContextOpen] = useState(() => window.innerWidth >= 1440);
+  const eventComposerRef = useRef<HTMLDetailsElement>(null);
   // PLAT07: explicit choice is remembered; without one, large graphs show the map.
   const [minimapPreference, setMinimapPreferenceState] = useState<boolean | null>(readMinimapPreference);
   // Auto-open only when the canvas has room; an explicit (remembered) choice always wins.
@@ -3816,6 +3817,19 @@ export default function NodeGraphEditor() {
             <GraphScopeChip entityId={selectedEntity.entity_id} hydrated={graph.nodes.length > 0 || !selectedEntity.components.logic?.graph_ref} />
             <button type="button" aria-expanded={paletteOpen} onClick={() => { setPaletteOpen((open) => !open); if (window.innerWidth < 1100) setContextOpen(false); }} className="rounded px-2 py-1 text-[#cdd6f4]">Nós</button>
             <button type="button" aria-expanded={contextOpen} data-testid="nodegraph-toggle-context" onClick={() => { setContextOpen((open) => !open); if (window.innerWidth < 1100) setPaletteOpen(false); }} className="rounded px-2 py-1 text-[#cdd6f4]">Comportamentos</button>
+            {activeTarget === "megadrive" && !isRecoveredRegionGraph(graph) && (
+              <button type="button" data-testid="nodegraph-open-composer" className="rounded px-2 py-1 text-[#cdd6f4]"
+                onClick={() => {
+                  setContextOpen(true);
+                  if (window.innerWidth < 1100) setPaletteOpen(false);
+                  requestAnimationFrame(() => {
+                    const panel = eventComposerRef.current;
+                    if (!panel) return;
+                    panel.open = true;
+                    panel.querySelector("summary")?.focus();
+                  });
+                }}>Compositor</button>
+            )}
             <button type="button" data-testid="nodegraph-undo" onClick={undoGraph} disabled={history.past.length === 0}
               title={history.past.length ? `Desfazer: ${history.past[history.past.length - 1].label} (Ctrl+Z)` : "Nada para desfazer"}
               className="flex items-center gap-1 rounded px-2 py-1 text-[#cdd6f4] hover:bg-[#313244] disabled:opacity-40">
@@ -4278,7 +4292,7 @@ export default function NodeGraphEditor() {
               onGraphChange={(next) => setGraph(next, "Trocar som")}
             />
             {activeTarget === "megadrive" && !isRecoveredRegionGraph(graph) && (
-              <EventSequencePanel graph={graph} palettes={activeScene?.palettes ?? []} selected={selectedNode}
+              <EventSequencePanel panelRef={eventComposerRef} graph={graph} palettes={activeScene?.palettes ?? []} selected={selectedNode}
                 targets={(activeScene?.entities ?? []).filter((entity) => entity.components.sprite)
                   .map((entity) => ({ id: entity.entity_id, name: getEntityDisplayName(entity) }))}
                 onSelectNode={(id) => { setSelectedId(id); setSelectedIds(new Set([id])); }}
@@ -4306,12 +4320,13 @@ export default function NodeGraphEditor() {
                   const node = makeNode(type, sequence.x + 265, sequence.y + 170 * slot);
                   if (type === "palette_swap") node.params = { ...node.params, trigger_mode: "flow", target: "self" };
                   const port = "slot_" + slot;
+                  node.id = sequence.id + "_" + port + "_" + Date.now().toString(36) + "_" + node.id;
                   setGraph((current) => {
                     if (current.edges.some((edge) => edge.fromNode === sequence.id && edge.fromPort === port)) return current;
                     return { ...current,
                       nodes: [...current.nodes.map((item) => item.id === sequence.id && !item.outputs.some((output) => output.id === port)
                         ? { ...item, outputs: clonePorts(NODE_DEFS.timeline_sequence.outputs) } : item), node],
-                      edges: [...current.edges, makeEdge(sequence, port, node, "exec")],
+                      edges: [...current.edges, { ...makeEdge(sequence, port, node, "exec"), id: node.id + "_link" }],
                     };
                   }, "Adicionar ação à resposta");
                 }} />
