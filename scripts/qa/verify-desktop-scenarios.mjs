@@ -5,10 +5,11 @@ import { pathToFileURL } from "node:url";
 const common = ["smoke", "live_overflow", "live_vram_overflow", "live_vram_warning",
   "live_sprite_warning", "live_ok", "live_error", "live_stale"];
 const byTarget = {
-  megadrive: [...common.map(name => name + "_md"), "reference_goal", "code_draft", "code_scope", "pose_baseline", "pose_journey", "pose_tools", "workspace_layout", "point_occlusion", "linked_atlas"],
+  megadrive: [...common.map(name => name + "_md"), "reference_goal", "code_draft", "code_scope", "pose_baseline", "pose_journey", "pose_tools", "workspace_layout", "point_occlusion", "scene_guides", "linked_atlas"],
   snes: common.map(name => name + "_snes"),
   authoring: ["indexed_effects", "palette_and_atlas", "terrain_and_seam", "motion_trace", "wave_band", "hud_extremes"],
   hud: ["hud_extremes"],
+  guides: ["scene_guides"],
 };
 
 export function verifyDesktopScenarios(target, steps) {

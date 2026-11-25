@@ -82,6 +82,7 @@ import { gameMayTakeKeyDown } from "../../core/keyboardFocus";
 import TestAdjustPanel from "./TestAdjustPanel";
 import PoseDurationField from "../artstudio/PoseDurationField";
 import ScenePointInspector, { type ScenePointProbe, type SceneProbePoint } from "./ScenePointInspector";
+import SceneGuideControls, { type SceneGuide, type SceneGuideOrientation } from "./SceneGuideControls";
 const GameCodeLogic = lazy(() => import("../nodegraph/GameCodeLogic").then((m) => ({ default: m.GameCodeLogic })));
 const LogicAuthoringWorkspace = lazy(() => import("../nodegraph/LogicAuthoringWorkspace"));
 import { bankLetter, entityPaletteMarks } from "../../core/palettePlan";
@@ -117,7 +118,6 @@ const GUIDE_SCREEN_TOLERANCE = 6;
 const GAME_VIEWPORT_PADDING = 24;
 
 type ResizeHandle = "nw" | "ne" | "sw" | "se";
-type SceneGuideOrientation = "horizontal" | "vertical";
 
 type EntityBounds = {
   x: number;
@@ -134,18 +134,7 @@ type QueuedAudioChunk = {
 };
 
 
-type SceneGuide = {
-  id: string;
-  orientation: SceneGuideOrientation;
-  position: number;
-};
-
-type GuideDragState = {
-  id: string;
-  orientation: SceneGuideOrientation;
-  position: number;
-  creating: boolean;
-};
+type GuideDragState = SceneGuide & { storageKey: string };
 
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -579,8 +568,7 @@ export default function ViewportPanel({
   const [showKeyColor, setShowKeyColor] = useState(false);
   const [guideSnap, setGuideSnap] = useState(true);
   const [gameViewLight, setGameViewLight] = useState(false);
-  const [sceneGuides, setSceneGuides] = useState<SceneGuide[]>([]);
-  const [guideDrag, setGuideDrag] = useState<GuideDragState | null>(null);
+  const [guideDragState, setGuideDrag] = useState<GuideDragState | null>(null);
   const [saveStateBusy, setSaveStateBusy] = useState(false);
   const [loadStateBusy, setLoadStateBusy] = useState(false);
   const [rewindBusy, setRewindBusy] = useState(false);
@@ -781,6 +769,36 @@ export default function ViewportPanel({
     activeProjectDir,
     activeScenePath || activeScene?.scene_id || null
   );
+  const guideDrag = guideDragState?.storageKey === sceneGuideStorageKey ? guideDragState : null;
+  const [guideState, setGuideState] = useState(() => ({
+    storageKey: sceneGuideStorageKey,
+    guides: loadSceneGuides(sceneGuideStorageKey),
+  }));
+  const guideBounds = useMemo(() => ({
+    vertical: { min: Math.ceil(sceneWorldMinX), max: Math.floor(sceneWorldMaxX) },
+    horizontal: { min: Math.ceil(sceneWorldMinY), max: Math.floor(sceneWorldMaxY) },
+  }), [sceneWorldMaxX, sceneWorldMaxY, sceneWorldMinX, sceneWorldMinY]);
+  const sceneGuides = useMemo(() => {
+    if (guideState.storageKey !== sceneGuideStorageKey) return [];
+    return guideState.guides
+      .map((guide) => ({
+        ...guide,
+        position: clamp(guide.position, guideBounds[guide.orientation].min, guideBounds[guide.orientation].max),
+      }))
+      .sort((left, right) => left.position - right.position);
+  }, [guideBounds, guideState, sceneGuideStorageKey]);
+  const updateSceneGuides = useCallback((update: (guides: SceneGuide[]) => SceneGuide[]) => {
+    setGuideState((current) => current.storageKey === sceneGuideStorageKey
+      ? { ...current, guides: update(current.guides) }
+      : current);
+  }, [sceneGuideStorageKey]);
+  const saveSceneGuide = useCallback((id: string | null, orientation: SceneGuideOrientation, position: number) => {
+    const guide = { id: id ?? createSceneGuideId(), orientation, position };
+    updateSceneGuides((current) => [...current.filter((item) => item.id !== guide.id), guide]);
+  }, [updateSceneGuides]);
+  const removeSceneGuide = useCallback((id: string) => {
+    updateSceneGuides((current) => current.filter((item) => item.id !== id));
+  }, [updateSceneGuides]);
   const sceneDensityStatus = useMemo(() => buildSceneDensityStatus(activeScene), [activeScene]);
   const activeTilemapEntityForPalette = useMemo(() => {
     if (!activeScene) {
@@ -1304,27 +1322,18 @@ export default function ViewportPanel({
   }, [activeScene?.scene_id, activeViewportTab, resetSceneView, sceneStageSize, sceneViewKey]);
 
   useEffect(() => {
-    setSceneGuides(loadSceneGuides(sceneGuideStorageKey));
+    setGuideState({ storageKey: sceneGuideStorageKey, guides: loadSceneGuides(sceneGuideStorageKey) });
   }, [sceneGuideStorageKey]);
 
   useEffect(() => {
-    setSceneGuides((current) =>
-      current
-        .map((guide) => ({
-          ...guide,
-          position: clamp(
-            guide.position,
-            0,
-            guide.orientation === "vertical" ? sceneWidth : sceneHeight
-          ),
-        }))
-        .sort((left, right) => left.position - right.position)
-    );
-  }, [sceneHeight, sceneWidth]);
+    setGuideDrag(null);
+  }, [activeViewportTab, gameViewLight, sceneGuideStorageKey]);
 
   useEffect(() => {
-    saveSceneGuides(sceneGuideStorageKey, sceneGuides);
-  }, [sceneGuideStorageKey, sceneGuides]);
+    if (guideState.storageKey === sceneGuideStorageKey) {
+      saveSceneGuides(sceneGuideStorageKey, guideState.guides);
+    }
+  }, [guideState, sceneGuideStorageKey]);
 
   useEffect(() => {
     if (gameViewLight) {
@@ -1514,25 +1523,24 @@ export default function ViewportPanel({
   );
 
   const startGuideDrag = useCallback(
-    (orientation: SceneGuideOrientation, clientX: number, clientY: number, guideId?: string) => {
+    (orientation: SceneGuideOrientation, clientX: number, clientY: number) => {
       const coords = getSceneCoordsFromClient(clientX, clientY);
-      if (!coords) {
+      if (!coords || !sceneGuideStorageKey) {
         return;
       }
 
-      const axisLimit = orientation === "vertical" ? sceneWidth : sceneHeight;
+      const { min, max } = guideBounds[orientation];
       const axisValue = orientation === "vertical" ? coords.x : coords.y;
       const snapStep = getGuideSnapStep();
       const snapped = guideSnap ? snapToGrid(axisValue, snapStep) : axisValue;
-      const clamped = clamp(Math.round(snapped), 0, axisLimit);
       setGuideDrag({
-        id: guideId ?? createSceneGuideId(),
+        id: createSceneGuideId(),
         orientation,
-        position: clamped,
-        creating: !guideId,
+        position: clamp(Math.round(snapped), min, max),
+        storageKey: sceneGuideStorageKey,
       });
     },
-    [getGuideSnapStep, getSceneCoordsFromClient, guideSnap, sceneHeight, sceneWidth]
+    [getGuideSnapStep, getSceneCoordsFromClient, guideBounds, guideSnap, sceneGuideStorageKey]
   );
 
   const getGuideHit = useCallback(
@@ -2427,7 +2435,7 @@ export default function ViewportPanel({
         return;
       }
 
-      const axisLimit = activeGuideDrag.orientation === "vertical" ? sceneWidth : sceneHeight;
+      const { min, max } = guideBounds[activeGuideDrag.orientation];
       const axisValue = activeGuideDrag.orientation === "vertical" ? coords.x : coords.y;
       const snapStep = getGuideSnapStep();
       const snapped = guideSnap ? snapToGrid(axisValue, snapStep) : axisValue;
@@ -2435,41 +2443,47 @@ export default function ViewportPanel({
         current
           ? {
               ...current,
-              position: clamp(Math.round(snapped), 0, axisLimit),
+              position: clamp(Math.round(snapped), min, max),
             }
           : current
       );
     }
 
     function onGuideUp() {
-      setSceneGuides((current) => {
-        const activeGuide = activeGuideDrag;
-        const nextGuide: SceneGuide = {
-          id: activeGuide.id,
-          orientation: activeGuide.orientation,
-          position: activeGuide.position,
-        };
+      saveSceneGuide(activeGuideDrag.id, activeGuideDrag.orientation, activeGuideDrag.position);
+      cancelGuideDrag();
+    }
 
-        const remaining = current.filter((guide) => guide.id !== activeGuide.id);
-        return [...remaining, nextGuide].sort((left, right) => left.position - right.position);
-      });
+    function cancelGuideDrag() {
       setGuideDrag(null);
+    }
+
+    function onGuideKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        cancelGuideDrag();
+      }
     }
 
     window.addEventListener("mousemove", onGuideMove);
     window.addEventListener("mouseup", onGuideUp);
+    window.addEventListener("blur", cancelGuideDrag);
+    window.addEventListener("keydown", onGuideKeyDown, true);
     return () => {
       window.removeEventListener("mousemove", onGuideMove);
       window.removeEventListener("mouseup", onGuideUp);
+      window.removeEventListener("blur", cancelGuideDrag);
+      window.removeEventListener("keydown", onGuideKeyDown, true);
     };
   }, [
     activeViewportTab,
     getGuideSnapStep,
     getSceneCoordsFromClient,
+    guideBounds,
     guideDrag,
     guideSnap,
-    sceneHeight,
-    sceneWidth,
+    saveSceneGuide,
   ]);
 
   useEffect(() => {
@@ -3904,14 +3918,9 @@ export default function ViewportPanel({
     }
 
     const guideHit = getGuideHit(mx, my);
-    if (guideHit && editorMode === "select") {
+    if (guideHit && sceneGuideStorageKey && editorMode === "select") {
       event.preventDefault();
-      setGuideDrag({
-        id: guideHit.id,
-        orientation: guideHit.orientation,
-        position: guideHit.position,
-        creating: false,
-      });
+      setGuideDrag({ ...guideHit, storageKey: sceneGuideStorageKey });
       return;
     }
 
@@ -4734,7 +4743,7 @@ export default function ViewportPanel({
     const { mx, my } = canvasCoords(event);
     const guideHit = getGuideHit(mx, my);
     if (guideHit) {
-      setSceneGuides((current) => current.filter((guide) => guide.id !== guideHit.id));
+      removeSceneGuide(guideHit.id);
       return;
     }
 
@@ -5350,10 +5359,14 @@ export default function ViewportPanel({
                     ? "border-[#94e2d5] bg-[#94e2d5]/15 text-[#94e2d5]"
                     : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
                 }`}
-                title="Snap para guias e grid"
+                title="Encaixar nas guias"
               >
                 Guias magnéticas
               </button>
+              {activeScene && sceneGuideStorageKey && !gameViewLight ? (
+                <SceneGuideControls key={sceneGuideStorageKey} guides={sceneGuides} bounds={guideBounds}
+                  onApply={saveSceneGuide} onRemove={removeSceneGuide} />
+              ) : null}
               <button
                 type="button"
                 onClick={() => setShowBackground((current) => !current)}

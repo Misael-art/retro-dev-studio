@@ -18761,6 +18761,160 @@ async function verifyLightingVariant(sessionId, projectDir, report, prefix, time
   addReportStep(report, "lighting_preview_and_local_palette_in_core", "passed", { preview, swatches, baseline, edited });
 }
 
+async function verifySceneGuides(sessionId, projectDir, report, prefix, timeoutMs) {
+  const view = '[data-testid="viewport-view-options"]';
+  const overlay = '[data-testid="viewport-scene-overlay"]';
+  const guideChoice = "viewport-guide-choice";
+  const guidePosition = "viewport-guide-position";
+  const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  const state = () => readAutomationState(sessionId);
+  const actor = async (id) => (await state())?.activeScene?.entities.find((item) => item.id === id);
+  const opened = () => executeScript(sessionId, 'return Boolean(document.querySelector(arguments[0])?.open);', [view]);
+  const toggleDetails = async (open) => {
+    if (await opened() !== open) await clickElement(sessionId, await findElement(sessionId, view + " > summary"));
+    await waitFor(async () => (await opened()) === open, 5000, "O menu Visualização não alternou.", 100);
+  };
+  const choices = () => executeScript(sessionId, `
+    return [...(document.querySelector('[data-testid="viewport-guide-choice"]')?.options ?? [])]
+      .filter(({value}) => value).map(({value, textContent}) => ({id:value, label:textContent.trim()}));
+  `);
+  const key = async (value, id) => {
+    if (id) {
+      const element = await findElement(sessionId, '[data-testid="' + id + '"]');
+      await webdriverRequest("POST", "/session/" + sessionId + "/element/" + element + "/value", { text: value, value: [value] });
+    } else {
+      await webdriverRequest("POST", "/session/" + sessionId + "/actions", { actions: [{
+        type: "key", id: "guide-keyboard", actions: [{ type: "keyDown", value }, { type: "keyUp", value }],
+      }] });
+    }
+  };
+  const openGuides = async () => {
+    await toggleDetails(true);
+    await activateByTestIdWithEnter(sessionId, "viewport-edit-guides");
+    await waitFor(() => executeScript(sessionId, 'return document.activeElement?.dataset.testid === "viewport-guide-choice";'),
+      5000, "O diálogo não abriu pelo teclado ou perdeu o foco inicial.", 100);
+  };
+  const closeGuides = async () => {
+    await waitFor(() => executeScript(sessionId, `
+      return !document.querySelector('[data-testid="viewport-guide-dialog"]')
+        && document.activeElement?.dataset.testid === "viewport-edit-guides";
+    `), 5000, "O diálogo não devolveu o foco a Editar guias.", 100);
+    await toggleDetails(false);
+  };
+  const world = (x, y) => executeScript(sessionId, `
+    const canvas = document.querySelector(arguments[0]);
+    return [(arguments[1] - Number(canvas.dataset.worldMinX)) / Number(canvas.dataset.worldWidth),
+      (arguments[2] - Number(canvas.dataset.worldMinY)) / Number(canvas.dataset.worldHeight)];
+  `, [overlay, x, y]);
+  const drag = async (from, to) => {
+    if (!from?.unobstructed || !to?.unobstructed) fail("Arraste de guia obstruído: " + JSON.stringify({ from, to }));
+    await webdriverRequest("POST", "/session/" + sessionId + "/actions", { actions: [{
+      type: "pointer", id: "guide-pointer", parameters: { pointerType: "mouse" }, actions: [
+        { type: "pointerMove", origin: "viewport", x: from.x, y: from.y }, { type: "pointerDown", button: 0 },
+        { type: "pointerMove", origin: "viewport", x: to.x, y: to.y, duration: 300 }, { type: "pause", duration: 120 },
+        { type: "pointerUp", button: 0 },
+      ],
+    }] });
+  };
+  const openProject = async () => {
+    await openSavedProjectWizard(sessionId, projectDir);
+    await waitFor(async () => (await state())?.activeProjectDir === projectDir && (await actor("raposa"))?.id,
+      60000, "A sala de guias não abriu.", 150);
+  };
+  const build = async (label) => {
+    const result = await runBuildRunAndCollect(sessionId, label, timeoutMs, report, prefix + "-" + label, { nativeClick: true });
+    await click("viewport-pause");
+    await waitFor(async () => (await state())?.emulPaused, 15000, "A ROM da sala de guias não pausou.", 100);
+    const frame = await invokeCoreObserve(sessionId);
+    if (!frame?.ok || !frame.disk_matches_loaded || frame.rom_sha256 !== result.rom_sha256) fail("A ROM carregada divergiu do build.");
+    await click("workspace-rail-scene");
+    return result.rom_sha256;
+  };
+
+  await setSessionWindowRect(sessionId, 1366, 768);
+  await click("unified-topbar-menu-trigger");
+  await click("workspace-reset-layout");
+  const baseline = await build("guias-base");
+  await selectPoseActorsOnCanvas(sessionId);
+  await setInputByTestIdNative(sessionId, "hierarchy-search", "Raposa");
+  for (const id of ["testemunha", "raposa"]) {
+    await waitFor(() => executeScript(sessionId, `
+      const row = document.querySelector('[data-testid="hierarchy-select-' + arguments[0] + '"]');
+      return row && row.textContent.includes('Raposa') && row.textContent.includes(arguments[0]);
+    `, [id]), 5000, "A árvore não distinguiu as duas raposas.", 100);
+    await activateByTestIdWithEnter(sessionId, "hierarchy-select-" + id);
+    await waitFor(async () => (await state())?.selectedEntityId === id && await executeScript(sessionId,
+      'return document.querySelector(\'[data-testid="inspector-entity-id"]\')?.title === arguments[0];', [id]),
+    8000, "A seleção da árvore não chegou ao Inspector: " + id, 100);
+  }
+  await setInputByTestIdNative(sessionId, "hierarchy-search", "testemunha");
+  await waitFor(() => executeScript(sessionId, `
+    return !!document.querySelector('[data-testid="hierarchy-select-testemunha"]')
+      && !document.querySelector('[data-testid="hierarchy-select-raposa"]');
+  `), 5000, "A busca pelo identificador não isolou a testemunha.", 100);
+  await key("\uE00C", "hierarchy-search");
+  addReportStep(report, "hierarchy_named_twins_and_inspector_ids", "passed");
+
+  const beforeGuide = await state();
+  const [rulerX, rulerY] = await world(112, 92);
+  await drag(await nativeCanvasPoint(sessionId, '[data-testid="viewport-scene-ruler-top"]', rulerX, 0.5),
+    await nativeCanvasPoint(sessionId, overlay, rulerX, rulerY));
+  await openGuides();
+  const original = (await choices())[0];
+  if (original?.label !== "Vertical (X) · 112 px") fail("O gesto na régua não criou a guia vertical esperada: " + JSON.stringify(original));
+  const readGuide = () => executeScript(sessionId, 'return document.querySelector(\'[data-testid="viewport-guide-position"]\')?.value;');
+  const choose = () => selectOptionByTestIdNative(sessionId, guideChoice, original.id, { confirm: false });
+  await choose();
+  await waitFor(async () => await readGuide() === "112", 5000, "O campo numérico não abriu na guia da régua.", 100);
+  await setInputByTestIdNative(sessionId, guidePosition, "120");
+  await key("\uE00C");
+  await closeGuides();
+  await openGuides();
+  await choose();
+  if (await readGuide() !== "112") fail("Escape publicou o ajuste pendente da guia.");
+  await setInputByTestIdNative(sessionId, guidePosition, "113");
+  await activateByTestIdWithEnter(sessionId, "viewport-guide-apply");
+  await closeGuides();
+  const afterGuide = await state();
+  if (afterGuide.sceneRevision !== beforeGuide.sceneRevision || afterGuide.undoDepth !== beforeGuide.undoDepth
+      || afterGuide.selectedEntityId !== beforeGuide.selectedEntityId) fail("A edição da guia alterou o jogo, a seleção ou o histórico.");
+  await clickTopBarMenuAction(sessionId, "Fechar");
+  await waitFor(async () => !(await state())?.activeProjectDir, 15000, "A sala de guias não fechou.", 100);
+  await openProject();
+  await openGuides();
+  if (!isDeepStrictEqual(await choices(), [{ id: original.id, label: "Vertical (X) · 113 px" }])) fail("A guia do projeto não persistiu após reabrir.");
+  addReportArtifact(report, await captureScreenshot(sessionId, prefix + "-guia-reaberta.png"), "Guia de precisão após reabrir a sala");
+  await key("\uE00C");
+  await closeGuides();
+  const afterGuideRom = await build("guias-reabertas");
+  if (afterGuideRom !== baseline) fail("A guia de edição alterou os bytes da ROM.");
+  addReportStep(report, "native_ruler_precision_cancel_reopen_and_rom_control", "passed", { baseline, afterGuideRom });
+
+  await selectPoseActorsOnCanvas(sessionId);
+  const beforeMove = await state();
+  const witness = await actor("testemunha");
+  await drag(await nativeCanvasPoint(sessionId, overlay, ...await world(80, 152)),
+    await nativeCanvasPoint(sessionId, overlay, ...await world(127, 152)));
+  await waitFor(async () => (await actor("raposa"))?.x === 113 && (await state())?.undoDepth === beforeMove.undoDepth + 1,
+    8000, "O Canvas não encaixou a raposa na guia em uma única edição.", 100);
+  await key("\uE013", "inspector-transform-x");
+  await waitFor(async () => (await actor("raposa"))?.x === 114 && (await state())?.undoDepth === beforeMove.undoDepth + 2,
+    8000, "O ajuste fino do Inspector não alterou a mesma posição.", 100);
+  await clickTopBarMenuAction(sessionId, "Desfazer");
+  await waitFor(async () => (await actor("raposa"))?.x === 113, 8000, "Desfazer não voltou à posição encaixada.", 100);
+  await clickTopBarMenuAction(sessionId, "Refazer");
+  await waitFor(async () => (await actor("raposa"))?.x === 114, 8000, "Refazer não recuperou o ajuste fino.", 100);
+  if (!isDeepStrictEqual(await actor("testemunha"), witness)) fail("A movimentação alterou a outra raposa.");
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  await waitFor(async () => {
+    const saved = JSON.parse(await readFile(path.join(projectDir, "scenes", "main.json"), "utf8"));
+    return saved.entities.find((item) => item.entity_id === "raposa")?.transform.x === 114
+      && saved.entities.find((item) => item.entity_id === "testemunha")?.transform.x === 208;
+  }, 10000, "O ajuste fino ou o controle divergiu na cena salva.", 100);
+  addReportStep(report, "guide_snap_numeric_transform_undo_redo_and_saved_control", "passed",
+    { startX: 64, snapX: 113, preciseX: 114, witnessX: witness.x });
+}
+
 async function verifyHudExtremes(sessionId, projectDir, report, prefix, timeoutMs) {
   const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
   const state = () => readAutomationState(sessionId);
@@ -18927,7 +19081,7 @@ async function verifyHudExtremes(sessionId, projectDir, report, prefix, timeoutM
 async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
   const revision = process.env.RDS_POSE_PROOF || "baseline";
   const occlusionModes = ["occlusion", "occlusion-region", "occlusion-motion"];
-  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace", "linked-atlas", "asset-replace", "terrain", "seam", "wave", "hud", "lighting", ...occlusionModes, ...indexedEffectModes].includes(revision)) {
+  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace", "linked-atlas", "asset-replace", "terrain", "seam", "wave", "hud", "guides", "lighting", ...occlusionModes, ...indexedEffectModes].includes(revision)) {
     fail(`RDS_POSE_PROOF desconhecido: ${revision}.`);
   }
   const prefix = `pose-cadence-${artifactTimestamp()}`;
@@ -19022,6 +19176,11 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
       60000, "A sala de poses não abriu.", 200);
     if (revision === "workspace") {
       await verifyAuthoringDesk(sessionId, report, prefix);
+      report.status = "passed";
+      return;
+    }
+    if (revision === "guides") {
+      await verifySceneGuides(sessionId, projectDir, report, prefix, timeoutMs);
       report.status = "passed";
       return;
     }

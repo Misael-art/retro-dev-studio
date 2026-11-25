@@ -14,6 +14,7 @@ on:
           - snes
           - authoring
           - hud
+          - guides
       upload_candidate:
         description: "Guardar o executável exato deste ensaio Windows e seu SHA-256"
         type: boolean
@@ -395,6 +396,18 @@ jobs:
           if ($failedCases.Count) { throw ("Pillar pixel comparisons failed: " + ($failedCases -join ", ")) }
           Add-Content -Path $env:RDS_E2E_LEDGER -Value 'point_occlusion'
 
+      - name: Verify the guide, precise position and entities with the same name
+        id: scene_guides
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive' || env.RDS_E2E_TARGET == 'guides') }}
+        env:
+          RDS_POSE_PROOF: guides
+        run: |
+          $project = node scripts/qa/create-pose-authoring-demo.mjs --guides
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'scene_guides'
+
       - name: Reorder a linked atlas and preserve both actors in the Mega Drive core
         id: linked_atlas
         if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
@@ -553,6 +566,7 @@ jobs:
             "- Pose editing, reopening and ROM in both scenes: ${{ steps.pose_journey.outcome }}",
             "- Pose audio, hitboxes and playback in the core: ${{ steps.pose_tools.outcome }}",
             "- Authoring layouts and pending edits at both sizes: ${{ steps.workspace_layout.outcome }}",
+            "- Scene guides and precise positioning: ${{ steps.scene_guides.outcome }}",
             "- Indexed effect pixels: ${{ steps.indexed_effects.outcome }}",
             "- Palette and atlas consumers: ${{ steps.palette_and_atlas.outcome }}",
             "- Terrain and seam edits: ${{ steps.terrain_and_seam.outcome }}",

@@ -1347,7 +1347,7 @@ export default function InspectorPanel() {
                 <p className="truncate font-mono text-[11px] font-semibold text-[#cdd6f4]" title={getEntityDisplayName(entity)}>
                   {getEntityDisplayName(entity)}
                 </p>
-                <p className="truncate text-[9px] text-[#7f849c]" title={entity.entity_id}>
+                <p data-testid="inspector-entity-id" className="truncate text-[9px] text-[#7f849c]" title={entity.entity_id}>
                   id: {entity.entity_id}
                 </p>
                 {entity.prefab && (

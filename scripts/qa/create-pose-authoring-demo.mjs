@@ -334,6 +334,18 @@ async function writeTerrainProject(directory) {
   return projectPath;
 }
 
+async function writeGuidesProject(directory) {
+  const projectPath = await writeProject(directory, false);
+  const project = JSON.parse(await readFile(projectPath, "utf8"));
+  const scenePath = path.join(directory, project.entry_scene);
+  const scene = JSON.parse(await readFile(scenePath, "utf8"));
+  for (const actor of scene.entities.filter(({ entity_id }) => ["raposa", "testemunha"].includes(entity_id))) {
+    actor.display_name = "Raposa";
+  }
+  await writeFile(scenePath, JSON.stringify(scene, null, 2) + "\n");
+  return projectPath;
+}
+
 await mkdir(sessions, { recursive: true });
 const root = await mkdtemp(path.join(sessions, "ensaio-poses-"));
 if (process.argv.includes("--atlas-replacement")) {
@@ -344,6 +356,8 @@ if (process.argv.includes("--atlas-replacement")) {
   console.log(await writeHudProject(path.join(root, "hud")));
 } else if (process.argv.includes("--terrain")) {
   console.log(await writeTerrainProject(path.join(root, "terreno")));
+} else if (process.argv.includes("--guides")) {
+  console.log(await writeGuidesProject(path.join(root, "guias")));
 } else if (process.argv.includes("--indexed-effects")) {
   const moving = process.argv.includes("--moving-camera");
   for (const effect of ["transparent", "ghost", "rotation"]) {
