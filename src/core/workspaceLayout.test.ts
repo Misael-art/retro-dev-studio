@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  fitWorkspaceLayout,
   getLayoutStorageKeyForDensity,
   getPresetLayout,
   getShellDensity,
@@ -28,6 +29,13 @@ describe("workspaceLayout", () => {
     const inverted = placeScenePanels(widths, true);
     expect(inverted).toEqual({ left: 35, center: 65, right: 0 });
     expect(placeScenePanels(inverted, true)).toEqual(widths);
+  });
+
+  it("fits the minimum widths and keeps an explicitly collapsed pane closed", () => {
+    expect(fitWorkspaceLayout({ left: 19, center: 61, right: 20 }, 930, 200, 320))
+      .toEqual({ left: 21.6, center: 43.9, right: 34.5 });
+    expect(fitWorkspaceLayout({ left: 22, center: 78, right: 0 }, 930, 320, 200))
+      .toEqual({ left: 34.5, center: 65.5, right: 0 });
   });
 
   it("maximizes center for playtest and art presets", () => {

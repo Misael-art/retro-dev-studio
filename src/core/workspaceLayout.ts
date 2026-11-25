@@ -61,6 +61,16 @@ export function placeScenePanels(layout: LayoutMap, propertiesLeft: boolean): La
   return propertiesLeft ? { left: layout.right, center: layout.center, right: layout.left } : layout;
 }
 
+/** Keep explicit collapse and account for each open pane's minimum before applying the group layout. */
+export function fitWorkspaceLayout(layout: LayoutMap, width: number, leftMinimum: number, rightMinimum: number): LayoutMap {
+  if (width <= 0) return layout;
+  const left = layout.left > 0 ? Math.max(layout.left, Math.ceil(leftMinimum * 1000 / width) / 10) : 0;
+  const right = layout.right > 0 ? Math.max(layout.right, Math.ceil(rightMinimum * 1000 / width) / 10) : 0;
+  const total = left + right;
+  const scale = total > 80 ? 80 / total : 1;
+  return { left: left * scale, center: 100 - total * scale, right: right * scale };
+}
+
 export type RightPanelMode = "inspector" | "tools" | "hidden";
 
 export type WorkspaceShellConfig = {

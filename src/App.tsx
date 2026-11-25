@@ -163,6 +163,7 @@ import {
   placeScenePanels,
   readWorkspaceLayout,
   resolveWorkspaceShellConfig,
+  fitWorkspaceLayout,
   type LayoutMap,
   type ProjectPanelTab,
   type SceneDesk,
@@ -1953,6 +1954,7 @@ export default function App() {
   const [explorerBreadcrumb, setExplorerBreadcrumb] = useState<string | null>(null);
   const buildInFlightRef = useRef(false);
   const panelGroupRef = useRef<GroupImperativeHandle | null>(null);
+  const panelGroupElement = useRef<HTMLDivElement | null>(null);
   const leftPanelRef = useRef<PanelImperativeHandle | null>(null);
   const rightPanelRef = useRef<PanelImperativeHandle | null>(null);
   const workspaceLayoutsRef = useRef(new Map<string, LayoutMap>());
@@ -2259,14 +2261,12 @@ export default function App() {
 
   function applyShellLayout(nextLayout: LayoutMap) {
     const group = panelGroupRef.current;
-    if (!group) return;
-    group.setLayout(nextLayout);
-    for (const [side, pane, minimum] of [
-      ["left", leftPanelRef.current, leftMinimum], ["right", rightPanelRef.current, rightMinimum],
-    ] as const) {
-      if (nextLayout[side] > 0 && pane && pane.getSize().inPixels < minimum - 1) pane.resize(minimum);
-    }
-    updateHiddenSidePanels(group.getLayout());
+    const element = panelGroupElement.current;
+    if (!group || !element || !("center" in group.getLayout())) return;
+    const width = Array.from(element.children).reduce((sum, pane) =>
+      pane instanceof HTMLElement && pane.hasAttribute("data-panel") ? sum + pane.offsetWidth : sum, 0);
+    const fitted = fitWorkspaceLayout(nextLayout, width, leftAvailable ? leftMinimum : 0, rightAvailable ? rightMinimum : 0);
+    updateHiddenSidePanels(group.setLayout(fitted));
   }
 
   function updateHiddenSidePanels(layout: Record<string, number>) {
@@ -5082,7 +5082,7 @@ export default function App() {
     </Suspense>
   ) : (
     <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Workspace..." />}>
-      <ViewportPanel showWorkspaceTabs={false} compactTools={splitTimeline && compactShell} />
+      <ViewportPanel showWorkspaceTabs={false} compactTools={splitTimeline} />
     </Suspense>
   );
   const animationActor = splitTimeline ? activeScene?.entities.find((entity) => entity.entity_id === selectedEntityId) : undefined;
@@ -5186,7 +5186,7 @@ export default function App() {
     const showProperties = propertiesLeft === left;
     const available = left ? leftAvailable : rightAvailable;
     return (
-      <Panel key={showProperties ? "properties" : "project"} id={side}
+      <Panel key={side} id={side}
         panelRef={left ? leftPanelRef : rightPanelRef}
         defaultSize={`${workspaceDefaultLayout[side]}%`}
         minSize={available && !focusedShell ? (left ? leftMinimum : rightMinimum) : 0}
@@ -6039,6 +6039,7 @@ export default function App() {
           id="retrodev-layout"
           orientation="horizontal"
           groupRef={panelGroupRef}
+          elementRef={panelGroupElement}
           className="min-w-0 flex flex-1 overflow-hidden"
           onPointerDownCapture={(event) => {
             if (event.target instanceof Element && event.target.closest("[data-separator]")?.closest("[data-group]") === event.currentTarget) {
