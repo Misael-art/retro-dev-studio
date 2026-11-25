@@ -17151,7 +17151,7 @@ async function runCodeInstanceScope(sessionId, projectDir, appPath) {
   const scenario = "code-instance-scope";
   const reportPath = path.join(validationDir, `${scenario}-${artifactTimestamp()}-report.json`);
   const report = {
-    scenario, steps: [],
+    scenario, steps: [], artifacts: [],
     testedApplication: { path: appPath, sha256: createHash("sha256").update(await readFile(appPath)).digest("hex") },
   };
   const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
@@ -17174,10 +17174,31 @@ async function runCodeInstanceScope(sessionId, projectDir, appPath) {
       15000, `Edição para ${after} não atualizou o modelo.`, 200);
     await waitValue(after);
   };
+  const openInstanceCode = async (entityId) => {
+    const listItem = `nodegraph-object-${entityId}`;
+    const entry = await waitFor(async () => {
+      if (await read(listItem, "tagName")) return "list";
+      if (await read("nodegraph-entity-switch", "tagName")) return "context";
+      return null;
+    }, 20000, "A vista Nós não mostrou a seleção de instâncias.", 200);
+    if (entry === "list") {
+      await click(listItem);
+    } else {
+      // Em janelas estreitas a lista existe dentro do painel recolhido.
+      if (await read("nodegraph-context-rail", "hidden")) await click("nodegraph-toggle-context");
+      await select("nodegraph-entity-switch", entityId);
+    }
+    await click("logic-view-code");
+    await waitFor(async () => (await read("instance-code-entity", "textContent")) === entityId,
+      15000, `A vista Código não retornou à instância ${entityId}.`, 100);
+  };
   const switchInstance = async (entityId) => {
     await click("logic-view-nodes");
-    await select("nodegraph-entity-switch", entityId);
-    await click("logic-view-code");
+    await openInstanceCode(entityId);
+  };
+  const capture = async (label) => {
+    const png = await captureScreenshot(sessionId, `${scenario}-${artifactTimestamp()}-${label}.png`);
+    addReportArtifact(report, png, label);
   };
 
   try {
@@ -17200,20 +17221,14 @@ async function runCodeInstanceScope(sessionId, projectDir, appPath) {
     }));
     await writeFile(scenePath, JSON.stringify(scene));
     await setSessionWindowRect(sessionId, 1920, 1080);
+    report.window = await executeScript(sessionId, "return { cssWidth: innerWidth, cssHeight: innerHeight, scale: devicePixelRatio };");
     await openSavedProjectWizard(sessionId, projectDir);
     await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir,
       60000, "O projeto de duas instâncias não abriu.", 300);
     await click("shell-persona-guiado");
     await click("guided-step-regras");
     await closeVisibleConsoleDrawer(sessionId, "antes da vista Código");
-    const selector = await waitFor(async () => {
-      if (await read("nodegraph-object-scope_a", "tagName")) return "list";
-      if (await read("nodegraph-entity-switch", "tagName")) return "switch";
-      return false;
-    }, 20000, "A vista Nós não mostrou a seleção de instâncias.", 200);
-    if (selector === "list") await click("nodegraph-object-scope_a");
-    else await select("nodegraph-entity-switch", "scope_a");
-    await click("logic-view-code");
+    await openInstanceCode("scope_a");
 
     await waitValue(7);
     const initialScope = await read("instance-code-scope", "value");
@@ -17226,6 +17241,7 @@ async function runCodeInstanceScope(sessionId, projectDir, appPath) {
 
     if (await read("instance-code-scope", "value") !== "instance") fail("O alcance não voltou ao padrão ao trocar de instância.");
     await edit(19, 31);
+    await capture("edicao-da-instancia");
     await switchInstance("scope_a");
     await waitValue(19);
     await clickTopBarMenuAction(sessionId, "Salvar");
@@ -17243,6 +17259,7 @@ async function runCodeInstanceScope(sessionId, projectDir, appPath) {
   } catch (error) {
     report.status = "failed";
     report.error = String(error);
+    await capture("falha").catch(() => {});
     throw error;
   } finally {
     report.generatedAt = new Date().toISOString();
