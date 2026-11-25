@@ -18544,7 +18544,13 @@ async function verifyTerrainAuthoring(sessionId, projectDir, report, prefix, tim
   if (opened === "false") await click("viewport-tile-flow-toggle");
   if (seam) {
     const summary = '[data-testid="tile-seam-preview"] > summary';
-    await clickElement(sessionId, await findElement(sessionId, summary));
+    const summaryElement = await findElement(sessionId, summary);
+    await executeScript(sessionId, `
+      const summary = document.querySelector(arguments[0]);
+      summary.scrollIntoView({ block: "nearest", inline: "nearest" });
+      summary.focus();
+    `, [summary]);
+    await webdriverRequest("POST", `/session/${sessionId}/element/${summaryElement}/value`, { text: "\uE007", value: ["\uE007"] });
     const form = '[data-testid="tile-seam-area"]';
     for (const [name, value] of Object.entries({ x: 11, y: 5, width: 2, height: 2 })) {
       await fillInputBySelector(sessionId, `${form} [name="${name}"]`, String(value));
