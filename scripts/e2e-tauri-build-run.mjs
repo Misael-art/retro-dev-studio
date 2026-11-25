@@ -35,6 +35,7 @@ import {
 } from "./ui-layout-oracle.mjs";
 import { diagnose as diagnoseHost } from "./host-manager.mjs";
 import { renderSonicFrameReference } from "./qa/sonic-frame-reference.mjs";
+import { matchPoseCadence } from "./qa/pose-cadence.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -503,6 +504,7 @@ function parseArgs(argv) {
           "studio-appearance",
           "nodegraph-authoring",
           "code-draft-roundtrip",
+          "pose-cadence",
           "code-instance-scope",
           "rom-input",
           "camera-workflow",
@@ -16981,6 +16983,77 @@ async function runCameraWorkflowScenario(sessionId, timeoutMs, onProjectCreated)
   finally{await closeGame().catch(()=>{});await writeFile(path.join(artifactDir,"report.json"),JSON.stringify(report,null,2));await writeFile(path.join(validationDir,`${prefix}.json`),JSON.stringify(report,null,2));}
 }
 
+// Mede pixels no core, depois do Build & Run pelo desktop. O cenário recebe
+// uma das salas de create-pose-authoring-demo.mjs (ou sua revisão editada).
+async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
+  const revision = process.env.RDS_POSE_PROOF || "baseline";
+  if (!["baseline", "aligned-4"].includes(revision)) fail("RDS_POSE_PROOF deve ser baseline ou aligned-4.");
+  const prefix = `pose-cadence-${artifactTimestamp()}`;
+  const report = { scenario: "pose-cadence", revision, status: "failed", samples: [], steps: [], artifacts: [] };
+  const expectedTarget = revision === "baseline" ? [5, 3, 7, 2] : [5, 4, 7, 2];
+  const expectedControl = [5, 3, 7, 2];
+  // Retângulos fixados na fixture antes de observar o jogo.
+  const regions = { target: [64, 136, 32, 32], control: [208, 136, 32, 32], backdrop: [1, 110, 8, 8] };
+  try {
+    report.expected = { target: expectedTarget, control: expectedControl, regions };
+    report.executableSha256 = createHash("sha256").update(await readFile(app)).digest("hex");
+    const sceneBytes = await readFile(path.join(projectDir, "scenes", "main.json"));
+    report.sceneSha256 = createHash("sha256").update(sceneBytes).digest("hex");
+    const scene = JSON.parse(sceneBytes);
+    for (const [id, expected] of [["raposa", expectedTarget], ["testemunha", expectedControl]]) {
+      const animation = scene.entities.find((entity) => entity.entity_id === id)?.components.sprite?.animations.passo;
+      if (JSON.stringify(animation?.frame_durations) !== JSON.stringify(expected)
+        || JSON.stringify(animation?.frames) !== "[0,1,2,1]") fail(`Animação inicial inesperada em ${id}.`);
+    }
+    await openSavedProjectWizard(sessionId, projectDir);
+    await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir,
+      60000, "A sala de poses não abriu.", 200);
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-scene.png`), "Sala aberta no editor");
+    report.build = await runBuildRunAndCollect(sessionId, "ensaio de poses", timeoutMs, report, prefix, { nativeClick: true });
+    await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-pause");
+    await waitFor(async () => (await readAutomationState(sessionId))?.emulPaused, 15000, "A ROM não pausou.", 100);
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-paused.png`), "ROM pausada no Tauri");
+    // Avançar no core já pausado elimina a cadência e a latência de apresentação da UI.
+    const warm = await invokeCoreObserveCommand(sessionId, "emulator_run_frames", { frames: 120 });
+    if (!warm?.ok) fail("O core não confirmou o aquecimento de 120 quadros.");
+    for (let tick = 0; tick < 48; tick += 1) {
+      const advance = await invokeCoreObserveCommand(sessionId, "emulator_run_frame");
+      if (!advance?.ok) fail(`O core recusou o quadro ${tick}.`);
+      const frame = await invokeCoreObserve(sessionId);
+      if (!frame?.ok || frame.rom_sha256 !== report.build.rom_sha256 || !frame.disk_matches_loaded
+        || frame.framebuffer_width !== 320 || frame.framebuffer_height !== 224
+        || frame.framebuffer_rgba.length !== 320 * 224 * 4) fail("Identidade ou dimensão do framebuffer inesperada.");
+      if (!tick) report.core = await collectCoreIdentity(frame);
+      else if (frame.core_path !== report.core.path) fail("O core mudou durante a captura.");
+      if (tick && frame.frames_run !== report.samples[tick - 1].frame + 1) fail("A captura saltou ou repetiu um quadro do core.");
+      const pixels = Buffer.from(frame.framebuffer_rgba);
+      const sample = { frame: frame.frames_run };
+      for (const [name, [x, y, width, height]] of Object.entries(regions)) {
+        const hash = createHash("sha256");
+        for (let row = y; row < y + height; row += 1) {
+          const start = 4 * (row * frame.framebuffer_width + x);
+          hash.update(pixels.subarray(start, start + width * 4));
+        }
+        sample[name] = hash.digest("hex");
+      }
+      report.samples.push(sample);
+    }
+    if (new Set(report.samples.map((sample) => sample.backdrop)).size !== 1) fail("A área de fundo mudou durante a prova.");
+    const images = [0, 1, 2, 1];
+    report.control = matchPoseCadence(report.samples.map((s) => s.control), images, expectedControl);
+    report.target = matchPoseCadence(report.samples.map((s) => s.target),
+      revision === "baseline" ? images : [0, "aligned", 2, 1], expectedTarget);
+    report.status = "passed";
+  } catch (error) {
+    report.error = String(error);
+    const shot = await captureScreenshot(sessionId, `${prefix}-failure.png`).catch(() => null);
+    if (shot) addReportArtifact(report, shot, "Estado da janela na falha");
+    throw error;
+  } finally {
+    await writeFile(path.join(validationDir, `${prefix}-report.json`), JSON.stringify(report, null, 2));
+  }
+}
+
 // The runner clones the canonical project fixture before this scenario writes to it.
 async function runCodeInstanceScope(sessionId, projectDir, appPath) {
   const scenario = "code-instance-scope";
@@ -28851,6 +28924,11 @@ async function main() {
 
     if (options.scenario === "code-instance-scope") {
       await runCodeInstanceScope(sessionId, options.project, options.app);
+      return;
+    }
+
+    if (options.scenario === "pose-cadence") {
+      await runPoseCadenceScenario(sessionId, options.project, options.app, emulatorActivationTimeoutMs);
       return;
     }
 

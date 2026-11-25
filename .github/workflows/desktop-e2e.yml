@@ -295,6 +295,21 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Add-Content -Path $env:RDS_E2E_LEDGER -Value 'code_scope'
 
+      - name: Measure both actors in the simple and dense Mega Drive scenes
+        id: pose_baseline
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
+        env:
+          RDS_POSE_PROOF: baseline
+        run: |
+          $projects = @(node scripts/qa/create-pose-authoring-demo.mjs)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($projects.Count -ne 2) { throw "Expected the two pose authoring fixtures" }
+          foreach ($project in $projects) {
+            node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'pose_baseline'
+
       - name: Report step outcomes before verification
         if: always()
         shell: pwsh
@@ -325,6 +340,7 @@ jobs:
           $scenarioOutcomes = [ordered]@{
             code_draft = '${{ steps.code_draft.outcome }}'
             code_scope = '${{ steps.code_scope.outcome }}'
+            pose_baseline = '${{ steps.pose_baseline.outcome }}'
             smoke_md = '${{ steps.smoke_md.outcome }}'
             reference_goal = '${{ steps.reference_goal.outcome }}'
             smoke_snes = '${{ steps.smoke_snes.outcome }}'
@@ -345,7 +361,7 @@ jobs:
           }
 
           if ($env:RDS_E2E_TARGET -in @('all', 'megadrive')) {
-            foreach ($step in @('code_draft', 'code_scope')) {
+            foreach ($step in @('code_draft', 'code_scope', 'pose_baseline')) {
               if ($scenarioOutcomes[$step] -ne 'success') {
                 throw "Required Mega Drive editor scenario $step ended with $($scenarioOutcomes[$step])"
               }
@@ -388,6 +404,7 @@ jobs:
             "- Reference gameplay passage: ${{ steps.reference_goal.outcome }}",
             "- C draft, reopen and ROM: ${{ steps.code_draft.outcome }}",
             "- C shared / instance scope: ${{ steps.code_scope.outcome }}",
+            "- Core cadence in both pose authoring scenes: ${{ steps.pose_baseline.outcome }}",
             "- Smoke SNES: ${{ steps.smoke_snes.outcome }}",
             "- Live overflow MD: ${{ steps.live_overflow_md.outcome }}",
             "- Live overflow SNES: ${{ steps.live_overflow_snes.outcome }}",

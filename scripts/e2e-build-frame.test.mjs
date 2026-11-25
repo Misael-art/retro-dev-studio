@@ -5,6 +5,28 @@ import { pathToFileURL } from "node:url";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import { createHash } from "node:crypto";
+import { matchPoseCadence } from "./qa/pose-cadence.mjs";
+
+describe("cadence from cropped core frames", () => {
+  const poses = ["a", "b", "c", "b"];
+  const durations = [5, 3, 7, 2];
+  function capture(times, phase = 0) {
+    const cycle = poses.flatMap((id, i) => Array(times[i]).fill(id));
+    return Array.from({ length: 48 }, (_, tick) => cycle[(phase + tick) % cycle.length]);
+  }
+
+  it("recovers the phase even when capture begins inside the repeated image", () => {
+    for (let phase = 0; phase < 17; phase += 1) {
+      expect(matchPoseCadence(capture(durations, phase), poses, durations)).toMatchObject({ phase, period: 17 });
+    }
+  });
+
+  it("distinguishes retiming the second occurrence from retiming the fourth", () => {
+    expect(() => matchPoseCadence(capture([5, 2, 7, 3]), poses, durations)).toThrow(/Cadência/);
+    expect(() => matchPoseCadence(Array(48).fill("still"), poses, durations)).toThrow(/Cadência/);
+    expect(() => matchPoseCadence(capture(durations).slice(0, 17), poses, durations)).toThrow(/dois ciclos/);
+  });
+});
 
 // Execute the real Node harness. Vite's browser transform cannot load its
 // shebang or Node-only modules; no copy of the gate is used by this probe.
