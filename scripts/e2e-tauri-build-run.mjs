@@ -18859,13 +18859,19 @@ async function verifyHudExtremes(sessionId, projectDir, report, prefix, timeoutM
     variants.push(view);
   }
   await selectOptionByTestIdNative(sessionId, "hud-preview-text", "short");
-  await click("hud-preview-light");
+  const lightControl = '[data-testid="hud-preview-light"]';
+  await executeScript(sessionId, `document.querySelector(arguments[0])?.focus();`, [lightControl]);
+  const lightInput = await findElement(sessionId, lightControl);
+  await webdriverRequest("POST", `/session/${sessionId}/element/${lightInput}/value`, { text: "\uE00D", value: ["\uE00D"] });
+  await waitFor(() => executeScript(sessionId, `return document.querySelector(arguments[0])?.checked;`, [lightControl]),
+    5000, "O teclado não selecionou o fundo claro.", 100);
   const movedSlider = await findElement(sessionId, '[data-testid="hud-preview-camera-x"]');
   await webdriverRequest("POST", `/session/${sessionId}/element/${movedSlider}/value`, { text: "\uE010", value: ["\uE010"] });
   const light = await preview();
   if (light?.text !== "HP 099" || light.position !== variants[0].position || light.color === variants[0].color
       || light.scroll === variants[0].scroll) fail(`A prévia não isolou o texto da câmera e do fundo: ${JSON.stringify(light)}.`);
   await selectOptionByTestIdNative(sessionId, "hud-preview-text", "long");
+  await executeScript(sessionId, `document.querySelector('[data-testid="hud-preview-camera-x"]')?.focus();`);
   if (!(await preview())?.text.endsWith(" - 099")) fail("O texto longo não apareceu no ensaio.");
   addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-hud-previa.png`), "Texto longo e fundo claro com a câmera movida");
   await webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [{
