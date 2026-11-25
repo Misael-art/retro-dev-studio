@@ -163,6 +163,7 @@ export interface PixelEditorSession {
   layerIndex: number;
   savedPath: string | null;
   savedSource: string | null;
+  manualZoom?: number;
 }
 
 export type EditorMode = "select" | "paint" | "erase" | "collision" | "path";

@@ -18230,7 +18230,7 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
   const showPoints = async () => executeScript(sessionId, `document.querySelector(arguments[0]).scrollIntoView({ block: 'center', inline: 'center' });`, [canvas]);
   const colorAt = async (x, y) => executeScript(sessionId, `
     const display = document.querySelector(arguments[0]), size = display.width / 16;
-    if (size < 2 || display.height !== display.width) return null;
+    if (size < 1 || display.height !== display.width) return null;
     return [...display.getContext('2d').getImageData(Math.floor((arguments[1] + 0.5) * size),
       Math.floor((arguments[2] + 0.5) * size), 1, 1).data];
   `, [canvas, x, y]);

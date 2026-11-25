@@ -62,6 +62,20 @@ function render(projectDir: string | null = "/proj") {
 }
 
 describe("PixelEditor", () => {
+  it("restores manual zoom when returning to the same project and lets the user fit again", () => {
+    render();
+    const initialZoom = Number.parseInt(q("pixel-zoom").textContent ?? "", 10);
+    const increase = container.querySelector<HTMLButtonElement>('button[aria-label="Aumentar zoom"]')!;
+    act(() => increase.click());
+    expect(q("pixel-zoom").textContent).toBe(`${initialZoom + 1}×`);
+    act(() => root.render(null));
+    render();
+    expect(q("pixel-zoom").textContent).toBe(`${initialZoom + 1}×`);
+    const fit = [...container.querySelectorAll("button")].find((button) => button.textContent === "Enquadrar")!;
+    act(() => fit.click());
+    expect(useEditorStore.getState().pixelEditorSessions["/proj"].manualZoom).toBeUndefined();
+  });
+
   it("distinguishes the shared resource from a resized copy and preserves animation", async () => {
     const original = createPixelDoc(16, 16, { name: "shared", frames: 3 });
     original.frames.forEach((frame, i) => { frame.durationMs = 70 + i * 20; frame.cels[0][0] = 1; });

@@ -203,7 +203,10 @@ export default function PixelEditor({ projectDir, source, log, beforeSave, onSav
   const [lockTilePalette, setLockTilePalette] = useState(true);
   const [onion, setOnion] = useState(false);
   const [sizeHistory, setSizeHistory] = useState<{ base: PixelDoc; result: PixelDoc } | null>(null);
-  const [zoom, setZoom] = useState(12);
+  const [fittedZoom, setFittedZoom] = useState(12);
+  const [manualZoom, setManualZoom] = useState<number | null>(initial?.manualZoom ?? null);
+  const zoom = manualZoom ?? fittedZoom;
+  const adjustZoom = (step: number) => setManualZoom((current) => Math.max(1, Math.min(48, (current ?? fittedZoom) + step)));
   const [hover, setHover] = useState<[number, number] | null>(null);
   const [selection, setSelection] = useState<PixelRect | null>(null);
   const [moveAll, setMoveAll] = useState(false);
@@ -248,9 +251,9 @@ export default function PixelEditor({ projectDir, source, log, beforeSave, onSav
 
   useLayoutEffect(() => {
     useEditorStore.getState().setPixelEditorSession(projectKey, {
-      doc, past, future, frameIndex, layerIndex, savedPath, savedSource,
+      doc, past, future, frameIndex, layerIndex, savedPath, savedSource, manualZoom: manualZoom ?? undefined,
     });
-  }, [projectKey, doc, past, future, frameIndex, layerIndex, savedPath, savedSource]);
+  }, [projectKey, doc, past, future, frameIndex, layerIndex, savedPath, savedSource, manualZoom]);
   useEffect(() => {
     mounted.current = true;
     return () => { mounted.current = false; importRequest.current += 1; };
@@ -290,7 +293,7 @@ export default function PixelEditor({ projectDir, source, log, beforeSave, onSav
     const stage = stageRef.current;
     if (!stage || stage.clientWidth === 0 || stage.clientHeight === 0) return;
     const fit = Math.floor(Math.min((stage.clientWidth - 24) / doc.width, (stage.clientHeight - 24) / doc.height));
-    setZoom(Math.max(1, Math.min(48, fit)));
+    setFittedZoom(Math.max(1, Math.min(48, fit)));
   }, [doc.width, doc.height]);
   // First layout can be zero-sized while CSS/panels load. Fit again when the
   // actual stage becomes available, and keep oversized canvases scrollable.
@@ -647,8 +650,8 @@ export default function PixelEditor({ projectDir, source, log, beforeSave, onSav
     else if (key === "escape") setSelection(null);
     else if (key === "arrowleft") setFrameIndex((f) => Math.max(0, f - 1));
     else if (key === "arrowright") setFrameIndex((f) => Math.min(doc.frames.length - 1, f + 1));
-    else if (key === "+" || key === "=") setZoom((z) => Math.min(48, z + 1));
-    else if (key === "-") setZoom((z) => Math.max(1, z - 1));
+    else if (key === "+" || key === "=") adjustZoom(1);
+    else if (key === "-") adjustZoom(-1);
     else return;
     event.preventDefault();
   };
@@ -943,7 +946,7 @@ export default function PixelEditor({ projectDir, source, log, beforeSave, onSav
         </div>
 
         {/* Canvas + frames */}
-        <div className="flex min-h-0 flex-col gap-2">
+        <div className="flex min-h-0 flex-col gap-2 overflow-y-auto">
           <p className="px-1 text-xs text-[#a6adc8]" data-testid="pixel-tool-help"><strong className="text-[#cdd6f4]">{tileMap ? "Mapa de tiles" : PIXEL_TOOLS.find(t => t.id === tool)?.label}</strong> · {tileMap ? "Clique num tile para ver padrão, repetições e espelhos." : PIXEL_TOOLS.find(t => t.id === tool)?.hint}{isolation !== null ? " · Outras cores estão protegidas." : ""}</p>
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#313244] bg-[#111827] px-2 py-1 text-[10px] text-[#cdd6f4]">
             <label className="flex items-center gap-1" title="Tamanho do pincel ([ e ])">
@@ -974,10 +977,10 @@ export default function PixelEditor({ projectDir, source, log, beforeSave, onSav
             {onion && <span className="text-[#f9e2af]" data-testid="pixel-onion-notice">Quadros vizinhos são só uma guia; não são salvos nem aparecem no jogo.</span>}
             <label className="flex items-center gap-1"><input type="checkbox" data-testid="pixel-grid" checked={showGrid} onChange={e => setShowGrid(e.target.checked)} />Grade</label>
             <span className="ml-auto flex items-center gap-1">
-              <button type="button" onClick={fitCanvas} className="rounded border border-[#313244] px-1.5 py-1">Enquadrar</button>
-              <button type="button" aria-label="Diminuir zoom" onClick={() => setZoom((z) => Math.max(1, z - 1))} className="rounded border border-[#313244] px-1.5">−</button>
+              <button type="button" onClick={() => { setManualZoom(null); fitCanvas(); }} className="rounded border border-[#313244] px-1.5 py-1">Enquadrar</button>
+              <button type="button" aria-label="Diminuir zoom" onClick={() => adjustZoom(-1)} className="rounded border border-[#313244] px-1.5">−</button>
               <span className="w-10 text-center" data-testid="pixel-zoom">{zoom}×</span>
-              <button type="button" aria-label="Aumentar zoom" onClick={() => setZoom((z) => Math.min(48, z + 1))} className="rounded border border-[#313244] px-1.5">+</button>
+              <button type="button" aria-label="Aumentar zoom" onClick={() => adjustZoom(1)} className="rounded border border-[#313244] px-1.5">+</button>
             </span>
           </div>
           {transparencyPreview ? (
@@ -995,7 +998,7 @@ export default function PixelEditor({ projectDir, source, log, beforeSave, onSav
               }}>Cancelar</button>
             </div>
           ) : null}
-          <div ref={stageRef} data-testid="pixel-stage" className="min-h-0 flex-1 overflow-auto rounded-xl border border-[#313244] bg-[#0b0f19] p-3"><div className="flex min-h-full min-w-full w-max items-center justify-center">
+          <div ref={stageRef} data-testid="pixel-stage" className="min-h-24 flex-1 overflow-auto rounded-xl border border-[#313244] bg-[#0b0f19] p-3"><div className="flex min-h-full min-w-full w-max items-center justify-center">
             <canvas
               ref={canvasRef}
               data-testid="pixel-canvas"
@@ -1005,7 +1008,7 @@ export default function PixelEditor({ projectDir, source, log, beforeSave, onSav
               onPointerLeave={() => setHover(null)}
               onWheel={(e) => {
                 if (!e.ctrlKey) return;
-                setZoom((z) => Math.max(1, Math.min(48, z + (e.deltaY < 0 ? 1 : -1))));
+                adjustZoom(e.deltaY < 0 ? 1 : -1);
               }}
               className="cursor-crosshair [image-rendering:pixelated]"
             />
