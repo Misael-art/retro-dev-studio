@@ -1000,6 +1000,25 @@ O host Full retornou `READY`. O binário Linux de `5fed41856f71fae3b661672a69237
 
 Na segunda tentativa com o primeiro binário, a mesma ROM de controle confirmou 17 ticks por ciclo na testemunha, PCM no quadro 7 a partir da entrada e 140 px após a sequência de direita. A Timeline gravou os dois pontos, a prévia exibiu a lanterna e a cena persistiu o vínculo com X=12. O formulário gravou a regra Areia. O gesto parou porque o rodapé do Canvas cobria a faixa no zoom herdado da edição de poses. O driver passou a reenquadrar a malha antes do gesto. Capturas e relatório identificados por `pose-cadence-2026-11-25T19-19-20-606Z` na pasta de validação. A etapa do som na nova fixture usa um contador incrementado, para conferir a pressão mantida e um segundo disparo.
 
+O Tauri Windows de `eb3c14b2bf2fde371c6d821faf5938f4f7267013` confirmou a autoria dos dois encaixes e os dois disparos na ROM de controle `308c076ad207a8c521b1af5882d807675de014fbab480e98b95209c4b3a64af6`. O traço aplicado a oito células coloriu duas. A janela auxiliar encerrou antes de receber o painel. O executável dessa rodada tem SHA-256 `182f8f73af0763f37794ba40e193faaffa9ff45d3ecd955bc7d0db2c1ddf07d1`. [Relatórios e capturas](https://github.com/Misael-art/retro-dev-studio/actions/runs/45685886802/artifacts/15056563274) · [Executável Windows](https://github.com/Misael-art/retro-dev-studio/actions/runs/45685886802/artifacts/15056837903)
+
+`66bd8d7aea598c23df220e17b57ac23cd37e930c` conserva a origem do gesto de colisão e entrega ao WebView2 uma janela auxiliar sem navegação prévia. As duas formas de editar materiais são verificadas separadamente. Se o traço falhar, o driver registra a falha e usa os campos por coordenadas para que o ensaio dos efeitos na ROM prossiga. [Repetição Windows](https://github.com/Misael-art/retro-dev-studio/actions/runs/45688513589)
+
+No Windows, o traço corrigido pintou as células 886–893 em uma transação. Desfazer e Refazer restauraram as duas versões e a malha de colisão foi preservada. A prova parou ao tentar acionar o compositor recolhido. A janela Windows continuou fechando antes da montagem. `2aa60cd` expõe Compositor na barra de Nós e usa o popup relacionado criado pelo WebView2. [Relatórios de 66bd8d7](https://github.com/Misael-art/retro-dev-studio/actions/runs/45688513589/artifacts/15058113412) · [Repetição de 2aa60cd](https://github.com/Misael-art/retro-dev-studio/actions/runs/45691158361)
+
+O build Linux dessa revisão passou pelo launcher no perfil de memória segura. O executável tem SHA-256 `2ab130a5dc34bd0876f6a5ef704238e390ba41c7e94ebe411b55da19c8bdc910`. Os logs e a telemetria estão em `sessions/autoria-candidato-66bd8d7-3MCPJERb/`.
+
+O Tauri Linux abriu a Timeline em uma segunda janela e preservou a seleção de `o2` com três ticks. A captura `pose-cadence-2026-11-25T20-06-59-384Z-failure.png` mostra o campo. O driver comparava o elemento adotado com o construtor da janela auxiliar e interrompeu o teclado. A repetição passou a reconhecer o campo pelo elemento HTML.
+
+A repetição nativa do teclado registrou 3→6 na janela destacada. Escape fechou a janela enquanto o WebDriver ainda processava a soltura da tecla. A evidência visual é `pose-cadence-2026-11-25T20-38-53-883Z-timeline-flutuante.png`. A próxima verificação confirma o estado do encaixe pela janela principal.
+
+A sala densa passou no Linux de `66bd8d7` com edição 3→6→4, histórico, fechamento e reabertura do aplicativo e retorno a `o2` após medir a ROM `dd508a520a764988c06bb7da820d575d03ddfac27526be02565a3bc65b984cfd`. Os ciclos continuaram com 18 ticks no ator editado e 17 na testemunha. O smoke SNES da mesma fonte passou com PVSnesLib e quadro de 256×224. `2aa60cd31835d19a9ddb1a0aed42e58e4f6f2858` passou na CI e no Desktop E2E Windows geral. A suíte avançada parou na seleção da ação que substitui o próprio seletor e manteve a falha separada da janela Windows. [CI de 2aa60cd](https://github.com/Misael-art/retro-dev-studio/actions/runs/45691177361) · [Regressão Desktop Windows](https://github.com/Misael-art/retro-dev-studio/actions/runs/45691177410) · [Suíte avançada](https://github.com/Misael-art/retro-dev-studio/actions/runs/45691158361)
+
+```bash
+cd /home/deck/Projects/RetroDevStudio
+bash scripts/new-host.sh --run /home/deck/RetroDevStudio-work/sessions/autoria-candidato-66bd8d7-3MCPJERb/retro-dev-studio
+```
+
 O gerador escreve a sala descartável e imprime o caminho de `project.rds`.
 
 ```bash

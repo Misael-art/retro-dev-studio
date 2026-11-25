@@ -3052,7 +3052,7 @@ async function sendNativeGameKey(sessionId, code, action, label) {
   return response;
 }
 
-async function selectOptionByTestIdNative(sessionId, testId, value, { confirm = true } = {}) {
+async function selectOptionByTestIdNative(sessionId, testId, value, { confirm = true, afterSelect } = {}) {
   const inspect = () => executeScript(sessionId, `
     const select = document.querySelector('[data-testid="' + String(arguments[0]) + '"]');
     if (!(select instanceof HTMLSelectElement)) return null;
@@ -3092,7 +3092,7 @@ async function selectOptionByTestIdNative(sessionId, testId, value, { confirm = 
     });
   }
   await waitFor(
-    async () => (await executeScript(sessionId, `return document.querySelector('[data-testid="${testId}"]')?.value ?? null;`)) === value,
+    afterSelect ?? (async () => (await executeScript(sessionId, `return document.querySelector('[data-testid="${testId}"]')?.value ?? null;`)) === value),
     5000,
     `Selecao ${testId}=${value} nao aplicada.`,
     100
@@ -19104,7 +19104,7 @@ async function observeAdvancedAuthoringRom(sessionId, projectDir, build) {
     if (!result?.ok) fail("O core recusou o avanço de quadros.");
   };
   await input();
-  await advance(90);
+  for (let warmed = 0; warmed < 90; warmed += 15) await advance(15);
   const control = [];
   const magenta = [];
   const marker = (frame, left, top, width, height) => {
@@ -19304,6 +19304,10 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
     await save();
     const actual = (await scene()).collision_map.materials?.[0]?.cells ?? [];
     addReportStep(report, "material_native_stroke_history", "failed", { strokeError, actual, expectedCells, pointerSamples });
+    if (!(await executeScript(sessionId, `return !!document.querySelector('[data-testid="material-brush-panel"]');`))) {
+      await click("viewport-material-brush");
+    }
+    await selectOptionByTestIdNative(sessionId, "material-rule", "Areia");
     const apply = async (index) => {
       await input("material-column", String(index % 40));
       await input("material-row", String(Math.floor(index / 40)));
@@ -19336,7 +19340,10 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
   await activateByTestIdWithEnter(sessionId, "event-sequence-ticks-1");
   const withFlash = report.revision === "advanced-flash";
   if (withFlash) {
-    await selectOptionByTestIdNative(sessionId, "event-sequence-action-2", "palette_swap");
+    await selectOptionByTestIdNative(sessionId, "event-sequence-action-2", "palette_swap", {
+      confirm: false,
+      afterSelect: () => executeScript(sessionId, `return !!document.querySelector('[data-testid="event-sequence-light-target-2"]');`),
+    });
     await selectOptionByTestIdNative(sessionId, "event-sequence-light-target-2", "corredor");
     await selectOptionByTestIdNative(sessionId, "event-sequence-palette-2", "brilho_resposta");
     await input("event-sequence-ticks-2", "1");
@@ -19361,7 +19368,12 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
   if (!isDeepStrictEqual(reopened.collision_map, composed.collision_map)
       || !isDeepStrictEqual(actor(reopened, "raposa"), actor(composed, "raposa"))
       || !isDeepStrictEqual(actor(reopened, "Lanterna"), actor(composed, "Lanterna"))) fail("A reabertura perdeu a autoria salva.");
-  addReportStep(report, "advanced_room_reopened_with_saved_authoring", "passed");
+  const savedSceneArtifact = path.join(validationDir, prefix + "-cena-editada.json");
+  await copyFile(scenePath, savedSceneArtifact);
+  addReportArtifact(report, savedSceneArtifact, "Cena de demonstração reaberta com a autoria avançada");
+  addReportStep(report, "advanced_room_reopened_with_saved_authoring", "passed", {
+    sha256: createHash("sha256").update(await readFile(savedSceneArtifact)).digest("hex"),
+  });
   const edited = report.advancedEdited = await build("editada");
   const present = edited.magenta.map(({ attached }) => attached);
   const spans = [baseline, edited].map((sample) => ({
@@ -19413,6 +19425,19 @@ async function verifyFloatingStudioPanels(sessionId, projectDir, report, prefix,
     type: "key", id: "floating-keyboard",
     actions: [...values.map((value) => ({ type: "keyDown", value })), ...values.reverse().map((value) => ({ type: "keyUp", value }))],
   }] });
+  const closeByKey = async (value) => {
+    try { await key(value); }
+    catch (error) {
+      // WebKit may acknowledge key-up after the key-down has already closed the window.
+      if (!/no such window/i.test(String(error))) throw error;
+    }
+  };
+  const focusInPanel = (id, select = false) => check(`
+    const control = document.querySelector('[data-testid="' + arguments[0] + '"]');
+    control?.focus();
+    if (arguments[1]) control?.select?.();
+    return document.activeElement === control;
+  `, "O controle na janela destacada não recebeu foco.", [id, select]);
   const switchChild = async (panel, before) => {
     const child = await waitFor(async () => (await handles()).find((handle) => !before.includes(handle)),
       10000, "O WebDriver não encontrou uma janela Tauri separada para " + panel + ".", 100);
@@ -19460,10 +19485,11 @@ async function verifyFloatingStudioPanels(sessionId, projectDir, report, prefix,
   await check(`return document.querySelector('[data-testid="character-occurrence-o2"]')?.dataset.ticks === "3";`,
     "A timeline flutuante perdeu a ocorrência selecionada.");
   await setSessionWindowRect(sessionId, 720, 596);
-  await setInputByTestIdNative(sessionId, "character-duration", "6");
-  await enter("character-duration");
+  await focusInPanel("character-duration", true);
+  await key("6");
+  await key("\uE007");
   await shot("timeline-flutuante");
-  await key("\uE00C");
+  await closeByKey("\uE00C");
   await switchTo(main);
   await docked("timeline");
   await check(`return document.querySelector('[data-testid="character-occurrence-o2"]')?.dataset.ticks === "6";`,
@@ -19489,7 +19515,8 @@ async function verifyFloatingStudioPanels(sessionId, projectDir, report, prefix,
     const saved = JSON.parse(await readFile(scenePath, "utf8"));
     return saved.entities.find(({ entity_id }) => entity_id === "raposa")?.components.sprite.animations.passo.frame_durations[1] === 6;
   }, 15000, "Ctrl+S na janela não salvou 6 ticks.", 100);
-  await enter("floating-studio-dock");
+  await focusInPanel("floating-studio-dock");
+  await closeByKey("\uE007");
   await switchTo(main);
   await docked("properties");
   await waitFor(async () => !(await handles()).includes(properties), 8000, "A janela de Propriedades ficou aberta.", 100);
