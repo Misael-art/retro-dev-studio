@@ -17365,15 +17365,17 @@ async function verifyAuthoringDesk(sessionId, report, prefix) {
   await selectPoseActorsOnCanvas(sessionId);
   await click("viewport-zoom-in");
   await menu("workspace-preset-animate");
+  await selectPoseActorsOnCanvas(sessionId);
   await click("character-anim-passo");
   await click("character-duration-grip-o2");
   await key("\uE014");
   await check(`return document.querySelector('[data-testid="character-occurrence-o2"]')?.dataset.ticks === "4";`,
     "O teclado não alterou a ocorrência na timeline dividida.");
-  await check(`return document.getElementById('workspace-primary').getBoundingClientRect().height > 0
-    && document.getElementById('workspace-timeline').getBoundingClientRect().height >= 110;`, "O Canvas e a timeline não aparecem juntos.");
-  const initialTimeline = await panelSize("workspace-timeline", "height");
+  await check(`return document.querySelector('[data-testid="viewport-scene-stage"]')?.getBoundingClientRect().height >= 104
+    && document.getElementById('workspace-timeline').getBoundingClientRect().height >= 110;`, "O Canvas e a timeline não têm altura suficiente para editar.");
   if (!await focus("workspace-timeline-divider")) fail("O divisor da timeline não recebe foco.");
+  await key("\uE007");
+  const initialTimeline = await panelSize("workspace-timeline", "height");
   await key("\uE013");
   const timeline = await waitFor(async () => {
     const next = await panelSize("workspace-timeline", "height");
@@ -17507,6 +17509,8 @@ async function verifyPointAndOcclusion(sessionId, projectDir, report, prefix, ti
   };
 
   await setSessionWindowRect(sessionId, 1366, 768);
+  await click("unified-topbar-menu-trigger");
+  await click("workspace-reset-layout");
   await selectPoseActorsOnCanvas(sessionId, [["testemunha", 224]]);
   const expectedLow = ["sprite-raposa", "tilemap-pilastra", "tilemap-paisagem"];
   const expectedGap = ["sprite-raposa", "tilemap-paisagem"];
@@ -17520,7 +17524,9 @@ async function verifyPointAndOcclusion(sessionId, projectDir, report, prefix, ti
   await waitFor(async () => (await state())?.activeWorkspace === "scene", 10000, "O retorno do recurso não abriu o Canvas.", 100);
   const before = await observed("prioridade-baixa");
   await click("workspace-rail-scene");
-  await click("hierarchy-entity-pilastra");
+  await click("workspace-project-tab-scene");
+  await clickElement(sessionId, await findElement(sessionId, '[data-testid="hierarchy-entity-pilastra"]'));
+  await waitFor(async () => (await state())?.selectedEntityId === "pilastra", 10000, "A pilastra não foi selecionada na árvore.", 100);
   await clickElement(sessionId, await findElement(sessionId, '[data-testid="inspector-tilemap-priority"]'));
   const checked = () => executeScript(sessionId, `return document.querySelector('[data-testid="inspector-tilemap-priority"]')?.checked;`);
   await waitFor(checked, 10000, "A prioridade alta não foi aplicada.", 100);

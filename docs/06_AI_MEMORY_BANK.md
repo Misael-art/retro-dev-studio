@@ -60,6 +60,14 @@ mas a tentativa de acionar Testar projeto parou na verificação de clique.
 Os recibos são `sessions/win-62178c9-S4jnsyGN/` e
 `sessions/pose-candidate-B1LXMXt2/`. O ensaio humano segue aberto.
 
+A mesa de autoria passou na sala simples em 1366×768 (`8d2bd0e`) e na
+sala densa em 949×593 (`555ca74`). A segunda execução repetiu o teste após
+compactar a barra de ferramentas, que ocupava quase toda a altura do Canvas.
+As duas conservaram a ocorrência, o zoom, a revisão, o histórico e o texto C
+pendente em dez trocas. Recibos em `sessions/pose-candidate-lZGDJiys/` e
+`sessions/pose-candidate-OGnhtbZT/`. A conferência Windows e o restante do
+aceite da mesa permanecem na [matriz da jornada](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#conferência-por-item-da-autoria-de-fase).
+
 ### Continuidade antes da formatação — 2026-11-22
 
 Retomar na branch `codex/new-host-cohesion-20261024`, pelo
