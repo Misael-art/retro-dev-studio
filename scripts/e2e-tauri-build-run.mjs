@@ -12793,6 +12793,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-tile-flow-toggle", "recolher paleta para pintar o fosso");
   const fitPit = async () => clickElement(sessionId, await findElement(sessionId, 'button[title="Resetar vista (zoom + pan)"]'));
   await fitPit();
+  await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-zoom-out", "reduzir zoom para expor o piso inteiro");
   for (const [col, row] of pitCells) {
     const point = cellPoint(col, row);
     await clickCanvasPointNatively(sessionId, "[data-testid='viewport-scene-overlay']", point.x, point.y, `apagar visual ${col},${row}`);
@@ -12812,6 +12813,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     await sendNativeGameKey(sessionId, "KeyC", "keyDown", "modo colisao").catch(() => {});
   }
   await fitPit();
+  await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-zoom-out", "reduzir zoom para editar a colisão no piso");
   for (const [col, row] of pitCells) {
     const point = cellPoint(col, row);
     await clickCanvasPointNatively(sessionId, "[data-testid='viewport-scene-overlay']", point.x, point.y, `apagar colisao ${col},${row}`, 2);
@@ -16993,7 +16995,7 @@ async function runCameraWorkflowScenario(sessionId, timeoutMs, onProjectCreated)
   finally{await closeGame().catch(()=>{});await writeFile(path.join(artifactDir,"report.json"),JSON.stringify(report,null,2));await writeFile(path.join(validationDir,`${prefix}.json`),JSON.stringify(report,null,2));}
 }
 
-async function selectPoseActorsOnCanvas(sessionId) {
+async function selectPoseActorsOnCanvas(sessionId, actors = [["testemunha", 224], ["raposa", 80]]) {
   const before = await readAutomationState(sessionId);
   if (before.activeWorkspace !== "scene") await clickButtonByTestIdNativeWhenReady(sessionId, "workspace-rail-scene");
   if (before.editorMode !== "select") await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-tool-select");
@@ -17002,7 +17004,7 @@ async function selectPoseActorsOnCanvas(sessionId) {
   const overlay = '[data-testid="viewport-scene-overlay"]';
   // A sala pode abrir com a raposa selecionada. Visitar a testemunha primeiro
   // exige que o ponteiro altere a seleção nas duas vezes.
-  for (const [entityId, worldX] of [["testemunha", 224], ["raposa", 80]]) {
+  for (const [entityId, worldX] of actors) {
     const point = await waitFor(async () => executeScript(sessionId, `
       const canvas = document.querySelector(arguments[0]);
       if (!canvas) return null;
@@ -17059,6 +17061,8 @@ async function observePoseEditorAccess(sessionId, report, prefix) {
 
 async function editPoseThroughDesktop(initialSessionId, projectDir, app, report, prefix) {
   let sessionId = initialSessionId;
+  const narrow = process.env.RDS_POSE_VIEWPORT === "949x593";
+  const requestedWindow = narrow ? [949, 593] : [1366, 768];
   const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
   const enter = async (id) => {
     const element = await findElement(sessionId, `[data-testid="${id}"]`);
@@ -17090,7 +17094,9 @@ async function editPoseThroughDesktop(initialSessionId, projectDir, app, report,
     await waitFor(async () => (await read("scene-save-status", "data-status")) === "saved", 15000, "A cena não confirmou o salvamento.", 100);
   };
 
-  await setSessionWindowRect(sessionId, 1366, 768);
+  await setSessionWindowRect(sessionId, ...requestedWindow);
+  report.window = { requested: requestedWindow, ...await executeScript(sessionId,
+    "return {cssWidth:innerWidth,cssHeight:innerHeight,scale:devicePixelRatio};") };
   await selectPoseActorsOnCanvas(sessionId);
   await click("viewport-open-animation");
   await click("character-anim-passo");
@@ -17177,17 +17183,25 @@ async function editPoseThroughDesktop(initialSessionId, projectDir, app, report,
   addReportStep(report, "nodes_duration_shared_with_code_and_timeline", "passed");
   await save();
   report.coldReopen = { beforeClose: await savedStudio() };
+  if (process.env.RDS_POSE_DURABLE === "1") {
+    await executeScript(sessionId, `localStorage.removeItem('rds.studioContext.v1:' + arguments[0]);`, [projectDir]);
+    report.coldReopen.browserContextRemoved = (await savedStudio()) === null;
+    if (!report.coldReopen.browserContextRemoved) fail("O negativo de contexto ausente não foi preparado.");
+  }
   await deleteSession(sessionId);
   sessionId = await createSession(app);
   currentE2eRunContext.sessionId = sessionId;
   await waitForAppWindowReady(sessionId, 30000, "O Tauri não abriu após fechar a sala.");
   report.coldReopen.afterLaunch = await savedStudio();
-  await setSessionWindowRect(sessionId, 1366, 768);
+  await setSessionWindowRect(sessionId, ...requestedWindow);
   await openRoom();
   report.coldReopen.afterOpen = await savedStudio();
-  await waitFor(async () => (await focus())?.activeWorkspace === "scene"
-    && (await readTicks("inspector-pose-duration")) === "4" && (await readTicks("canvas-pose-duration")) === "4",
-  15000, "A cena reaberta não restaurou a raposa, o2 e os 4 ticks no Canvas e no Inspector.", 150);
+  await waitFor(async () => (await focus())?.activeWorkspace === "scene" && (await readTicks("canvas-pose-duration")) === "4",
+    15000, "A cena reaberta não restaurou a raposa, o2 e os 4 ticks no Canvas.", 150);
+  if (narrow) await enter("compact-shell-tab-inspector");
+  await waitFor(async () => (await focus()) && (await readTicks("inspector-pose-duration")) === "4",
+    10000, "O Inspector não mostrou os 4 ticks da ocorrência reaberta.", 150);
+  if (narrow) await enter("compact-shell-tab-canvas");
   addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-cena-reaberta.png`), "Canvas e Inspector na pose reaberta");
   await enter("viewport-open-animation");
   await waitFor(async () => (await focus())?.activeWorkspace === "artstudio",
@@ -17246,7 +17260,7 @@ async function authorPoseStrikeThroughDesktop(sessionId, prefix, report) {
     fail("A ocorrência o4 recebeu a caixa apesar de apenas reutilizar a imagem de o2.");
   }
   await click("studio-return-origin");
-  await click("hierarchy-entity-testemunha");
+  await selectPoseActorsOnCanvas(sessionId, [["testemunha", 224]]);
   await click("viewport-open-animation");
   await click("character-occurrence-o2");
   await click("character-box-add-clsn2");
@@ -17270,11 +17284,47 @@ async function authorPoseStrikeThroughDesktop(sessionId, prefix, report) {
   addReportStep(report, "instance_boxes_and_strike_authored", "passed");
 }
 
+async function authorPosePlaybackThroughDesktop(sessionId, prefix, report) {
+  const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  const toggle = async (id, checked) => {
+    const selector = `[data-testid="${id}"]`;
+    await clickElement(sessionId, await findElement(sessionId, selector));
+    await waitFor(async () => (await executeScript(sessionId,
+      "return document.querySelector(arguments[0])?.checked;", [selector])) === checked,
+    5000, `O controle ${id} não mudou de estado.`, 100);
+  };
+  await setSessionWindowRect(sessionId, 1366, 768);
+  await selectPoseActorsOnCanvas(sessionId);
+  await click("viewport-open-animation");
+  await click("character-occurrence-o2");
+  await toggle("character-onion", true);
+  await waitFor(async () => executeScript(sessionId, `
+    const preview = document.querySelector('[data-testid="character-preview"]');
+    return preview?.dataset.shownOccurrence === 'o2'
+      && Boolean(preview.querySelector('[aria-hidden="true"].opacity-30'));
+  `), 10000, "A imagem anterior não apareceu na prévia da segunda ocorrência.", 100);
+  addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-onion.png`), "Pose e imagem anterior sobrepostas");
+  await toggle("character-loop", false);
+  await click("character-play");
+  await waitFor(async () => executeScript(sessionId, `
+    return document.querySelector('[data-testid="character-preview"]')?.dataset.shownOccurrence === 'o4'
+      && document.querySelector('[data-testid="character-play"]')?.textContent.trim() === 'Reproduzir'
+      && document.querySelector('[data-testid="character-occurrence-o2"]')?.getAttribute('aria-pressed') === 'true';
+  `), 10000, "A prévia sem repetição não parou na última pose com a seleção preservada.", 100);
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  await waitFor(async () => executeScript(sessionId, `
+    return document.querySelector('[data-testid="scene-save-status"]')?.dataset.status === 'saved';
+  `), 15000, "A opção de repetição não foi salva.", 100);
+  addReportStep(report, "onion_and_one_shot_playback_in_editor", "passed");
+}
+
 // Mede pixels no core, depois do Build & Run pelo desktop. O cenário recebe
 // uma das salas de create-pose-authoring-demo.mjs (ou sua revisão editada).
 async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
   const revision = process.env.RDS_POSE_PROOF || "baseline";
-  if (!["baseline", "aligned-4", "journey", "events", "boxes"].includes(revision)) fail("RDS_POSE_PROOF deve ser baseline, aligned-4, journey, events ou boxes.");
+  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback"].includes(revision)) {
+    fail("RDS_POSE_PROOF deve ser baseline, aligned-4, journey, events, boxes ou playback.");
+  }
   const prefix = `pose-cadence-${artifactTimestamp()}`;
   const report = { scenario: "pose-cadence", fixture: path.basename(projectDir), revision, status: "failed", samples: [], steps: [], artifacts: [] };
   const alignedTarget = revision === "aligned-4" || revision === "journey";
@@ -17350,6 +17400,14 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
         || boxes("testemunha")?.length !== 1 || boxes("testemunha")[0].occurrence_id !== "o2"
         || boxes("testemunha")[0].kind !== "hurt") fail("As caixas salvas não correspondem às duas poses editadas.");
     }
+    if (revision === "playback") {
+      await authorPosePlaybackThroughDesktop(sessionId, prefix, report);
+      report.sceneSha256 = await confirmScene(expectedTarget);
+      const saved = JSON.parse(await readFile(scenePath, "utf8"));
+      if (saved.entities.find(({ entity_id }) => entity_id === "raposa").components.sprite.animations.passo.loop !== false) {
+        fail("A cena salva não desativou a repetição somente no ator editado.");
+      }
+    }
     report.build = await runBuildRunAndCollect(sessionId, "ensaio de poses", timeoutMs, report, prefix, { nativeClick: true });
     let strikeOffsets;
     if (revision === "boxes") {
@@ -17372,15 +17430,33 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
     // Avançar no core já pausado elimina a cadência e a latência de apresentação da UI.
     const warm = await invokeCoreObserveCommand(sessionId, "emulator_run_frames", { frames: 120 });
     if (!warm?.ok) fail("O core não confirmou o aquecimento de 120 quadros.");
-    const audioSamples = (from, count) => executeScript(sessionId,
-      "return window.__RDS_E2E__.readReceivedAudioSamples(arguments[0], arguments[1]);", [from, count]);
+    // O player suspende o Web Audio na pausa. Observe o evento PCM que sai do
+    // core, mantendo a contagem determinística de um quadro por chamada.
+    const consumeAudio = () => waitFor(async () => executeScript(sessionId,
+      "return window.__RDS_POSE_AUDIO__?.queue.shift() ?? null;"),
+    5000, "Faltaram amostras PCM do quadro observado.", 50);
     if (revision === "events") {
-      const before = (await audioSamples(0, 0)).total;
-      await invokeCoreObserveCommand(sessionId, "emulator_run_frame");
-      await waitFor(async () => (await audioSamples(0, 0)).total > before, 5000, "O core não entregou áudio após o aquecimento.", 50);
+      const listening = await executeAsyncScript(sessionId, `
+        const done = arguments[arguments.length - 1];
+        const api = window.__TAURI_INTERNALS__;
+        if (!api) { done(false); return; }
+        const queue = [];
+        const handler = api.transformCallback(({ payload }) => {
+          const samples = payload.samples;
+          if (samples?.length && payload.sample_rate) {
+            queue.push({ sampleRate: payload.sample_rate, count: samples.length,
+              rms: Math.sqrt(samples.reduce((sum, value) => sum + value * value, 0) / samples.length) });
+          }
+        });
+        api.invoke('plugin:event|listen', { event:'emulator://audio', target:{ kind:'Any' }, handler })
+          .then((id) => { window.__RDS_POSE_AUDIO__ = { queue, id, handler }; done(true); }).catch(() => done(false));
+      `);
+      if (!listening) fail("O Tauri não permitiu observar o PCM do core.");
+      const drain = await invokeCoreObserveCommand(sessionId, "emulator_run_frame");
+      if (!drain?.ok) fail("O core não avançou o quadro de descarte após o aquecimento.");
+      await consumeAudio();
     }
     for (let tick = 0; tick < 48; tick += 1) {
-      const audioFrom = revision === "events" ? (await audioSamples(0, 0)).total : null;
       const advance = await invokeCoreObserveCommand(sessionId, "emulator_run_frame");
       if (!advance?.ok) fail(`O core recusou o quadro ${tick}.`);
       const frame = await invokeCoreObserve(sessionId);
@@ -17400,14 +17476,7 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
           sample.strike[field] = Buffer.from(memory.data).readUInt16LE();
         }
       }
-      if (audioFrom !== null) {
-        const end = await waitFor(async () => {
-          const received = await audioSamples(0, 0);
-          return received.total > audioFrom ? received.total : null;
-        }, 5000, "Faltaram amostras PCM do quadro observado.", 50);
-        const { sampleRate, samples } = await audioSamples(audioFrom, end - audioFrom);
-        sample.audio = { sampleRate, rms: Math.sqrt(samples.reduce((sum, value) => sum + value * value, 0) / samples.length) };
-      }
+      if (revision === "events") sample.audio = await consumeAudio();
       for (const [name, [x, y, width, height]] of Object.entries(regions)) {
         const rows = [];
         for (let row = y; row < y + height; row += 1) {
@@ -17423,7 +17492,17 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
     if (new Set(report.samples.map((sample) => sample.backdrop)).size !== 1) fail("A área de fundo mudou durante a prova.");
     const images = [0, 1, 2, 1];
     report.control = matchPoseCadence(report.samples.map((s) => s.control), images, expectedControl);
-    report.target = matchPoseCadence(report.samples.map((s) => s.target), alignedTarget ? [0, "aligned", 2, 1] : images, expectedTarget);
+    if (revision === "playback") {
+      const targets = new Set(report.samples.map((sample) => sample.target));
+      if (targets.size !== 1) fail("O ator editado repetiu a animação no core após a última pose.");
+      const hash = [...targets][0];
+      const foot = locatePoseFoot(atlas, images[3], crops.get(hash));
+      if (!isDeepStrictEqual(foot, [13, 26])) fail("O ator editado não permaneceu na imagem da última ocorrência.");
+      report.target = { stoppedOn: "o4", hash, foot };
+      addReportStep(report, "non_looping_actor_stops_in_core_and_control_keeps_looping", "passed");
+    } else {
+      report.target = matchPoseCadence(report.samples.map((s) => s.target), alignedTarget ? [0, "aligned", 2, 1] : images, expectedTarget);
+    }
     if (revision === "events") {
       const { phase, period } = report.target;
       const onsets = report.samples.flatMap(({ audio, frame }, index) => index > 0 && audio.rms > 100
@@ -17444,15 +17523,22 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
       }));
       report.strike.hits = changes.filter((sample) => sample.hits);
       report.strike.overlaps = changes.filter((sample) => sample.overlaps);
+      const contactPhases = [...new Set(report.strike.overlaps.map((sample) => sample.phase))].sort((a, b) => a - b);
+      const start = contactPhases[0];
+      report.strike.displayOffset = start - expectedTarget[0];
       if (report.strike.hits.length < 2 || report.strike.overlaps.length < 6
-        || report.strike.hits.some((sample) => sample.hits !== 1)
-        || changes.some((sample) => (sample.phase < 4 || sample.phase > 8) && (sample.hits || sample.overlaps))) {
+        || Math.abs(report.strike.displayOffset) > 1
+        || !isDeepStrictEqual(contactPhases, [start, start + 1, start + 2])
+        || report.strike.overlaps.some((sample) => sample.overlaps !== 1)
+        || report.strike.hits.some((sample, i, hits) => sample.hits !== 1 || sample.phase !== start
+          || (i > 0 && sample.frame - hits[i - 1].frame !== period))
+        || report.samples.some(({ strike }) => strike.hp !== Math.max(0, 100 - 12 * strike.hits))) {
         fail("As caixas não tocaram exclusivamente durante a segunda ocorrência. Confira hits, overlaps e fase no relatório.");
       }
       addReportStep(report, "authored_boxes_hit_only_on_o2_in_core", "passed");
     }
     report.feet = [];
-    for (const actor of ["control", "target"]) {
+    for (const actor of revision === "playback" ? ["control"] : ["control", "target"]) {
       for (const occurrence of [0, 1, 3]) {
         const image = images[occurrence];
         const aligned = actor === "target" && alignedTarget && occurrence === 1;
@@ -17483,6 +17569,18 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
     if (shot) addReportArtifact(report, shot, "Estado da janela na falha");
     throw error;
   } finally {
+    if (revision === "events") {
+      await executeAsyncScript(sessionId, `
+        const done = arguments[arguments.length - 1];
+        const subscription = window.__RDS_POSE_AUDIO__;
+        if (!subscription) { done(null); return; }
+        delete window.__RDS_POSE_AUDIO__;
+        window.__TAURI_EVENT_PLUGIN_INTERNALS__?.unregisterListener('emulator://audio', subscription.id);
+        window.__TAURI_INTERNALS__.unregisterCallback(subscription.handler);
+        window.__TAURI_INTERNALS__.invoke('plugin:event|unlisten', {event:'emulator://audio',eventId:subscription.id})
+          .then(() => done(null), () => done(null));
+      `).catch(() => {});
+    }
     await writeFile(path.join(validationDir, `${prefix}-report.json`), JSON.stringify(report, null, 2));
   }
 }

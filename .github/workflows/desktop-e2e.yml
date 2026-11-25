@@ -335,6 +335,23 @@ jobs:
           if ($failedRooms.Count) { throw ("The edited pose failed in " + ($failedRooms -join ", ")) }
           Add-Content -Path $env:RDS_E2E_LEDGER -Value 'pose_journey'
 
+      - name: Verify pose audio, hitboxes and playback in the Mega Drive core
+        id: pose_tools
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
+        run: |
+          $projects = @(node scripts/qa/create-pose-authoring-demo.mjs)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($projects.Count -ne 2) { throw "Expected the two pose authoring fixtures" }
+          $failedCases = @()
+          foreach ($proof in @('events', 'boxes', 'playback')) {
+            $env:RDS_POSE_PROOF = $proof
+            $room = Split-Path -LiteralPath $projects[0]
+            node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project $room
+            if ($LASTEXITCODE -ne 0) { $failedCases += $proof }
+          }
+          if ($failedCases.Count) { throw ("Pose tools failed: " + ($failedCases -join ", ")) }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'pose_tools'
+
       - name: Report step outcomes before verification
         if: always()
         shell: pwsh
@@ -394,6 +411,7 @@ jobs:
             "- C shared / instance scope: ${{ steps.code_scope.outcome }}",
             "- Core cadence in both pose authoring scenes: ${{ steps.pose_baseline.outcome }}",
             "- Pose editing, reopening and ROM in both scenes: ${{ steps.pose_journey.outcome }}",
+            "- Pose audio, hitboxes and playback in the core: ${{ steps.pose_tools.outcome }}",
             "- Smoke SNES: ${{ steps.smoke_snes.outcome }}",
             "- Live overflow MD: ${{ steps.live_overflow_md.outcome }}",
             "- Live overflow SNES: ${{ steps.live_overflow_snes.outcome }}",

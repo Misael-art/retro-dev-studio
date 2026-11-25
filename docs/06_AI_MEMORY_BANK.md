@@ -43,6 +43,13 @@ passaram. As duas salas confirmaram a edição vinculada até a ROM e a volta
 o aplicativo, os hashes e as duas cenas. A repetição Windows desta revisão,
 os demais itens da timeline e a avaliação com participantes seguem abertos.
 
+Em `fc7033a`, o Tauri Linux confirmou evento com PCM no core, caixas de ataque
+e corpo com um acerto por ciclo e reprodução sem repetição na sala simples.
+Na nova execução Windows, o contexto local existia antes de fechar e estava
+ausente após iniciar. O contexto passou a acompanhar o salvamento transacional
+da cena, com recuperação independente do navegador. As evidências e as provas
+pendentes por alvo ficam na [matriz da jornada](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#conferência-por-item-da-autoria-de-fase).
+
 ### Continuidade antes da formatação — 2026-11-22
 
 Retomar na branch `codex/new-host-cohesion-20261024`, pelo
