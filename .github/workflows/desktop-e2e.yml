@@ -352,6 +352,27 @@ jobs:
           if ($failedCases.Count) { throw ("Pose tools failed: " + ($failedCases -join ", ")) }
           Add-Content -Path $env:RDS_E2E_LEDGER -Value 'pose_tools'
 
+      - name: Verify authoring layouts and pending edits at both window sizes
+        id: workspace_layout
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
+        env:
+          RDS_POSE_PROOF: workspace
+        run: |
+          $projects = @(node scripts/qa/create-pose-authoring-demo.mjs)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($projects.Count -ne 2) { throw "Expected the two pose authoring fixtures" }
+          $failedCases = @()
+          foreach ($viewport in @('1366x768', '949x593')) {
+            $env:RDS_POSE_VIEWPORT = $viewport
+            foreach ($project in $projects) {
+              $room = Split-Path -LiteralPath $project
+              node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project $room
+              if ($LASTEXITCODE -ne 0) { $failedCases += "$viewport $room" }
+            }
+          }
+          if ($failedCases.Count) { throw ("Workspace layouts failed: " + ($failedCases -join ", ")) }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'workspace_layout'
+
       - name: Report step outcomes before verification
         if: always()
         shell: pwsh
@@ -412,6 +433,7 @@ jobs:
             "- Core cadence in both pose authoring scenes: ${{ steps.pose_baseline.outcome }}",
             "- Pose editing, reopening and ROM in both scenes: ${{ steps.pose_journey.outcome }}",
             "- Pose audio, hitboxes and playback in the core: ${{ steps.pose_tools.outcome }}",
+            "- Authoring layouts and pending edits at both sizes: ${{ steps.workspace_layout.outcome }}",
             "- Smoke SNES: ${{ steps.smoke_snes.outcome }}",
             "- Live overflow MD: ${{ steps.live_overflow_md.outcome }}",
             "- Live overflow SNES: ${{ steps.live_overflow_snes.outcome }}",

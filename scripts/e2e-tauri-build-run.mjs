@@ -3100,8 +3100,8 @@ async function selectOptionByTestIdNative(sessionId, testId, value) {
   );
 }
 
-async function clickCanvasPointNatively(sessionId, selector, normalizedX, normalizedY, label, button = 0) {
-  const point = await executeScript(
+async function nativeCanvasPoint(sessionId, selector, normalizedX, normalizedY) {
+  return executeScript(
     sessionId,
     `
       const canvas = document.querySelector(arguments[0]);
@@ -3121,6 +3121,10 @@ async function clickCanvasPointNatively(sessionId, selector, normalizedX, normal
     `,
     [selector, normalizedX, normalizedY]
   );
+}
+
+async function clickCanvasPointNatively(sessionId, selector, normalizedX, normalizedY, label, button = 0) {
+  const point = await nativeCanvasPoint(sessionId, selector, normalizedX, normalizedY);
   if (!point) fail(`Canvas ausente para clique nativo: ${label}`);
   if (!point.unobstructed) fail(`Canvas obstruído para clique nativo (${label}): ${JSON.stringify(point)}`);
   const response = await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, {
@@ -4836,7 +4840,7 @@ async function runBuildRunAndCollect(sessionId, label, timeoutMs, report, artifa
   ).length;
 
   await waitForBuildRunReady(sessionId, timeoutMs);
-  if (nativeClick) await clickButtonByTestIdNative(sessionId, "toolbar-build-run");
+  if (nativeClick) await clickButtonByTestIdNativeWhenReady(sessionId, "toolbar-build-run");
   else await clickByTestId(sessionId, "toolbar-build-run");
 
   let lastBuildRunDiagnostics = null;
@@ -12791,12 +12795,26 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   // Explicitly empty cell (distinct from 0 = base map).
   await clickByTestId(sessionId, "tile-palette-empty");
   await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-tile-flow-toggle", "recolher paleta para pintar o fosso");
-  const fitPit = async () => clickElement(sessionId, await findElement(sessionId, 'button[title="Resetar vista (zoom + pan)"]'));
+  const pitOverlay = "[data-testid='viewport-scene-overlay']";
+  const fitPit = async () => {
+    await clickElement(sessionId, await findElement(sessionId, 'button[title="Resetar vista (zoom + pan)"]'));
+    const cellsVisible = async () => (await Promise.all(pitCells.map(([col, row]) => {
+      const point = cellPoint(col, row);
+      return nativeCanvasPoint(sessionId, pitOverlay, point.x, point.y);
+    }))).every((point) => point?.unobstructed);
+    for (let step = 0; step < 12; step += 1) {
+      if (await cellsVisible()) return;
+      const before = (await readAutomationState(sessionId))?.viewportZoom;
+      if (await executeScript(sessionId, `return document.querySelector('[data-testid="viewport-zoom-out"]')?.disabled;`)) return;
+      await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-zoom-out", "expor o piso no Canvas");
+      await waitFor(async () => (await readAutomationState(sessionId))?.viewportZoom !== before,
+        5000, "O zoom do Canvas não mudou.", 100);
+    }
+  };
   await fitPit();
-  await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-zoom-out", "reduzir zoom para expor o piso inteiro");
   for (const [col, row] of pitCells) {
     const point = cellPoint(col, row);
-    await clickCanvasPointNatively(sessionId, "[data-testid='viewport-scene-overlay']", point.x, point.y, `apagar visual ${col},${row}`);
+    await clickCanvasPointNatively(sessionId, pitOverlay, point.x, point.y, `apagar visual ${col},${row}`);
   }
   await waitFor(
     async () => {
@@ -12813,10 +12831,9 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     await sendNativeGameKey(sessionId, "KeyC", "keyDown", "modo colisao").catch(() => {});
   }
   await fitPit();
-  await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-zoom-out", "reduzir zoom para editar a colisão no piso");
   for (const [col, row] of pitCells) {
     const point = cellPoint(col, row);
-    await clickCanvasPointNatively(sessionId, "[data-testid='viewport-scene-overlay']", point.x, point.y, `apagar colisao ${col},${row}`, 2);
+    await clickCanvasPointNatively(sessionId, pitOverlay, point.x, point.y, `apagar colisao ${col},${row}`, 2);
   }
   const solidAfterPit = await waitFor(
     async () => {
@@ -17320,10 +17337,138 @@ async function authorPosePlaybackThroughDesktop(sessionId, prefix, report) {
 
 // Mede pixels no core, depois do Build & Run pelo desktop. O cenário recebe
 // uma das salas de create-pose-authoring-demo.mjs (ou sua revisão editada).
+async function verifyAuthoringDesk(sessionId, report, prefix) {
+  const narrow = process.env.RDS_POSE_VIEWPORT === "949x593";
+  const width = narrow ? 949 : 1366;
+  const height = narrow ? 593 : 768;
+  const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  const menu = async (id) => {
+    await click("unified-topbar-menu-trigger");
+    await click(id);
+  };
+  const dom = (script, args = []) => executeScript(sessionId, script, args);
+  const key = async (value) => {
+    await webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [{
+      type: "key", id: "workspace-keyboard", actions: [{ type: "keyDown", value }, { type: "keyUp", value }],
+    }] });
+  };
+  const focus = (id) => dom(`
+    const el = document.getElementById(arguments[0]); el?.focus(); return document.activeElement === el;
+  `, [id]);
+  const panelSize = (id, dimension = "width") => dom(
+    `return document.getElementById(arguments[0])?.getBoundingClientRect()[arguments[1]] ?? 0;`, [id, dimension],
+  );
+  const check = async (script, message, args = []) => waitFor(() => dom(script, args), 10000, message, 100);
+  const capture = async (label) => addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${label}.png`), label);
+  await setSessionWindowRect(sessionId, width, height);
+  report.window = { requested: [width, height], ...await dom("return {width:innerWidth,height:innerHeight,scale:devicePixelRatio};") };
+  await selectPoseActorsOnCanvas(sessionId);
+  await click("viewport-zoom-in");
+  await menu("workspace-preset-animate");
+  await click("character-anim-passo");
+  await click("character-duration-grip-o2");
+  await key("\uE014");
+  await check(`return document.querySelector('[data-testid="character-occurrence-o2"]')?.dataset.ticks === "4";`,
+    "O teclado não alterou a ocorrência na timeline dividida.");
+  await check(`return document.getElementById('workspace-primary').getBoundingClientRect().height > 0
+    && document.getElementById('workspace-timeline').getBoundingClientRect().height >= 110;`, "O Canvas e a timeline não aparecem juntos.");
+  const initialTimeline = await panelSize("workspace-timeline", "height");
+  if (!await focus("workspace-timeline-divider")) fail("O divisor da timeline não recebe foco.");
+  await key("\uE013");
+  const timeline = await waitFor(async () => {
+    const next = await panelSize("workspace-timeline", "height");
+    return next > initialTimeline + 6 ? next : null;
+  }, 10000, "A seta não expandiu a timeline.", 100);
+  await capture("canvas-e-timeline");
+
+  await menu("workspace-move-properties");
+  if (narrow) {
+    await check(`return document.activeElement && document.querySelector('[data-testid="compact-shell-tab-inspector"]')?.getAttribute('aria-selected') === 'true';`,
+      "Propriedades não foi ativada na mesa estreita.");
+    await click("compact-shell-tab-inspector");
+    await key("\uE014");
+    await check(`return document.activeElement?.id === 'compact-shell-tab-canvas';`, "A seta não levou o foco ao Canvas.");
+    await key("\uE014");
+    await check(`return document.activeElement?.id === 'compact-shell-tab-hierarchy';`, "A seta não levou o foco a Projeto.");
+  } else {
+    await check(`return document.querySelector('[data-testid="workspace-properties-panel"]')?.closest('[data-panel]')?.id === 'left';`,
+      "Propriedades não mudou de lado.");
+    await click("workspace-sidebar-right");
+    await check(`return document.querySelector('[data-testid="workspace-sidebar-right"]')?.getAttribute('aria-expanded') === 'false';`,
+      "Projeto e camadas não foram recolhidos.");
+    await click("workspace-sidebar-right");
+    await check(`return document.querySelector('[data-testid="workspace-sidebar-right"]')?.getAttribute('aria-expanded') === 'true';`,
+      "Projeto e camadas não foram fixados novamente.");
+    const initialWidth = await panelSize("left");
+    if (!await focus("workspace-divider-left")) fail("O divisor esquerdo não recebe foco.");
+    await key("\uE014");
+    await waitFor(async () => (await panelSize("left")) > initialWidth + 6, 10000, "A seta não expandiu Propriedades.", 100);
+  }
+  await click("workspace-project-tab-scene");
+  await key("\uE014");
+  await check(`return document.activeElement?.id === 'workspace-project-tab-layers'
+    && document.activeElement.getAttribute('aria-selected') === 'true';`, "A seta não ativou a aba Camadas.");
+  await menu("workspace-save-layout");
+  await fillInputBySelector(sessionId, '[data-testid="workspace-layout-name"]', "Porto das Lanternas");
+  await key("\uE007");
+  await check(`return !document.querySelector('[data-testid="workspace-layout-name-dialog"]');`, "A disposição nomeada não foi salva.");
+  await menu("workspace-reset-layout");
+  await check(`return document.querySelector('[data-testid="studio-workspace-shell"]').dataset.propertiesSide === 'right'
+    && !document.getElementById('workspace-timeline');`, "O padrão não restaurou Compor fase.");
+  await menu("workspace-restore-layout");
+  await check(`return document.querySelector('[data-testid="studio-workspace-shell"]').dataset.propertiesSide === 'left'
+    && document.getElementById('workspace-timeline') && document.getElementById('workspace-project-tab-layers')?.getAttribute('aria-selected') === 'true';`,
+    "A disposição salva não restaurou Animar, Camadas e o lado de Propriedades.");
+  if (narrow) await click("compact-shell-tab-canvas");
+  const beforeFocus = await panelSize("workspace-timeline", "height");
+  await click("workspace-focus");
+  await check(`return !document.getElementById('workspace-timeline') && !!document.querySelector('[data-testid="workspace-rail-debug"]');`,
+    "O foco não maximizou o Canvas com acesso à navegação global.");
+  await click("workspace-focus");
+  await waitFor(async () => Math.abs(await panelSize("workspace-timeline", "height") - beforeFocus) <= 2,
+    10000, "A saída de foco perdeu a proporção da timeline.", 100);
+  addReportStep(report, "named_desk_and_keyboard_layout", "passed", { narrow, timeline });
+
+  await click("character-open-duration-code");
+  const codeSelector = '[data-testid="code-pose-duration-text"]';
+  const codeValue = () => dom("return document.querySelector(arguments[0])?.value;", [codeSelector]);
+  const original = await waitFor(async () => {
+    const value = await codeValue();
+    return /\s=\s4;/.test(value ?? "") ? value : null;
+  }, 15000, "O código não mostrou a duração da mesma ocorrência.", 100);
+  const draft = original.replace(/(\s=\s)4;/, (_, assignment) => `${assignment}9;`);
+  await fillInputBySelector(sessionId, codeSelector, draft);
+  await click("logic-view-split");
+  await check(`return document.getElementById('logic-nodes')?.getBoundingClientRect().width > 0
+    && document.getElementById('logic-code')?.getBoundingClientRect().width > 0;`, "Nós e Código não abriram juntos.");
+  if (!await focus("logic-view-divider")) fail("O divisor de Nós e Código não recebe foco.");
+  const oldCodeWidth = await panelSize("logic-code");
+  await key("\uE012");
+  await waitFor(async () => (await panelSize("logic-code")) > oldCodeWidth + 6, 10000, "A seta não ampliou o Código.", 100);
+  await capture("nos-e-codigo");
+  const tracked = (state) => [state.selectedEntityId, state.studio.focus.animation, state.studio.focus.occurrenceId,
+    state.viewportZoom, state.sceneRevision, state.undoDepth];
+  const before = tracked(await readAutomationState(sessionId));
+  const visits = ["scene", "explorer", "scene", "artstudio", "logic", "scene", "retrofx", "debug", "scene", "logic"];
+  for (const area of visits) {
+    await click(`workspace-rail-${area}`);
+    await waitFor(async () => (await readAutomationState(sessionId))?.activeWorkspace === area,
+      10000, `A área ${area} não abriu.`, 100);
+    const current = tracked(await readAutomationState(sessionId));
+    if (!isDeepStrictEqual(current, before)) fail(`A troca para ${area} alterou a edição: ${JSON.stringify({ before, current })}.`);
+  }
+  const retained = await waitFor(async () => await codeValue() === draft, 15000, "O texto pendente mudou após dez trocas de área.", 100);
+  if (!retained) fail("O código pendente não foi preservado.");
+  await click("logic-view-nodes");
+  await check(`return document.querySelector('[data-testid="nodes-pose-duration"]')?.value === '4';`,
+    "O texto pendente foi aplicado sem confirmação.");
+  addReportStep(report, "ten_workspace_changes_keep_context_and_code_draft", "passed", { visits, tracked: before });
+}
+
 async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
   const revision = process.env.RDS_POSE_PROOF || "baseline";
-  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback"].includes(revision)) {
-    fail("RDS_POSE_PROOF deve ser baseline, aligned-4, journey, events, boxes ou playback.");
+  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace"].includes(revision)) {
+    fail("RDS_POSE_PROOF deve ser baseline, aligned-4, journey, events, boxes, playback ou workspace.");
   }
   const prefix = `pose-cadence-${artifactTimestamp()}`;
   const report = { scenario: "pose-cadence", fixture: path.basename(projectDir), revision, status: "failed", samples: [], steps: [], artifacts: [] };
@@ -17366,6 +17511,11 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
     await openSavedProjectWizard(sessionId, projectDir);
     await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir,
       60000, "A sala de poses não abriu.", 200);
+    if (revision === "workspace") {
+      await verifyAuthoringDesk(sessionId, report, prefix);
+      report.status = "passed";
+      return;
+    }
     if (revision === "baseline") {
       try {
         await observePoseEditorAccess(sessionId, report, prefix);
@@ -19515,7 +19665,7 @@ async function inspectNativeButtonTarget(sessionId, testId) {
       if (!(button instanceof HTMLButtonElement)) {
         return { exists: false, testId };
       }
-      button.scrollIntoView({ block: "center", inline: "center" });
+      button.scrollIntoView({ block: "nearest", inline: "nearest" });
       const rect = button.getBoundingClientRect();
       const style = window.getComputedStyle(button);
       const visible = rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || 1) > 0;
