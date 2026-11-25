@@ -11063,12 +11063,13 @@ async function verifyReferenceMotionTrace(sessionId, projectDir, timeoutMs, repo
     points.push([Number(first.lastX), Number(first.lastY)]);
     for (let i = 1; i <= 54; i += 1) {
       if (i === 3 || i === 6) await setInput(i === 3);
-      await activateByTestIdWithEnter(sessionId, "viewport-step-frame");
+      if (i === 1) await activateByTestIdWithEnter(sessionId, "viewport-step-frame");
+      else await click("viewport-step-frame");
       const sample = await readSample(origin.frames_run + i);
       if (i >= 3 && i <= 5 && !sample.text.includes("entrada y")) fail("O traço não exibiu a entrada consumida do salto.");
       points.push([Number(sample.lastX), Number(sample.lastY)]);
     }
-    await activateByTestIdWithEnter(sessionId, "motion-trace-stop");
+    await click("motion-trace-stop");
     const observed = await trace(slot);
     const markers = [observed.takeoff, observed.apex, observed.landing].map((frame) => Number(frame) - origin.frames_run);
     if (observed.startSha !== origin.framebuffer_sha256 || observed.missing !== "0" || observed.samples !== "55"
@@ -18036,9 +18037,19 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
   const targetPoint = { x: 4, y: 10 };
   const isInside = (x, y) => x >= rect.x && x < rect.x + rect.width && y >= rect.y && y < rect.y + rect.height;
   const indexAt = (x, y) => y * 16 + x;
+  const genesisRgb = (color) => color.map((level, channel) => {
+    const intensity = 2 * level;
+    if (channel === 1) {
+      const value = (intensity << 2) | (intensity >> 2);
+      return (value << 2) | (value >> 4);
+    }
+    const value = (intensity << 1) | (intensity >> 3);
+    return (value << 3) | (value >> 2);
+  });
+  const rgba = (buffer, index) => buffer.subarray(index * 4, (index + 1) * 4);
   report.effect = { mode, moving, rect, targetPoint, controls: ["pixels fora da máscara", "outras poses", "testemunha"] };
 
-  const observed = async (label) => {
+  const observed = async (label, palette) => {
     const built = await runBuildRunAndCollect(sessionId, label, timeoutMs, report, `${prefix}-${label}`, { nativeClick: true });
     await click("viewport-pause");
     await waitFor(async () => (await state())?.emulPaused, 15000, "A ROM do efeito não pausou.", 100);
@@ -18097,25 +18108,31 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
             if (candidates.length !== 1) throw Error('Marcador do quadro ' + frame.frames_run + ' não resolve a câmera ' + previous + ' → ' + camera + ': ' + candidates);
             [presented] = candidates;
           }
-          samples.push({ frame: frame.frames_run, camera, presented, target: crop(frame.framebuffer_rgba, 64, presented), witness: crop(frame.framebuffer_rgba, 208, presented) });
+          samples.push({ frame: frame.frames_run, camera, presented, target: crop(frame.framebuffer_rgba, 64, presented),
+            witness: crop(frame.framebuffer_rgba, 208, presented),
+            reference: cameraAddress === null ? null : crop(frame.framebuffer_rgba, 160, presented) });
           previous = camera;
         }
         return samples;
       })().then(done, (error) => done({error: String(error)}));
-    `, [built.rom_sha256, moving ? link.camera.x & 0xffff : null, [[3, 5, 7], [7, 6, 1]].map((color) => color.map((level, channel) => {
-      const intensity = 2 * level;
-      if (channel === 1) {
-        const value = (intensity << 2) | (intensity >> 2);
-        return (value << 2) | (value >> 4);
-      }
-      const value = (intensity << 1) | (intensity >> 3);
-      return (value << 3) | (value >> 2);
-    }))]);
+    `, [built.rom_sha256, moving ? link.camera.x & 0xffff : null, [palette[5], palette[2]].map(genesisRgb)]);
     if (!Array.isArray(samples) || samples.length !== 40 || await readCamera() !== samples.at(-1).camera
         || (moving && samples.at(-1).camera <= camera)) fail(`Amostra indisponível para o efeito: ${JSON.stringify(samples?.error)}`);
     if (moving) report.cameraObservations = { ...report.cameraObservations, [label]: samples.map(({ frame, camera, presented }) => ({ frame, camera, presented })) };
+    const identifyPose = (bytes) => {
+      const ids = [0, 1, 2].filter((index) => {
+        const marker = Buffer.from([...genesisRgb(palette[3 + index]), 255]);
+        return [1, 2, 3].every((y) => [4, 5, 6].every((x) => rgba(bytes, indexAt(x + index, y)).equals(marker)));
+      });
+      if (ids.length !== 1) fail(`Marcador de pose ambíguo no recorte: ${ids}.`);
+      return ids[0];
+    };
+    const measured = samples.map(({ frame, camera, presented, target, witness, reference }) => ({
+      frame, camera, presented, target: Buffer.from(target, "base64"), witness: Buffer.from(witness, "base64"),
+      reference: reference === null ? null : Buffer.from(reference, "base64"),
+    }));
     const cycle = (name, period) => {
-      const values = samples.map((sample) => sample[name]);
+      const values = moving ? measured.map((sample) => identifyPose(sample[name])) : samples.map((sample) => sample[name]);
       if (values.slice(period).some((value, index) => value !== values[index])) fail(`Amostras fora do ciclo de ${period} quadros em ${name}.`);
       const offset = values.findIndex((value) => value !== values[0]);
       if (offset < 1 || offset >= period) fail(`Nenhuma transição em ${name}.`);
@@ -18127,10 +18144,12 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
       const lengths = runs.map(({ length }) => length).sort((a, b) => a - b);
       if (new Set(runs.map(({ value }) => value)).size !== 3
         || !isDeepStrictEqual(lengths, [2, period === 18 ? 4 : 3, 5, 7])) fail(`Ocorrências inesperadas em ${name}: ${lengths}.`);
-      return runs.map(({ value, length }) => [length, Buffer.from(value, "base64")]).sort(([a], [b]) => a - b);
+      return runs.map(({ value, length }) => [length, moving ? value : Buffer.from(value, "base64")]).sort(([a], [b]) => a - b);
     };
     return { rom: built.rom_sha256, core: await collectCoreIdentity(await invokeCoreObserve(sessionId)),
-      camera, initial, cameraPath: samples.map(({ camera, presented }) => [camera, presented]), target: cycle("target", 18), witness: cycle("witness", 17) };
+      camera, initial, cameraPath: samples.map(({ camera, presented }) => [camera, presented]),
+      samples: moving ? measured.map((sample) => ({ ...sample, pose: identifyPose(sample.target) })) : [],
+      target: cycle("target", 18), witness: cycle("witness", 17) };
   };
 
   await setSessionWindowRect(sessionId, 1366, 768);
@@ -18142,7 +18161,9 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
   const originalDocPath = editedActor.components.logic.logic_hints[0].split("=")[1];
   const originalPng = await readFile(path.join(projectDir, originalPath));
   const originalDoc = await readFile(path.join(projectDir, originalDocPath));
-  const cels = JSON.parse(originalDoc).frames.map((frame) => Buffer.from(frame.cels[0], "base64"));
+  const document = JSON.parse(originalDoc);
+  const palette = document.palettes[0];
+  const cels = document.frames.map((frame) => Buffer.from(frame.cels[0], "base64"));
   const expected = cels[0].map((value, index) => {
     const x = index % 16, y = Math.floor(index / 16);
     if (!isInside(x, y)) return value;
@@ -18150,7 +18171,7 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
     if (mode === "effect-ghost") return (x + y) % 2 === 0 ? 0 : value;
     return cels[0][indexAt(y - 1, 14 - x)];
   });
-  const baseline = await observed("efeito-original");
+  const baseline = await observed("efeito-original", palette);
   await selectPoseActorsOnCanvas(sessionId, [["testemunha", 216], ["raposa", 72]]);
   await click("viewport-open-animation");
   await click("character-occurrence-o1");
@@ -18282,30 +18303,53 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
   await openSavedProjectWizard(sessionId, projectDir);
   await waitFor(async () => (await state())?.activeProjectDir === projectDir, 30000, "A fase do efeito não reabriu.", 100);
   await verifySaved(await disk());
-  const edited = await observed("efeito-publicado");
-  const baseTarget = new Map(baseline.target), editedTarget = new Map(edited.target);
-  const original = baseTarget.get(5), result = editedTarget.get(5), background = baseTarget.get(7);
-  const rgba = (buffer, index) => buffer.subarray(index * 4, (index + 1) * 4);
-  const delta = [];
-  for (let i = 0; i < expected.length; i++) {
-    const x = i % 16, y = Math.floor(i / 16);
-    const wanted = expected[i] === cels[0][i] ? rgba(original, i) : expected[i] === 0 ? rgba(background, i)
-      : rgba(original, indexAt(y - 1, 14 - x));
-    const now = rgba(result, i);
-    if (!now.equals(wanted)) fail(`Pixel (${x},${y}) da ROM tem ${now.toString("hex")}, esperado ${wanted.toString("hex")}.`);
-    if (!now.equals(rgba(original, i))) delta.push([x, y]);
+  const edited = await observed("efeito-publicado", palette);
+  const checkMask = (original, result, background, frame) => {
+    const delta = [];
+    for (let i = 0; i < expected.length; i++) {
+      const x = i % 16, y = Math.floor(i / 16);
+      const wanted = expected[i] === cels[0][i] ? rgba(original, i) : expected[i] === 0 ? rgba(background, i)
+        : rgba(original, indexAt(y - 1, 14 - x));
+      const now = rgba(result, i);
+      if (!now.equals(wanted)) {
+        fail(`Pixel (${x},${y}) da ROM no quadro ${frame} tem ${now.toString("hex")}, esperado ${wanted.toString("hex")}.`);
+      }
+      if (!now.equals(rgba(original, i))) delta.push([x, y]);
+    }
+    if (delta.length !== 32) fail(`Máscara com ${delta.length} pixels no quadro ${frame}; esperado 32.`);
+    return delta;
+  };
+  if (baseline.rom === edited.rom || baseline.camera !== edited.camera || !isDeepStrictEqual(baseline.cameraPath, edited.cameraPath)
+      || !isDeepStrictEqual(baseline.witness, edited.witness)) fail("A comparação alterou a cadência, a câmera ou a testemunha.");
+  const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
+  let delta;
+  let pairedFrames;
+  if (moving) {
+    if (!isDeepStrictEqual(baseline.target, edited.target)) fail("A edição em movimento alterou as durações das poses.");
+    if (new Set(baseline.samples.map(({ reference }) => digest(reference))).size < 2) fail("O fundo de controle não variou com a câmera.");
+    pairedFrames = baseline.samples.map((before, index) => {
+      const after = edited.samples[index];
+      if (after.frame !== before.frame || after.pose !== before.pose || !after.witness.equals(before.witness)
+          || !after.reference.equals(before.reference)) fail(`Controles distintos no quadro ${before.frame}.`);
+      if (before.pose === 0) {
+        delta = checkMask(before.target, after.target, before.reference, before.frame);
+      } else if (!after.target.equals(before.target)) {
+        fail(`Uma pose fora do escopo foi alterada no quadro ${before.frame}.`);
+      }
+      return { frame: before.frame, camera: before.presented, pose: before.pose,
+        control: digest(before.reference), witness: digest(before.witness), changedPixels: before.pose === 0 ? 32 : 0 };
+    });
+  } else {
+    const baseTarget = new Map(baseline.target), editedTarget = new Map(edited.target);
+    delta = checkMask(baseTarget.get(5), editedTarget.get(5), baseTarget.get(7), "fixo");
+    if ([2, 4, 7].some((key) => !baseTarget.get(key).equals(editedTarget.get(key)))) fail("Uma pose fora do escopo foi alterada.");
   }
-  if (baseline.rom === edited.rom || baseline.camera !== edited.camera || !isDeepStrictEqual(baseline.cameraPath, edited.cameraPath) || delta.length !== 32
-    || !isDeepStrictEqual(baseline.witness, edited.witness)
-    || [2, 4, 7].some((key) => !baseTarget.get(key).equals(editedTarget.get(key)))) {
-    fail(`A comparação do efeito alterou o controle, o ciclo ou a câmera (${delta.length} pixels).`);
-  }
-  const describe = (observation) => ({ ...observation, ...Object.fromEntries(["target", "witness"].map((name) =>
-    [name, observation[name].map(([ticks, bytes]) => ({ ticks, sha256: createHash("sha256").update(bytes).digest("hex") }))])) });
+  const describe = ({ samples: _samples, ...observation }) => ({ ...observation, ...Object.fromEntries(["target", "witness"].map((name) =>
+    [name, observation[name].map(([ticks, value]) => moving ? { ticks, pose: value } : { ticks, sha256: digest(value) })])) });
   await click("workspace-rail-scene");
   await waitFor(async () => (await state())?.selectedEntityId === "raposa" && (await state())?.studio.focus.occurrenceId === "o1",
     10000, "O retorno do efeito ao Canvas perdeu o ator ou a ocorrência.", 100);
-  addReportStep(report, "indexed_effect_and_control_in_core", "passed", { baseline: describe(baseline), edited: describe(edited), delta });
+  addReportStep(report, "indexed_effect_and_control_in_core", "passed", { baseline: describe(baseline), edited: describe(edited), delta, pairedFrames });
 }
 
 async function verifyWaveBand(sessionId, projectDir, report, prefix, timeoutMs) {
@@ -18379,14 +18423,29 @@ async function verifyWaveBand(sessionId, projectDir, report, prefix, timeoutMs) 
     const dry = 82 - sample.x;
     const sameLine = rgba(sample, dry, 146).equals(rgba(before, dry, 146));
     const outside = [144, 156].every((y) => sample.pixels.subarray(y*1280,(y+1)*1280).equals(before.pixels.subarray(y*1280,(y+1)*1280)));
-    const matches = Array.from({length:13}, (_,i)=>i-6).filter((dx)=>
-      Array.from({length:44},(_,i)=>104+i).every((x)=>rgba(sample,x,146).equals(rgba(before,x-dx,146))));
-    if (!sameLine || !outside || matches.length !== 1) fail(`A onda saiu do alcance em ${sample.frame}: ${JSON.stringify({sameLine,outside,matches})}`);
-    return {frame:sample.frame, cameraX:sample.x, offset:matches[0], control:{x:dry,y:146,rgb:[...rgba(sample,dry,146)]}};
+    const water = Array.from({ length: 44 }, (_, i) => 104 + i);
+    const correlation = Array.from({ length: 81 }, (_, index) => {
+      const dx = index - 40;
+      return { dx, equal: water.filter((x) => rgba(sample, x, 146).equals(rgba(before, x - dx, 146))).length };
+    });
+    const matches = correlation.filter(({ dx, equal }) => Math.abs(dx) <= values.amplitude && equal === water.length);
+    const strip = (image, y) => Array.from({ length: 256 }, (_, i) => rgba(image, 32 + i, y).readUInt32BE(0));
+    return {frame:sample.frame, cameraX:sample.x, sameLine, outside, matches,
+      correlation: correlation.sort((a, b) => b.equal - a.equal).slice(0, 5),
+      lines: [144, 145, 146, 151, 155, 156].map((y) => ({ y, before: strip(before, y), after: strip(sample, y) })),
+      control:{x:dry,y:146,rgb:[...rgba(sample,dry,146)]}};
   });
-  if (baseline.rom === edited.rom || new Set(proofs.map(({offset})=>offset)).size < 2
-      || new Set(proofs.map(({cameraX})=>cameraX)).size < 2) fail(`Faltou ver a fase da onda mudar com a câmera em movimento: ${JSON.stringify(proofs)}`);
-  addReportStep(report,"wave_rows_motion_camera_and_priority_control","passed", {baseline:baseline.rom, edited:edited.rom, core:edited.core, values, proofs});
+  report.waveDiagnostic = { baseline: baseline.rom, edited: edited.rom, proofs };
+  const failed = proofs.find(({ sameLine, outside, matches }) => !sameLine || !outside || matches.length !== 1);
+  if (failed) fail(`A onda saiu do alcance em ${failed.frame}: ${JSON.stringify({
+    sameLine: failed.sameLine, outside: failed.outside, correlation: failed.correlation,
+  })}`);
+  if (baseline.rom === edited.rom || new Set(proofs.map(({ matches }) => matches[0].dx)).size < 2
+      || new Set(proofs.map(({ cameraX }) => cameraX)).size < 2) fail("Faltou ver a fase da onda mudar com a câmera em movimento.");
+  addReportStep(report,"wave_rows_motion_camera_and_priority_control","passed", {
+    baseline:baseline.rom, edited:edited.rom, core:edited.core, values,
+    proofs: proofs.map(({ frame, cameraX, matches, control }) => ({ frame, cameraX, offset: matches[0].dx, control })),
+  });
 }
 
 async function verifyTerrainAuthoring(sessionId, projectDir, report, prefix, timeoutMs, seam = false) {
@@ -18443,12 +18502,19 @@ async function verifyTerrainAuthoring(sessionId, projectDir, report, prefix, tim
     `, [canvas]);
     const before = await waitFor(readCopies, 10000, "O trecho de 2 × 2 não foi repetido.", 100);
     await executeScript(sessionId, `document.querySelector(arguments[0]).scrollIntoView({block:"center", inline:"nearest"});`, [canvas]);
-    await clickCanvasPointNatively(sessionId, canvas, 47 / 48, 47 / 48, "Abrir o canto da emenda");
-    await waitFor(() => executeScript(sessionId, `
+    const corner = await nativeCanvasPoint(sessionId, canvas, 30.5 / 48, 30.5 / 48);
+    await clickCanvasPointNatively(sessionId, canvas, 30.5 / 48, 30.5 / 48, "Abrir o canto da emenda");
+    const origin = () => executeScript(sessionId, `
       const origin = document.querySelector('[data-testid="tile-seam-source"]');
-      return origin?.dataset.col === '12' && origin.dataset.row === '6'
-        && origin.textContent.includes('direita e inferior');
-    `), 10000, "A emenda não abriu o tile e as duas bordas de origem.", 100);
+      return origin && { ...origin.dataset };
+    `);
+    await waitFor(async () => {
+      const hit = await origin();
+      return hit?.col === "12" && hit.row === "6" && hit.edge === "direita e inferior";
+    }, 10000, "A emenda não abriu o tile e as duas bordas de origem.", 100).catch(async (error) => {
+      report.seamDiagnostic = { corner, origin: await origin() };
+      throw error;
+    });
     await fillInputBySelector(sessionId, '[data-testid="tile-seam-source"] [name="tile"]', "16");
     await activateByTestIdWithEnter(sessionId, "tile-seam-apply");
     const after = await waitFor(async () => {

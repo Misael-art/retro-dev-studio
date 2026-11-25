@@ -193,6 +193,19 @@ async function writeLinkedAtlasProject(directory, { effect = false, moving = fal
   await writeFile(path.join(directory, asset), indexedAtlasPng(width, height, palette, frames));
   await writeFile(path.join(directory, document), JSON.stringify(pixelDoc) + "\n");
   if (effect && moving) {
+    // Repeat every three hardware tiles so a bare area 96 px away exposes
+    // the exact background behind the edited sprite on the same core frame.
+    const repeatedBackdrop = "assets/tilesets/controle-dos-efeitos.png";
+    const background = Buffer.alloc(384 * 224);
+    for (let y = 0; y < 224; y++) {
+      for (let x = 0; x < 384; x++) {
+        const stripe = (x + (y % 8) * 2) % 24;
+        background[y * 384 + x] = stripe < 5 ? 1 : stripe < 14 ? 2 : 3;
+      }
+    }
+    await writeFile(path.join(directory, repeatedBackdrop), indexedAtlasPng(384, 224,
+      [[0, 0, 0], [1, 2, 6], [2, 7, 3], [4, 2, 6]], [background]));
+    scene.entities.find(({ entity_id }) => entity_id === "paisagem").components.tilemap.tileset = repeatedBackdrop;
     const markerPath = "assets/sprites/marcador-apresentacao.png";
     const marker = Buffer.alloc(64);
     for (let y = 2; y <= 3; y++) {

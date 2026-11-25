@@ -5,7 +5,9 @@ export function isEditableTarget(target: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
 }
 
-/** A tecla pode ir para o joypad? Pressionar num campo editável: não (e o texto não é bloqueado). */
+/** Campos e controles focados recebem a tecla; a superfície do jogo dirige o joypad. */
 export function gameMayTakeKeyDown(event: Pick<KeyboardEvent, "target">): boolean {
-  return !isEditableTarget(event.target);
+  const target = event.target;
+  if (typeof Element === "undefined" || !(target instanceof Element)) return true;
+  return !isEditableTarget(target) && !target.closest("button, summary, a[href], [role='button'], [role='menuitem']");
 }

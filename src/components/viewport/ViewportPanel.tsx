@@ -2086,14 +2086,15 @@ export default function ViewportPanel({
       );
     }
 
+    const gameKeys = new Set<string>();
     function onKeyDown(event: KeyboardEvent) {
+      if (event.defaultPrevented || !gameMayTakeKeyDown(event)) return;
       if (
         !event.repeat &&
         !event.ctrlKey &&
         !event.metaKey &&
         !event.altKey &&
         !event.shiftKey &&
-        !isEditableTarget(event.target) &&
         event.code === "KeyR"
       ) {
         event.preventDefault();
@@ -2101,17 +2102,17 @@ export default function ViewportPanel({
         return;
       }
 
-      // Digitando num campo: a tecla é do campo, não do jogo (e não pode ser bloqueada).
-      if (!gameMayTakeKeyDown(event)) return;
       const updated = keyToJoypad(joypadRef.current, event.code, true, joypadPlatformRef.current);
       if (!updated) return;
 
       event.preventDefault();
+      gameKeys.add(event.code);
       joypadRef.current = updated;
       sendJoypad(updated);
     }
 
     function onKeyUp(event: KeyboardEvent) {
+      if (!gameKeys.delete(event.code)) return;
       const updated = keyToJoypad(joypadRef.current, event.code, false, joypadPlatformRef.current);
       if (!updated) return;
 

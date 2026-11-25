@@ -126,7 +126,7 @@ export default function TileSeamPreview({ project, entityId, map, tileCount, onL
         const bounds = event.currentTarget.getBoundingClientRect();
         const x = wrappedPixel((event.clientX - bounds.left) * width * 3 / bounds.width + offset.current.x, width);
         const y = wrappedPixel((event.clientY - bounds.top) * height * 3 / bounds.height + offset.current.y, height);
-        const edge = [x === 0 ? "esquerda" : x === width - 1 ? "direita" : "", y === 0 ? "superior" : y === height - 1 ? "inferior" : ""].filter(Boolean).join(" e ");
+        const edge = [x < 2 ? "esquerda" : x >= width - 2 ? "direita" : "", y < 2 ? "superior" : y >= height - 2 ? "inferior" : ""].filter(Boolean).join(" e ");
         setSelected({ col: area.x + Math.floor(x / 8), row: area.y + Math.floor(y / 8), edge });
         setMessage("");
       }} />
@@ -140,7 +140,7 @@ export default function TileSeamPreview({ project, entityId, map, tileCount, onL
       <label className="flex flex-col">Linha do mapa<input className={inputClass} name="row" type="number" min={0} max={map.map_height - 1} required defaultValue={0} /></label>
       <button type="submit" className={buttonClass}>Abrir célula</button>
     </form>
-    {selected && <div data-testid="tile-seam-source" data-col={selected.col} data-row={selected.row} data-tile={cell}>
+    {selected && <div data-testid="tile-seam-source" data-col={selected.col} data-row={selected.row} data-tile={cell} data-edge={selected.edge}>
       <p>Célula ({selected.col}, {selected.row}){selected.edge && ` · borda ${selected.edge}`} · {isExplicitEmptyCell(cell) ? "vazia" : cell ? `tile #${cell}` : "imagem-base"} · {map.tileset}</p>
       {cell > 0 && cell <= tileCount && <button className={buttonClass} type="button" onClick={() => onLocate(cell)}>Localizar tile na paleta</button>}
       <form key={`${selected.col},${selected.row},${cell}`} className="mt-1 flex flex-wrap items-end gap-1" onSubmit={(event) => {
