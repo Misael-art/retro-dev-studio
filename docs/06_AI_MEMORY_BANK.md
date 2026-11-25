@@ -1,3 +1,11 @@
+### Retomada da implementação e auditoria do candidato · 24/11/2026
+
+O operador autorizou executar o [prompt integral](handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#prompt-entrega-integral-workspace). Os 12 mockups, a prancha, a galeria e o ZIP passaram na conferência do manifesto no NVMe. O primeiro aceite é reproduzir o rascunho e o alcance por instância no editor C, no mesmo candidato Linux/Windows. O commit `1283ff196ac7` inclui os dois cenários no workflow Windows para Mega Drive e para a matriz completa. O PR #113 recebeu o workflow e o lock no SHA `365e74fbbb30ed61c397b5b61cf41157231c10f5`. Conferir os dois resultados individuais e os artefatos no [Desktop E2E deste SHA](https://github.com/Misael-art/retro-dev-studio/actions/runs/45520785712).
+
+Na [CI de b434ede](https://github.com/Misael-art/retro-dev-studio/actions/runs/45515665370), RustSec reprovou duas dependências transitivas do desktop. O Cargo resolveu `cookie` 0.18.3, `url` 2.5.9 e `form_urlencoded` 1.2.3. Com cargo-audit 0.22.2 e base RustSec `10db6998b5d74ec438bcf0763125bd425a068a8f`, o lock anterior reproduziu RUSTSEC-2026-0594 e RUSTSEC-2026-0592. O novo lock, SHA-256 `56f4f530360d894536ceb17d953c287ec587afdc8e93c018629f8303890c764b`, registrou zero vulnerabilidades e 15 avisos. `npm run security:audit` reportou nove ocorrências moderadas na cadeia de minimatch das ferramentas de desenvolvimento. Recibos locais em `sessions/dependencies-20261124-7Kilb7/`.
+
+O plano inicial encontrou `DRIFTED`. Durante o provisionamento do BigLinux, o recibo full de 21h33 registrou `BLOCKED`. Obter o novo `READY`, certificar e repetir no aplicativo as duas jornadas e a identidade da ROM carregada. A [ferramenta de conferência](../scripts/qa/review-workspace.mjs) organiza os pares de imagens e os hashes por rodada. A mesa inicial está em `sessions/conferencia-workspace-LvfmHo/index.html`, com 12 referências e zero capturas do candidato. O aceite do editor permanece aberto.
+
 ### Continuidade antes da formatação — 2026-11-22
 
 Retomar na branch `codex/new-host-cohesion-20261024`, pelo
