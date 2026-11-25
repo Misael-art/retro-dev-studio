@@ -2,6 +2,7 @@ import { copyFile, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { crc32, deflateSync } from "node:zlib";
 
 // Entradas reproduzíveis para editar no Studio e medir no core. A receita só
 // escreve projetos novos e usa a arte autoral já embarcada na fase de referência.
@@ -62,17 +63,18 @@ function scenery() {
   return entities;
 }
 
-async function writeProject(directory, dense, composition = false) {
+async function writeProject(directory, dense, composition = false, movingCamera = false) {
   const project = JSON.parse(await readFile(path.join(seed, "project.rds"), "utf8"));
   const scene = JSON.parse(await readFile(path.join(seed, project.entry_scene), "utf8"));
-  project.name = composition ? "Porto das Lanternas — Pilastra" : dense ? "Ensaio de poses — Sala densa" : "Ensaio de poses — Sala simples";
+  project.name = movingCamera ? "Porto das Lanternas — Câmera em movimento"
+    : composition ? "Porto das Lanternas — Pilastra" : dense ? "Ensaio de poses — Sala densa" : "Ensaio de poses — Sala simples";
   project.schema_version = scene.schema_version;
   scene.display_name = project.name;
   scene.entities.push(
     {
       entity_id: "paisagem", display_name: "Paisagem", transform: { x: 0, y: 0 },
       components: { tilemap: {
-        tileset: backdrop, map_width: 40, map_height: 28, plane: "BG_B",
+        tileset: backdrop, map_width: movingCamera ? 48 : 40, map_height: 28, plane: "BG_B",
         scroll_x: 0, scroll_y: 0, priority: false,
       } },
     },
@@ -95,6 +97,15 @@ async function writeProject(directory, dense, composition = false) {
       { id: "pilastras", name: "Pilastras", kind: "tile", visible: true, locked: false, depth: 2, entity_ids: ["pilastra"] },
     ];
   }
+  if (movingCamera) {
+    const camera = scene.entities.find(({ entity_id }) => entity_id === "camera_root").components.camera;
+    camera.visual = {
+      version: 1, active: true, pattern: "auto_horizontal",
+      anchor_x: 0, anchor_y: 0, screen_x: 160, screen_y: 112, horizontal: true, vertical: false,
+      response_x: 1, response_y: 1, dead_zone_x: 0, dead_zone_y: 0, look_ahead: 0,
+      max_speed: 16, speed: 12, paused: false, bounds: { x: 0, y: 0, width: 384, height: 224 },
+    };
+  }
   const assets = dense ? [atlas, backdrop, flag, gate] : composition ? [atlas, backdrop, gate] : [atlas, backdrop];
   for (const relative of assets) {
     const destination = path.join(directory, relative);
@@ -109,9 +120,86 @@ async function writeProject(directory, dense, composition = false) {
   return projectPath;
 }
 
+function indexedAtlasPng(width, height, palette, frames) {
+  const chunk = (kind, data) => {
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const contents = Buffer.concat([Buffer.from(kind), data]);
+    const checksum = Buffer.alloc(4);
+    checksum.writeUInt32BE(crc32(contents));
+    return Buffer.concat([length, contents, checksum]);
+  };
+  const sheetWidth = width * frames.length;
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(sheetWidth);
+  header.writeUInt32BE(height, 4);
+  header[8] = 4;
+  header[9] = 3;
+  const stride = sheetWidth / 2 + 1;
+  const pixels = Buffer.alloc(stride * height);
+  for (let y = 0; y < height; y++) {
+    for (let frame = 0; frame < frames.length; frame++) {
+      for (let x = 0; x < width; x += 2) {
+        const source = y * width + x;
+        pixels[y * stride + 1 + (frame * width + x) / 2] = frames[frame][source] * 16 + frames[frame][source + 1];
+      }
+    }
+  }
+  const colors = Buffer.from(palette.flatMap((color) => color.map((level) => Math.round(level * 255 / 7))));
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", header),
+    chunk("PLTE", colors), chunk("tRNS", Buffer.from([0])), chunk("IDAT", deflateSync(pixels)), chunk("IEND", Buffer.alloc(0))]);
+}
+
+async function writeLinkedAtlasProject(directory) {
+  const projectPath = await writeProject(directory, false);
+  const project = JSON.parse(await readFile(projectPath, "utf8"));
+  project.name = "Ensaio de atlas vinculado";
+  const scenePath = path.join(directory, project.entry_scene);
+  const scene = JSON.parse(await readFile(scenePath, "utf8"));
+  scene.display_name = project.name;
+  const asset = "assets/sprites/pixel/atlas_ensaio.png";
+  const document = asset.replace(/\.png$/, ".rdspixel.json");
+  const width = 16, height = 16;
+  const palette = [[0, 0, 0], [7, 3, 0], [7, 6, 1], [3, 1, 0], [7, 7, 6], [3, 5, 7]];
+  while (palette.length < 16) palette.push([0, 0, 0]);
+  const frames = Array.from({ length: 3 }, (_, frame) => {
+    const pixels = Buffer.alloc(width * height);
+    for (let y = 4; y < 12; y++) for (let x = 3; x < 13; x++) pixels[y * width + x] = x < 7 ? 1 : 2;
+    for (let y = 1; y < 4; y++) for (let x = 4 + frame; x < 7 + frame; x++) pixels[y * width + x] = 3 + frame;
+    pixels[13 * width + 5 + frame] = 1;
+    return pixels;
+  });
+  for (const entity of scene.entities.filter(({ entity_id }) => ["raposa", "testemunha"].includes(entity_id))) {
+    Object.assign(entity.components.sprite, { asset, frame_width: width, frame_height: height, pivot: { x: 8, y: 13 } });
+    entity.transform.y = 144;
+    entity.components.logic = { logic_hints: [`pixel_art:document=${document}`] };
+    if (entity.entity_id === "raposa") {
+      const animation = entity.components.sprite.animations.passo;
+      animation.frame_durations[1] = 4;
+      animation.hitboxes = [{ frame: 1, occurrence_id: "o2", kind: "attack", x: 2, y: 1, width: 4, height: 5 }];
+    }
+  }
+  const pixelDoc = {
+    schema: "retrodev.pixel/v1", name: "atlas_ensaio", target: "sprite", width, height,
+    palettes: Array.from({ length: 4 }, () => palette), paletteLines: [0],
+    layers: [{ id: "arte", name: "Arte", visible: true }],
+    frames: frames.map((image, index) => ({ id: `imagem-${index + 1}`, durationMs: 100, cels: [image.toString("base64")] })),
+  };
+  await mkdir(path.dirname(path.join(directory, asset)), { recursive: true });
+  await writeFile(path.join(directory, asset), indexedAtlasPng(width, height, palette, frames));
+  await writeFile(path.join(directory, document), JSON.stringify(pixelDoc) + "\n");
+  await writeFile(scenePath, JSON.stringify(scene, null, 2) + "\n");
+  await writeFile(projectPath, JSON.stringify(project, null, 2) + "\n");
+  return projectPath;
+}
+
 await mkdir(sessions, { recursive: true });
 const root = await mkdtemp(path.join(sessions, "ensaio-poses-"));
-if (process.argv.includes("--composition")) {
+if (process.argv.includes("--linked-atlas")) {
+  console.log(await writeLinkedAtlasProject(path.join(root, "atlas-vinculado")));
+} else if (process.argv.includes("--composition-motion")) {
+  console.log(await writeProject(path.join(root, "composicao-movimento"), false, true, true));
+} else if (process.argv.includes("--composition")) {
   console.log(await writeProject(path.join(root, "composicao"), false, true));
 } else {
   for (const variant of ["simples", "densa"]) {

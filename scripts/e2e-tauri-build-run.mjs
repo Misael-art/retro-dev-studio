@@ -11210,19 +11210,28 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   // mouse source for collision erasure and layer dragging.
   const compositionPointerId = "reference-composition-pointer";
   const dragComposition = async () => {
-    const point = await executeScript(sessionId, `
+    const placement = () => executeScript(sessionId, `
       const canvas=document.querySelector('[data-testid="viewport-scene-overlay"]');
       const rect=canvas.getBoundingClientRect();
       const state=window.__RDS_E2E__.getState();
       const bounds=state.activeScene.worldBounds;
       const player=state.activeScene.entities.find((entity)=>entity.id==='player');
       const worldX=player.x+12, worldY=player.y+12;
-      return {x:Math.round(rect.left+(worldX-bounds.minX)/bounds.width*rect.width),
-        y:Math.round(rect.top+(worldY-bounds.minY)/bounds.height*rect.height),
-        dx:Math.round(16/bounds.width*rect.width)};
+      const x=Math.round(rect.left+(worldX-bounds.minX)/bounds.width*rect.width);
+      const y=Math.round(rect.top+(worldY-bounds.minY)/bounds.height*rect.height);
+      const dx=Math.round(16/bounds.width*rect.width);
+      return {x, y, dx, start:document.elementFromPoint(x,y)===canvas, end:document.elementFromPoint(x+dx,y)===canvas,
+        zoom:state.viewportZoom, rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};
     `);
-    const under = await executeScript(sessionId, `return document.elementFromPoint(arguments[0],arguments[1])?.closest('[data-testid]')?.getAttribute('data-testid') ?? null;`, [point.x, point.y]);
-    if (under !== "viewport-scene-overlay") fail(`Camada nao alcançável no palco: ${under}`);
+    let point = await placement();
+    if (!point.start || !point.end) {
+      const reset = await findElement(sessionId, 'button[title="Resetar vista (zoom + pan)"]');
+      await clickElement(sessionId, reset);
+      point = await waitFor(async () => {
+        const current = await placement();
+        return current.start && current.end && current.dx > 0 ? current : false;
+      }, 10000, `O Player ficou fora da área de arraste após enquadrar a cena (${JSON.stringify(point)}).`, 100);
+    }
     const result = await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, { actions: [{
       type: "pointer", id: compositionPointerId, parameters: { pointerType: "mouse" }, actions: [
         { type: "pointerMove", origin: "viewport", x: point.x, y: point.y },
@@ -17473,7 +17482,7 @@ async function verifyAuthoringDesk(sessionId, report, prefix) {
   addReportStep(report, "ten_workspace_changes_keep_context_and_code_draft", "passed", { visits, tracked: before });
 }
 
-async function verifyPointAndOcclusion(sessionId, projectDir, report, prefix, timeoutMs, regional) {
+async function verifyPointAndOcclusion(sessionId, projectDir, report, prefix, timeoutMs, regional, movingCamera) {
   const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
   const state = () => readAutomationState(sessionId);
   const edits = () => executeScript(sessionId,
@@ -17502,17 +17511,43 @@ async function verifyPointAndOcclusion(sessionId, projectDir, report, prefix, ti
     const built = await runBuildRunAndCollect(sessionId, label, timeoutMs, report, `${prefix}-${label}`, { nativeClick: true });
     await click("viewport-pause");
     await waitFor(async () => (await state())?.emulPaused, 15000, "A ROM não pausou.", 100);
+    const cameraAt = async () => {
+      const link = JSON.parse(await readFile(path.join(projectDir, "build", "megadrive", "rds-runtime-link.v1.json"), "utf8"));
+      if (link.rom_sha256 !== built.rom_sha256 || !link.camera) fail("Vínculo da câmera ausente para a ROM em teste.");
+      const word = async (address) => {
+        const result = await invokeCoreObserveCommand(sessionId, "emulator_read_memory", { region: 2, offset: address & 0xffff, length: 2 });
+        if (!result?.ok || result.data?.length !== 2) fail("O core não retornou a coordenada da câmera.");
+        const value = result.data[0] | (result.data[1] << 8);
+        return value > 32767 ? value - 65536 : value;
+      };
+      return { x: await word(link.camera.x), y: await word(link.camera.y) };
+    };
+    const initial = movingCamera ? await cameraAt() : { x: 0, y: 0 };
     const warmed = await invokeCoreObserveCommand(sessionId, "emulator_run_frames", { frames: 120 });
     if (!warmed?.ok) fail("O core não avançou para a cena da pilastra.");
+    let camera = movingCamera ? await cameraAt() : initial;
+    if (movingCamera) {
+      if (!(camera.x > initial.x && camera.x < 64 && camera.y === 0)) fail(`O avanço não demonstrou a câmera em movimento: ${JSON.stringify({ initial, camera })}`);
+      // Read a frame where sprites and planes are already presented at the same camera coordinate.
+      const stepped = await invokeCoreObserveCommand(sessionId, "emulator_run_frames", { frames: 1 });
+      if (!stepped?.ok) fail("O quadro seguinte da câmera não avançou.");
+      const next = await cameraAt();
+      if (next.x !== camera.x) {
+        const settled = await invokeCoreObserveCommand(sessionId, "emulator_run_frames", { frames: 1 });
+        if (!settled?.ok) fail("O quadro posterior ao deslocamento de câmera não avançou.");
+        camera = await cameraAt();
+        if (camera.x !== next.x || camera.y !== next.y) fail("A amostra ficou entre duas coordenadas da câmera.");
+      }
+    }
     const frame = await invokeCoreObserve(sessionId);
     if (!frame?.ok || frame.rom_sha256 !== built.rom_sha256 || !frame.disk_matches_loaded || frame.framebuffer_width !== 320
       || frame.framebuffer_height !== 224) fail("O core não observou a mesma ROM da pilastra.");
     const bytes = Buffer.from(frame.framebuffer_rgba);
-    const rgba = ({ x, y }) => [...bytes.subarray((y * 320 + x) * 4, (y * 320 + x + 1) * 4)];
-    const control = Buffer.concat(Array.from({ length: 32 }, (_, offset) => bytes.subarray(
-      ((136 + offset) * 320 + 208) * 4, ((136 + offset) * 320 + 240) * 4,
-    )));
-    return { rom: built.rom_sha256, core: await collectCoreIdentity(frame), opaque: rgba(opaque), aperture: rgba(aperture), adjacent: rgba(adjacent),
+    const offsetAt = (x, y) => ((y - camera.y) * 320 + x - camera.x) * 4;
+    const rgba = ({ x, y }) => [...bytes.subarray(offsetAt(x, y), offsetAt(x + 1, y))];
+    const control = Buffer.concat(Array.from({ length: 32 }, (_, offset) =>
+      bytes.subarray(offsetAt(208, 136 + offset), offsetAt(240, 136 + offset))));
+    return { rom: built.rom_sha256, core: await collectCoreIdentity(frame), opaque: rgba(opaque), aperture: rgba(aperture), adjacent: rgba(adjacent), camera, initial,
       control: createHash("sha256").update(control).digest("hex") };
   };
 
@@ -17611,24 +17646,154 @@ async function verifyPointAndOcclusion(sessionId, projectDir, report, prefix, ti
     || (regional && !isDeepStrictEqual(before.adjacent, after.adjacent))) {
     fail(`A comparação do core não isolou a prioridade da pilastra: ${JSON.stringify({ before, after })}`);
   }
+  addReportStep(report, "point_aperture_priority_and_control_in_core", "passed", {
+    before, after, low, high, gap, opaque, aperture, ...(regional ? { adjacent, region: expectedRegion } : {}),
+  });
+  let pointOnScreen = { x: opaque.x - after.camera.x, y: opaque.y - after.camera.y };
+  if (movingCamera) {
+    const link = JSON.parse(await readFile(path.join(projectDir, "build", "megadrive", "rds-runtime-link.v1.json"), "utf8"));
+    // Direct core stepping does not paint the WebView. Present a frame through the normal control
+    // and read the coordinates for that presentation before using the Canvas probe.
+    const frameBeforeStep = (await invokeCoreObserve(sessionId)).frames_run;
+    await click("viewport-step-frame");
+    await waitFor(async () => (await invokeCoreObserve(sessionId))?.frames_run === frameBeforeStep + 1,
+      15000, "O botão de passos não apresentou o quadro seguinte da câmera.", 100);
+    const position = await invokeCoreObserveCommand(sessionId, "emulator_read_memory",
+      { region: 2, offset: link.camera.x & 0xffff, length: 2 });
+    if (!position?.ok || position.data?.length !== 2) fail("A câmera não foi lida no quadro de apresentação.");
+    pointOnScreen = { x: opaque.x - (position.data[0] | (position.data[1] << 8)), y: opaque.y };
+  }
   await click("inspect-toggle");
   await click("inspect-read-pixel");
-  await clickCanvasPointNatively(sessionId, '[data-testid="inspect-overlay"]', (opaque.x + 0.5) / 320, (opaque.y + 0.5) / 224,
+  await clickCanvasPointNatively(sessionId, '[data-testid="inspect-overlay"]', (pointOnScreen.x + 0.5) / 320, (pointOnScreen.y + 0.5) / 224,
     "Ler o pixel da pilastra no quadro pausado");
   const color = `#${after.opaque.slice(0, 3).map((value) => value.toString(16).padStart(2, "0")).join("")}`;
   await waitFor(async () => executeScript(sessionId, `const text = document.querySelector('[data-testid="inspect-pixel-result"]')?.textContent;
     return text?.includes(arguments[0]) && text.includes('desconhecida');`, [color]), 10000,
   "A leitura do quadro pausado não apresentou a cor observada, com origem desconhecida.", 100);
   addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-pixel-core.png`), "Ponto lido no quadro pausado");
-  addReportStep(report, "point_aperture_priority_and_control_in_core", "passed", {
-    before, after, low, high, gap, opaque, aperture, ...(regional ? { adjacent, region: expectedRegion } : {}),
-  });
+  addReportStep(report, "paused_view_reports_observed_pixel", "passed", { pointOnScreen, color });
+}
+
+async function verifyLinkedAtlasEdit(sessionId, projectDir, report, prefix, timeoutMs) {
+  const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  const state = () => readAutomationState(sessionId);
+  const disk = async () => JSON.parse(await readFile(path.join(projectDir, "scenes", "main.json"), "utf8"));
+  const byId = (scene, id) => scene.entities.find((entity) => entity.entity_id === id);
+  const sprite = (scene, id) => byId(scene, id).components.sprite;
+  const originalPath = sprite(await disk(), "raposa").asset;
+  const original = await readFile(path.join(projectDir, originalPath));
+  const observed = async (label) => {
+    const built = await runBuildRunAndCollect(sessionId, label, timeoutMs, report, `${prefix}-${label}`, { nativeClick: true });
+    await click("viewport-pause");
+    await waitFor(async () => (await state())?.emulPaused, 15000, "A ROM do atlas não pausou.", 100);
+    const warmed = await invokeCoreObserveCommand(sessionId, "emulator_run_frames", { frames: 120 });
+    if (!warmed?.ok) fail("O core não avançou para a sala do atlas.");
+    const samples = await executeAsyncScript(sessionId, `
+      const rom = arguments[0], done = arguments[arguments.length - 1];
+      const invoke = window.__TAURI__?.core?.invoke ?? window.__TAURI_INTERNALS__?.invoke;
+      (async () => {
+        const samples = [];
+        for (let i = 0; i < 40; i++) {
+          const advance = await invoke('emulator_run_frames', {frames: 1});
+          const frame = await invoke('emulator_observe', {});
+          if (!advance?.ok || !frame?.ok || frame.rom_sha256 !== rom || !frame.disk_matches_loaded || frame.framebuffer_width !== 320
+              || samples.length && samples.at(-1).at + 1 !== frame.frames_run) throw Error('Quadro ou identidade do core incorretos.');
+          const strip = (left) => {
+            const bytes = [];
+            for (let y = 144; y < 160; y++) {
+              const start = (y * 320 + left) * 4;
+              bytes.push(...frame.framebuffer_rgba.slice(start, start + 64));
+            }
+            return btoa(String.fromCharCode(...bytes));
+          };
+          samples.push({at: frame.frames_run, target: strip(64), control: strip(208)});
+        }
+        return samples;
+      })().then(done, (error) => done({error: String(error)}));
+    `, [built.rom_sha256]);
+    if (!Array.isArray(samples) || samples.length !== 40) fail(`Amostra do atlas incompleta: ${JSON.stringify(samples)}`);
+    const cycle = (actor, period) => {
+      const keys = samples.map((sample) => createHash("sha256").update(Buffer.from(sample[actor], "base64")).digest("hex"));
+      const first = keys.slice(0, period);
+      if (new Set(first).size !== 3 || keys.some((key, index) => key !== first[index % period])) {
+        fail(`Cadência inesperada no recorte ${actor} da ROM ${built.rom_sha256}.`);
+      }
+      return first.map((_, index) => [...first.slice(index), ...first.slice(0, index)].join(" ")).sort()[0].split(" ");
+    };
+    return { rom: built.rom_sha256, core: await collectCoreIdentity(await invokeCoreObserve(sessionId)),
+      target: cycle("target", 18), control: cycle("control", 17) };
+  };
+  await setSessionWindowRect(sessionId, 1366, 768);
+  await click("unified-topbar-menu-trigger");
+  await click("workspace-reset-layout");
+  const baseline = await observed("atlas-original");
+  const before = await disk();
+  await selectPoseActorsOnCanvas(sessionId, [["testemunha", 216], ["raposa", 72]]);
+  await click("viewport-open-animation");
+  await click("character-occurrence-o2");
+  await click("character-open-pixels");
+  const activeFrame = (index) => executeScript(sessionId,
+    `return document.querySelector('[data-testid="pixel-frame-' + arguments[0] + '"]')?.dataset.active === 'true';`, [index]);
+  await waitFor(() => activeFrame(1), 15000, "Pixels não abriu na imagem da ocorrência 2.", 100);
+  await click("pixel-frame-move-left");
+  await waitFor(() => activeFrame(0), 10000, "A imagem não passou para o primeiro índice.", 100);
+  await click("pixel-frame-remove");
+  await click("pixel-save");
+  await waitFor(async () => executeScript(sessionId,
+    `return document.querySelector('[data-testid="pixel-status"]')?.textContent.includes('é usado em');`),
+  10000, "A ferramenta aceitou apagar uma imagem usada em duas ocorrências.", 100);
+  if (!isDeepStrictEqual(await disk(), before) || !original.equals(await readFile(path.join(projectDir, originalPath)))) {
+    fail("A recusa de remover a imagem alterou a fase ou o PNG original.");
+  }
+  await webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [{
+    type: "key", id: "pixel-undo", actions: [
+      { type: "keyDown", value: "\uE009" }, { type: "keyDown", value: "z" }, { type: "keyUp", value: "z" }, { type: "keyUp", value: "\uE009" },
+    ],
+  }] });
+  await waitFor(async () => executeScript(sessionId, `return !!document.querySelector('[data-testid="pixel-frame-2"]');`),
+    10000, "Desfazer não recuperou a imagem do atlas.", 100);
+  await click("pixel-save");
+  const after = await waitFor(async () => {
+    const saved = await disk();
+    return sprite(saved, "raposa").asset !== originalPath ? saved : false;
+  }, 20000, "O atlas reordenado não foi vinculado à instância.", 100);
+  const verifyScene = (saved) => {
+    const oldSprite = sprite(before, "raposa");
+    const newSprite = sprite(saved, "raposa");
+    const expected = structuredClone(oldSprite);
+    expected.asset = newSprite.asset;
+    expected.animations.passo.frames = [1, 0, 2, 0];
+    expected.animations.passo.hitboxes[0].frame = 0;
+    const published = { ...newSprite };
+    if (published.meta_sprite === false && expected.meta_sprite === undefined) delete published.meta_sprite;
+    if (!isDeepStrictEqual(published, expected) || !isDeepStrictEqual(byId(saved, "testemunha"), byId(before, "testemunha"))
+      || !isDeepStrictEqual(byId(saved, "raposa").transform, byId(before, "raposa").transform)) {
+      fail(`O atlas deslocou dados fora da edição: ${JSON.stringify({ expected, published })}`);
+    }
+  };
+  verifyScene(after);
+  if (!original.equals(await readFile(path.join(projectDir, originalPath)))) fail("O atlas compartilhado foi sobrescrito.");
+  await click("studio-return-origin");
+  await waitFor(async () => (await state())?.studio.focus.occurrenceId === "o2" && (await state())?.activeWorkspace === "artstudio",
+    10000, "O editor de pixels não devolveu a ocorrência original.", 100);
+  await clickTopBarMenuAction(sessionId, "Fechar");
+  await waitFor(async () => !(await state())?.activeProjectDir, 15000, "A fase do atlas não fechou.", 100);
+  await openSavedProjectWizard(sessionId, projectDir);
+  await waitFor(async () => (await state())?.activeProjectDir === projectDir, 30000, "A fase do atlas não reabriu.", 100);
+  verifyScene(await disk());
+  const edited = await observed("atlas-reordenado");
+  if (edited.rom === baseline.rom || !isDeepStrictEqual(edited.target, baseline.target) || !isDeepStrictEqual(edited.control, baseline.control)) {
+    fail("A troca de índices alterou os pixels ou a cadência no core.");
+  }
+  addReportStep(report, "atlas_reordered_with_occurrences_and_shared_use_intact", "passed", { baseline, edited });
 }
 
 async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
   const revision = process.env.RDS_POSE_PROOF || "baseline";
-  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace", "occlusion", "occlusion-region"].includes(revision)) {
-    fail("RDS_POSE_PROOF deve ser baseline, aligned-4, journey, events, boxes, playback, workspace, occlusion ou occlusion-region.");
+  const occlusionModes = ["occlusion", "occlusion-region", "occlusion-motion"];
+  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace", "linked-atlas", ...occlusionModes].includes(revision)) {
+    fail("RDS_POSE_PROOF deve ser baseline, aligned-4, journey, events, boxes, playback, workspace, linked-atlas, occlusion, occlusion-region ou occlusion-motion.");
   }
   const prefix = `pose-cadence-${artifactTimestamp()}`;
   const report = { scenario: "pose-cadence", fixture: path.basename(projectDir), revision, status: "failed", samples: [], steps: [], artifacts: [] };
@@ -17645,11 +17810,19 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
     if (report.atlasSha256 !== "8f104172610518705021450603f04bfd4d2fc0ed997e7c71de21cdb54874c735") fail("O atlas da prova mudou.");
     const atlas = decodeWindowPng(atlasBytes);
     report.executableSha256 = createHash("sha256").update(await readFile(app)).digest("hex");
-    if (revision === "occlusion" || revision === "occlusion-region") {
+    if (revision === "linked-atlas") {
+      await openSavedProjectWizard(sessionId, projectDir);
+      await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir,
+        60000, "A sala do atlas não abriu.", 200);
+      await verifyLinkedAtlasEdit(sessionId, projectDir, report, prefix, timeoutMs);
+      report.status = "passed";
+      return;
+    }
+    if (occlusionModes.includes(revision)) {
       await openSavedProjectWizard(sessionId, projectDir);
       await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir,
         60000, "A sala da pilastra não abriu.", 200);
-      await verifyPointAndOcclusion(sessionId, projectDir, report, prefix, timeoutMs, revision === "occlusion-region");
+      await verifyPointAndOcclusion(sessionId, projectDir, report, prefix, timeoutMs, revision !== "occlusion", revision === "occlusion-motion");
       report.status = "passed";
       return;
     }
