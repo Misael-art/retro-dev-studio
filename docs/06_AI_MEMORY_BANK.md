@@ -81,6 +81,16 @@ referência seguem abertos. A execução dedicada de `9bf900f` passou nos oito
 cenários SNES. A [matriz da jornada](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#conferência-por-item-da-autoria-de-fase)
 vincula capturas, ROMs e binários. O operador ainda está sem participantes.
 
+Em `924cf2d`, as quatro combinações de sala e largura passaram no Tauri
+Linux e Windows. Em ambos, a região alta da pilastra foi marcada no Canvas,
+ajustada numericamente, desfeita, refeita, gravada e reaberta. O core exibiu
+o novo pixel na sobreposição e conservou o vão, o tile vizinho e a testemunha.
+A execução Windows de referência avançou da árvore ao arraste de camada e
+parou no hit-test do palco. As provas e a fase regional estão na
+[matriz da jornada](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#conferência-por-item-da-autoria-de-fase).
+O frontend focal do lote de atlas e densidade passou em árvore, lint, tipos
+e 95 testes. A prova Tauri/ROM do atlas reordenado ainda está aberta.
+
 ### Continuidade antes da formatação — 2026-11-22
 
 Retomar na branch `codex/new-host-cohesion-20261024`, pelo
