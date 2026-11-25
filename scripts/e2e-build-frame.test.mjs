@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import { createHash } from "node:crypto";
-import { matchPoseCadence } from "./qa/pose-cadence.mjs";
+import { locatePoseFoot, matchPoseCadence } from "./qa/pose-cadence.mjs";
 
 describe("cadence from cropped core frames", () => {
   const poses = ["a", "b", "c", "b"];
@@ -25,6 +25,35 @@ describe("cadence from cropped core frames", () => {
     expect(() => matchPoseCadence(capture([5, 2, 7, 3]), poses, durations)).toThrow(/Cadência/);
     expect(() => matchPoseCadence(Array(48).fill("still"), poses, durations)).toThrow(/Cadência/);
     expect(() => matchPoseCadence(capture(durations).slice(0, 17), poses, durations)).toThrow(/dois ciclos/);
+  });
+
+  it("locates the marked foot on the original artwork across backgrounds and offsets", () => {
+    const source = `
+      import { decodeWindowPng } from "./scripts/e2e-tauri-build-run.mjs";
+      import { readFileSync } from "node:fs";
+      const atlas = decodeWindowPng(readFileSync("data/reference_platformer_art/fox-five-frame-32-runtime.png"));
+      process.stdout.write(JSON.stringify({ ...atlas, pixels: atlas.pixels.toString("base64") }));`;
+    const atlas = JSON.parse(execFileSync(process.execPath, ["--input-type=module", "-e", source], { encoding: "utf8" }));
+    atlas.pixels = Buffer.from(atlas.pixels, "base64");
+    function render(image, dx, dy, background) {
+      const out = Buffer.alloc(32 * 32 * 4, background);
+      for (let y = 0; y < 32; y += 1) {
+        for (let x = 0; x < 32; x += 1) {
+          const offset = (y * atlas.width + image * 32 + x) * 4;
+          if (atlas.pixels[offset + 3] === 255) {
+            const dest = ((y + dy) * 32 + x + dx) * 4;
+            atlas.pixels.copy(out, dest, offset, offset + 4);
+          }
+        }
+      }
+      return out;
+    }
+    expect(locatePoseFoot(atlas, 0, render(0, 0, 0, 80))).toEqual([14, 27]);
+    expect(locatePoseFoot(atlas, 1, render(1, 0, 0, 19))).toEqual([13, 26]);
+    expect(locatePoseFoot(atlas, 1, render(1, 1, 1, 81))).toEqual([14, 27]);
+    expect(locatePoseFoot(atlas, 1, render(1, -1, 1, 81))).toEqual([12, 27]);
+    expect(() => locatePoseFoot(atlas, 0, render(1, 0, 0, 19))).toThrow(/0 correspondências/);
+    expect(() => locatePoseFoot(atlas, 1, Buffer.alloc(32 * 32 * 4))).toThrow(/0 correspondências/);
   });
 });
 

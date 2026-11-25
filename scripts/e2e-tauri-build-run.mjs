@@ -35,7 +35,7 @@ import {
 } from "./ui-layout-oracle.mjs";
 import { diagnose as diagnoseHost } from "./host-manager.mjs";
 import { renderSonicFrameReference } from "./qa/sonic-frame-reference.mjs";
-import { matchPoseCadence } from "./qa/pose-cadence.mjs";
+import { locatePoseFoot, matchPoseCadence } from "./qa/pose-cadence.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16994,8 +16994,13 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
   const expectedControl = [5, 3, 7, 2];
   // Retângulos fixados na fixture antes de observar o jogo.
   const regions = { target: [64, 136, 32, 32], control: [208, 136, 32, 32], backdrop: [1, 110, 8, 8] };
+  const crops = new Map();
   try {
     report.expected = { target: expectedTarget, control: expectedControl, regions };
+    const atlasBytes = await readFile(path.join(repoRoot, "data/reference_platformer_art/fox-five-frame-32-runtime.png"));
+    report.atlasSha256 = createHash("sha256").update(atlasBytes).digest("hex");
+    if (report.atlasSha256 !== "8f104172610518705021450603f04bfd4d2fc0ed997e7c71de21cdb54874c735") fail("O atlas da prova mudou.");
+    const atlas = decodeWindowPng(atlasBytes);
     report.executableSha256 = createHash("sha256").update(await readFile(app)).digest("hex");
     const sceneBytes = await readFile(path.join(projectDir, "scenes", "main.json"));
     report.sceneSha256 = createHash("sha256").update(sceneBytes).digest("hex");
@@ -17029,12 +17034,14 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
       const pixels = Buffer.from(frame.framebuffer_rgba);
       const sample = { frame: frame.frames_run };
       for (const [name, [x, y, width, height]] of Object.entries(regions)) {
-        const hash = createHash("sha256");
+        const rows = [];
         for (let row = y; row < y + height; row += 1) {
           const start = 4 * (row * frame.framebuffer_width + x);
-          hash.update(pixels.subarray(start, start + width * 4));
+          rows.push(pixels.subarray(start, start + width * 4));
         }
-        sample[name] = hash.digest("hex");
+        const crop = Buffer.concat(rows);
+        sample[name] = createHash("sha256").update(crop).digest("hex");
+        if (name !== "backdrop") crops.set(sample[name], crop);
       }
       report.samples.push(sample);
     }
@@ -17043,6 +17050,22 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
     report.control = matchPoseCadence(report.samples.map((s) => s.control), images, expectedControl);
     report.target = matchPoseCadence(report.samples.map((s) => s.target),
       revision === "baseline" ? images : [0, "aligned", 2, 1], expectedTarget);
+    report.feet = [];
+    for (const actor of ["control", "target"]) {
+      for (const occurrence of [0, 1, 3]) {
+        const image = images[occurrence];
+        const aligned = actor === "target" && revision === "aligned-4" && occurrence === 1;
+        const hash = report[actor].hashesByPose[aligned ? "aligned" : image];
+        const observed = locatePoseFoot(atlas, image, crops.get(hash));
+        const expected = image === 0 || aligned ? [14, 27] : [13, 26];
+        const [x, y] = regions[actor];
+        report.feet.push({ actor, occurrence: occurrence + 1, hash, expected, observed,
+          screen: [x + observed[0], y + observed[1]] });
+        if (observed[0] !== expected[0] || observed[1] !== expected[1]) {
+          fail(`Apoio divergente no ator ${actor}, ocorrência ${occurrence + 1}: ${observed} (esperado ${expected}).`);
+        }
+      }
+    }
     report.status = "passed";
   } catch (error) {
     report.error = String(error);
