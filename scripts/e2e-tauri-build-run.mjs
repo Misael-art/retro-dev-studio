@@ -16983,6 +16983,50 @@ async function runCameraWorkflowScenario(sessionId, timeoutMs, onProjectCreated)
   finally{await closeGame().catch(()=>{});await writeFile(path.join(artifactDir,"report.json"),JSON.stringify(report,null,2));await writeFile(path.join(validationDir,`${prefix}.json`),JSON.stringify(report,null,2));}
 }
 
+async function observePoseEditorAccess(sessionId, report, prefix) {
+  const start = Date.now();
+  const access = { steps: [] };
+  report.editorAccess = access;
+  access.window = await executeScript(sessionId,
+    "return { cssWidth: innerWidth, cssHeight: innerHeight, scale: devicePixelRatio };");
+  const capture = async (label) => {
+    const state = await readAutomationState(sessionId);
+    access.steps.push({ label, elapsedMs: Date.now() - start, workspace: state.activeWorkspace,
+      entity: state.selectedEntityId, zoom: state.viewportZoom, undoDepth: state.undoDepth,
+      sceneRevision: state.sceneRevision, focus: state.studio?.focus });
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${label}.png`), label);
+    return state;
+  };
+  const before = await capture("sala");
+  if (before.activeWorkspace !== "scene") await clickButtonByTestIdNativeWhenReady(sessionId, "workspace-rail-scene");
+  if (before.editorMode !== "select") await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-tool-select");
+  const bounds = (await readAutomationState(sessionId)).activeScene.worldBounds;
+  await clickCanvasPointNatively(sessionId, '[data-testid="viewport-scene-overlay"]',
+    (80 - bounds.minX) / bounds.width, (152 - bounds.minY) / bounds.height, "Selecionar a raposa da esquerda");
+  await waitFor(async () => (await readAutomationState(sessionId))?.selectedEntityId === "raposa",
+    10000, "O clique no Canvas não selecionou a raposa da esquerda.", 100);
+  const selected = await capture("selecao-canvas");
+  await clickButtonByTestIdNativeWhenReady(sessionId, "inspector-open-character");
+  const surface = await waitFor(async () => executeScript(sessionId, `
+    if (document.querySelector('[data-testid="character-timeline"]')) return "character-timeline";
+    if (document.querySelector('[data-testid="artstudio-mode-prepare"]')) return "artstudio";
+    return null;
+  `), 30000, "A Arte não apresentou a superfície do objeto.", 150);
+  access.surface = surface;
+  access.occurrenceAvailable = await executeScript(sessionId,
+    `return !!document.querySelector('[data-testid="character-occurrence-o2"]');`);
+  if (access.occurrenceAvailable) await clickButtonByTestIdNativeWhenReady(sessionId, "character-occurrence-o2");
+  await capture("arte-do-ator");
+  await clickButtonByTestIdNativeWhenReady(sessionId, "studio-return-origin");
+  await waitFor(async () => (await readAutomationState(sessionId))?.activeWorkspace === "scene",
+    15000, "O retorno da Arte não reabriu a cena.", 100);
+  const returned = await capture("retorno-cena");
+  if (returned.selectedEntityId !== selected.selectedEntityId || returned.viewportZoom !== selected.viewportZoom
+    || returned.undoDepth !== selected.undoDepth || returned.sceneRevision !== selected.sceneRevision) {
+    fail("O retorno da Arte alterou seleção, zoom, revisão ou histórico da cena.");
+  }
+}
+
 // Mede pixels no core, depois do Build & Run pelo desktop. O cenário recebe
 // uma das salas de create-pose-authoring-demo.mjs (ou sua revisão editada).
 async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
@@ -17013,7 +17057,15 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
     await openSavedProjectWizard(sessionId, projectDir);
     await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir,
       60000, "A sala de poses não abriu.", 200);
-    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-scene.png`), "Sala aberta no editor");
+    if (revision === "baseline") {
+      try {
+        await observePoseEditorAccess(sessionId, report, prefix);
+      } catch (error) {
+        report.editorAccessError = String(error);
+        const shot = await captureScreenshot(sessionId, `${prefix}-acesso-falhou.png`).catch(() => null);
+        if (shot) addReportArtifact(report, shot, "Acesso à edição de poses");
+      }
+    }
     report.build = await runBuildRunAndCollect(sessionId, "ensaio de poses", timeoutMs, report, prefix, { nativeClick: true });
     await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-pause");
     await waitFor(async () => (await readAutomationState(sessionId))?.emulPaused, 15000, "A ROM não pausou.", 100);
@@ -17066,6 +17118,7 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
         }
       }
     }
+    if (report.editorAccessError) fail(report.editorAccessError);
     report.status = "passed";
   } catch (error) {
     report.error = String(error);
