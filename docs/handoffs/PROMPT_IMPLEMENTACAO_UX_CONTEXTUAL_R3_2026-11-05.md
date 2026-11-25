@@ -19,6 +19,20 @@ Na conferência visual de cada lote, use o [índice dos 12 mockups de Porto das 
 3. Faça o diagnóstico fresco conforme o launcher do sistema. No Linux recém-instalado, comece por `bash scripts/new-host.sh --plan`. Use o provisionamento e os locks do projeto até obter `READY` antes de alterar o produto. Aplique o protocolo Fôlego/host vigente, com estimativas e medição de RAM, CPU/PSI, swap, I/O, disco e margem térmica antes e durante cargas pesadas. Comece com um job e serialize build, QA desktop e suítes. Preserve os projetos, os processos alheios e o acervo privado. Downloads grandes e ações externas seguem os limites vigentes.
 4. Reproduza primeiro `code-draft-roundtrip` e `code-instance-scope` no Tauri, seguindo a qualificação Linux/Windows do incremento C em andamento. Construa uma fase autoral pequena e uma variante densa a partir de fixtures do projeto. Na interface atual, registre como selecionar o objeto, alterar uma pose, desfazer, salvar, jogar e retornar. Guarde capturas, tempo, trocas de painel e erros para repetir as tarefas no candidato.
 
+### Preservar o que já funciona em cada revisão
+
+Pedido do operador em 24/11. Ao mexer numa tela, comece pela [matriz existente de jornadas J00–J15](PROMPT_RETOMADA_COESAO_PRODUTO_2026-10-24.md) e pelos recursos alcançáveis hoje nessa tela. Para cada caminho afetado registre o comando ou gesto anterior, seleção inicial, resultado observável, como chegar pelo candidato e o recibo do teste. Inclua ações que estão em menus, atalhos ou painéis recolhidos. Faça a mesma tarefa com a mesma fixture nas duas revisões. Quando o acesso mudar de lugar, demonstre como chegar ao controle, editar com precisão, desfazer e voltar ao mesmo objeto.
+
+| Ao alterar | O que precisa sobreviver à alteração | Onde conferir |
+|---|---|---|
+| Shell, painéis, tema e foco | Navegação global esquerda, faixa contextual, modos de exibição, acesso por teclado, redimensionamento, retorno do foco, seleção e preferências ao reabrir. | J00, `onboarding-shell`, `studio-appearance` e os testes de layout e da barra de contexto. Compare também a janela estreita. |
+| Canvas, camadas, arte e arquivos | Seleção de instância, campos numéricos, posição e prioridade, paletas, trajetos, grade, pintura e colisão. Importar, colar ou substituir um recurso conserva origem, consumidores e possibilidade de cancelar. | J02–J06 e J08. Use `reference-platformer`, `image-ingress` e a jornada de personagem do importador tocado. Confira no core as mudanças que chegam ao jogo. |
+| Animação, Nós e Código | Ocorrências que repetem arte conservam identidade. Edição de instância e de definição compartilhada têm alcances distintos. Preservar rascunho, Undo/Redo, salvamento, reabertura e as conexões dos grafos existentes. | J03–J04, J09 e J14, `nodegraph-authoring`, `code-draft-roundtrip`, `code-instance-scope` e `draft-recovery`. |
+| Jogar, áudio, diagnósticos e exportação | Continuar, pausar, avançar um quadro, entrada, áudio e retorno à edição. Preservar a identidade da ROM, o aviso de revisão desatualizada, os limites de recursos e os caminhos existentes de Mega Drive e SNES. | J01, J07, J10 e J13–J14, com os resultados individuais da matriz desktop por alvo. |
+| Inspeção, REX e superfícies experimentais | Conservar acesso pela navegação e o subconjunto comprovado de cada perfil. Preservar a origem BYOR e o caminho de geração e aplicação de patches. | J11–J12 e J15, com a prova e o limite registrados para aquele perfil. |
+
+Se um caminho anteriormente comprovado falhar, mantenha o lote aberto até restaurar o comportamento e repetir o caso. Se faltar o insumo para repetir uma jornada, identifique a última prova e a revisão ainda pendente. Os 12 mockups orientam a disposição. A cobertura de funcionalidades vem do inventário e da execução no aplicativo.
+
 ### Ordem de construção e cobertura das 24 capacidades
 
 Use os números do plano para manter **uma linha de aceite por capacidade**, inclusive quando várias couberem no mesmo incremento. Registre o acesso anterior e o novo, o componente responsável, o que falta, o teste e o resultado no candidato. Uma função existente pode ser preservada e revalidada.
