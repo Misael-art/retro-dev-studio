@@ -556,7 +556,7 @@ export default function ExplorerWorkspace({
         </button>
       </div>
 
-      <div className="grid min-h-0 flex-1 gap-0 xl:grid-cols-[320px_minmax(0,1fr)]">
+      <div className="grid min-h-0 flex-1 gap-0 xl:grid-cols-[minmax(180px,30%)_minmax(0,1fr)]">
         <aside className="min-h-0 overflow-auto border-r border-[#27272a] bg-[#0b1120]">
           <div className="space-y-4 p-3">
             {isLegacyOverlayProject ? (
@@ -814,7 +814,7 @@ export default function ExplorerWorkspace({
                       )}
                     </div>
 
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-[min(100%,20rem)] flex-1">
                       <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#cba6f7]">
                         Asset
                       </div>

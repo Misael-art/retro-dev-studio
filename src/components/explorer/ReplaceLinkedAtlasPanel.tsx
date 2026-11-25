@@ -13,6 +13,7 @@ import { useEditorStore } from "../../core/store/editorStore";
 const atlasPattern = /^assets\/sprites\/pixel\/[^/]+\.png$/i;
 const documentFor = (asset: string) => asset.replace(/\.png$/i, ".rdspixel.json");
 const control = "rounded border border-[var(--rds-border-default)] bg-[var(--rds-surface-base)] px-2 py-1 disabled:opacity-40";
+const selectControl = `${control} block w-full min-w-0 truncate`;
 
 type Atlases = {
   old: PixelDoc;
@@ -136,11 +137,11 @@ export default function ReplaceLinkedAtlasPanel({ projectDir, asset, assets, sce
   };
 
   return (
-    <details data-testid="explorer-replace-atlas" className="mt-3 rounded border border-[var(--rds-border-subtle)] p-3 text-xs"
+    <details data-testid="explorer-replace-atlas" className="mt-3 min-w-0 rounded border border-[var(--rds-border-subtle)] p-3 text-xs"
       onToggle={(event) => { if (!event.currentTarget.open) reset(); }}>
       <summary className="cursor-pointer font-semibold">Substituir atlas mantendo vínculos</summary>
       <div className="mt-2 grid gap-2">
-        <label>Alcance <select className={control} value={scope} disabled={busy} onChange={(event) => {
+        <label>Alcance <select className={selectControl} value={scope} disabled={busy} onChange={(event) => {
           reset();
           setScope(event.target.value === "scene" ? "scene" : "instance");
         }}>
@@ -148,7 +149,7 @@ export default function ReplaceLinkedAtlasPanel({ projectDir, asset, assets, sce
           <option value="scene">Usos de sprite desta fase</option>
         </select></label>
         <p>{owners.length ? `Objetos afetados: ${owners.map(actorName).join(", ")}.` : "Escolha uma instância no cartão do atlas."}</p>
-        <label>Atlas de destino <select data-testid="explorer-atlas-destination" className={control} value={nextAsset} disabled={busy}
+        <label>Atlas de destino <select data-testid="explorer-atlas-destination" className={selectControl} value={nextAsset} disabled={busy}
           onChange={(event) => { reset(); setNextAsset(event.target.value); }}>
           <option value="">Escolher atlas de pixels do projeto</option>
           {candidates.map((item) => <option key={item.relative_path} value={item.relative_path}>{item.relative_path}</option>)}
@@ -157,7 +158,7 @@ export default function ReplaceLinkedAtlasPanel({ projectDir, asset, assets, sce
           onClick={() => void load()}>Conferir quadros</button>}
         {atlases && <>
           <p>Escolha um quadro de destino distinto para cada imagem usada.</p>
-          {required.map((frame) => <label key={frame}>Imagem {frame + 1} → <select data-testid={`explorer-atlas-map-${frame}`} className={control} value={mapping[frame] ?? -1} disabled={busy}
+          {required.map((frame) => <label key={frame}>Imagem {frame + 1} → <select data-testid={`explorer-atlas-map-${frame}`} className={selectControl} value={mapping[frame] ?? -1} disabled={busy}
             onChange={(event) => { setMapping({ ...mapping, [frame]: Number(event.target.value) }); setCompared(null); }}>
             <option value={-1}>Escolher correspondência</option>
             {atlases.next.frames.map((image, index) => <option value={index} key={index}>Imagem {index + 1} · {image.id}</option>)}

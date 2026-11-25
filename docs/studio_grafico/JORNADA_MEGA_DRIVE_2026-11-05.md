@@ -917,3 +917,14 @@ O Tauri `45795d8379998a74ba095fadf29b92d4ef613127` tem SHA-256 `fe306572a90c42d6
 | Terreno | `d2851edab1f8a7c9426c88bd90167faa4ae8c04435da28821462ec331d82bf07` | `5a56e7018bc0e0a57b836f89522f5c01ae160907a987b6c2fff26199d2b43250` |
 
 Na Cor transparente, a prévia foi enquadrada em 2× e o editor após Refazer em 4×. As capturas exibem o recorte, com tons diferentes do fundo quadriculado. A repetição mede o pixel aplicado antes de comparar o histórico. Nos três efeitos móveis, o recorte derivado apenas da RAM da câmera perdeu a cadência. A repetição usa um marcador visível para identificar o deslocamento apresentado em cada quadro. A emenda apareceu parcialmente cortada pelo painel de tiles. A réplica foi ajustada para revelar o Canvas ao aplicar o trecho. O traço parou antes da amostra inicial. O painel agora captura RAM e estado inicial na mesma abertura de gravação, com diagnóstico no caso de divergência. Esses casos seguem em repetição. Cópias e recibos em `sessions/win-45795d8-QDbR0EKX/`.
+
+### Conferência visual da autoria no Tauri Windows
+
+Capturas da janela de 1366×768 no executável `fe306572…`. Os arquivos estão no [artefato da execução dedicada](https://github.com/Misael-art/retro-dev-studio/actions/runs/45628201576/artifacts/15029219547).
+
+1. **Iluminar e identificar o alcance.** Em `…T14-07-53-226Z-variante.png`, a seleção e a raposa de controle aparecem juntas. Propriedades indica que só o objeto selecionado usa a variante. O aviso de recompilação permanece visível.
+2. **Escolher a instância e comparar o atlas.** Em `…T14-08-25-208Z-comparacao-atlas.png`, os três vínculos, o banco, o pivô e a caixa aparecem juntos. O caminho do arquivo amplia a coluna e deixa Confirmar no limite da área rolável. A coluna do catálogo foi reduzida proporcionalmente e os seletores passaram a caber na área disponível. A captura posterior ainda precisa ser conferida.
+3. **Corrigir uma célula com precisão.** Em `…T14-09-06-709Z-terreno.png`, as coordenadas, a família selecionada e a confirmação de salvamento são visíveis. Em `…T14-09-38-246Z-failure.png`, a prévia de emenda ficou abaixo do limite do painel. A aplicação do trecho passou a revelar o Canvas da emenda. O gesto e a edição por coordenadas aguardam a repetição.
+4. **Comparar a máscara antes e depois de Refazer.** As capturas `…T14-04-38-647Z-previa.png` e `…T14-04-38-647Z-failure.png` mostram o recorte em escalas diferentes. O reconhecimento do recorte no teste passa a usar os pixels da edição aplicada, mantendo a comparação da máscara no arquivo e na ROM.
+
+Essas observações cobrem o estado visível dos controles e o acesso usado na automação. Encontrabilidade, compreensão do alcance, leitura assistiva e tempo de conclusão dependem das sessões com participantes e das provas de teclado e escala ainda abertas.
