@@ -4,6 +4,8 @@
 
 O [prompt para o agente implementador](../handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#prompt-entrega-integral-workspace) acrescenta as nove ferramentas de produção e reúne o escopo, a ordem de execução e as provas para entrega.
 
+Para a conferência visual, consulte o [registro dos 12 mockups de Porto das Lanternas](#referencia-visual-20261124), com o índice, os locais de recuperação e o manifesto de integridade.
+
 **Status: diretriz de produto registrada; proposta técnica/visual para validação do operador, antes da implementação.** Pedidos de 2026-11-08. Foco atual de implementação: Mega Drive. Esta entrega contém avaliação, plano e mockups. Nenhuma capacidade abaixo foi implementada por esta tarefa, nenhum projeto de jogo foi reorganizado e nenhuma validação de runtime é inferida das imagens.
 
 ## 1. Objetivo e alcance
@@ -516,5 +518,36 @@ Três complementos ajudam no uso diário: **Comparar** alterna original e prévi
 Usar o [roteiro de validação humana existente](ROTEIRO_VALIDACAO_HUMANA.md). Em projetos equivalentes, alternar a ordem entre interface atual e candidata. Pedir a iniciantes e experientes para ajustar uma pose, passar um ator atrás da pilastra e modificar a ondulação enquanto a câmera acompanha o jogo. Registrar conclusão sem ajuda, tempo até a primeira prévia e até a ROM, trocas de painel, retornos à seleção errada e capacidade de desfazer. Proposta de aceite para o piloto: zero perda de edição ou troca de instância, iniciantes completam o percurso principal sem orientação e a mediana de trocas de painel cai sem piorar o tempo dos experientes. Publicar também tentativas incompletas, tamanho da amostra e causas observadas.
 
 A saída de cada lote registra o SHA do candidato, a cena usada, o que foi visto no Tauri, a revisão/SHA da ROM carregada e as limitações do alvo. Para o lote documental de 24/11, a próxima ação executável permanece a qualificação já registrada. A primeira mudança de interface proposta depois dela é a jornada de uma animação no Canvas.
+
+<a id="referencia-visual-20261124"></a>
+
+### 11.7 Referência visual para conferência futura · 24/11/2026
+
+Por solicitação do operador, fica preservado o conjunto **Maré Alta / Porto das Lanternas**, produzido com ImageGen a partir do plano e do prompt presentes em `b434edea5c17`. As 12 imagens conceituais usam a personagem Lia para relacionar as telas. Poses, parâmetros, revisões de ROM e medições desenhadas são exemplos de design. A implementação deve ser conferida no Tauri e, quando a mudança afetar o jogo, na ROM identificada.
+
+| Imagem | O que comparar na implementação |
+|---|---|
+| `01-cena.png` | Ao selecionar Lia, a navegação global continua acessível. Propriedades, Canvas e Camadas identificam o mesmo objeto. |
+| `02-animacao.png` | O segundo quadro da corrida mostra 4 ticks, pé de apoio, âncoras e prévia no cenário. |
+| `03-arte.png` | Editar a borda do tile de água preserva o contexto da paleta e permite conferir a emenda na repetição 3×3. |
+| `04-arquivos.png` | Substituir a arte mostra o recurso anterior, o novo, as ocorrências e o alcance da mudança. |
+| `05-logica.png` | A coleta do anel liga condição, contador, brilho e som. O atraso sonoro aparece também na sequência temporal. |
+| `06-codigo.png` | A edição vinculada à segunda ocorrência mostra os mesmos 4 ticks da timeline e oferece retorno à cena. |
+| `07-efeitos.png` | A comparação da água indica o plano, a faixa afetada e os parâmetros da ondulação. |
+| `08-teste.png` | A revisão carregada, os controles de execução e a prévia dos extremos do HUD têm identificação própria. |
+| `09-depurar.png` | O quadro pausado apresenta os dois saltos, seus pontos de saída, ápice e pouso e a origem das medidas e estimativas. |
+| `10-workspace.png` | A timeline destacada conserva o contexto e mostra onde reencaixar o painel e restaurar a disposição. |
+| `11-terreno.png` | A faixa pintada com gelo, sua regra e o trajeto da plataforma podem ser conferidos diretamente no Canvas. |
+| `12-efeitos-sprite.png` | Recorte por cor, Fantasma, giro e luz podem ser comparados sobre a mesma cena, com alcance e técnica visíveis. |
+
+**Onde abrir.** A pasta privada `sessions/mockups-workspace-20261124/` fica no runtime do projeto. Neste host, o caminho é `$HOME/RetroDevStudio-work/sessions/mockups-workspace-20261124/`. Abra `galeria.html` para ampliar cada tela ou `prancha-geral.png` para ver o conjunto. O arquivo `retrodev-studio-mockups.zip` contém essas duas peças e os 12 PNGs individuais. Uma segunda cópia do ZIP e do manifesto foi gravada e relida no cartão WindowsSD, em `Documents/RetroDevStudio-Mockups-20261124` do perfil Deck. O NVMe e o cartão foram identificados como dispositivos distintos.
+
+**Como verificar e recuperar.** O ZIP tem 27.533.064 bytes e SHA-256 `8c2fbc595081f0fe76a152922a92621dd79c6248be842f01c3902b9143fa0f1b`. O [manifesto versionado](../../data/studio_grafico/mockups-workspace-20261124.sha256) identifica os 15 arquivos. Para recuperar, copie o ZIP para uma pasta vazia, confira seu SHA-256, extraia os 14 itens nessa pasta e conserve o ZIP junto deles. Na pasta da galeria completa, execute o comando abaixo com o caminho para o manifesto do checkout. No registro de 24/11, os arquivos da galeria e todas as entradas da cópia do cartão foram verificados.
+
+```bash
+sha256sum -c /home/deck/Projects/RetroDevStudio/data/studio_grafico/mockups-workspace-20261124.sha256
+```
+
+**Como usar na revisão.** Coloque a imagem correspondente ao lado da captura da mesma tarefa no candidato. Registre nome da imagem, SHA do candidato, sistema, escala da interface, gesto executado e divergência observada. Confira acesso, precisão, escopo, reversibilidade e retorno à seleção. Para a jornada de animação, use as imagens 01, 02, 06 e 08 em sequência e registre a duração efetivamente observada no core. A aceitação de usabilidade permanece vinculada ao roteiro humano do projeto.
 
 Próximo passo desta tarefa: receber a validação/ajustes do operador sobre o roadmap em série e as cinco vistas complementares, com o grafo espacial integrado como referência para trabalho por nós. A implementação permanece pendente dessa validação explícita, conforme o pedido. Os esclarecimentos sobre abrangência, fluxo de cenas, intercâmbio das esteiras, sequência de produção e autoria bidirecional foram incorporados ao plano; não equivalem a uma autorização para iniciar código nesta rodada.

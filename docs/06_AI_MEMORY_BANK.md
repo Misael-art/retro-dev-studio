@@ -30,6 +30,8 @@ abertos.
 
 **Continuidade do plano.** O [prompt de implementação integral](handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#prompt-entrega-integral-workspace) parte de `7814c9f` e reúne os 24 itens, cinco tratamentos visuais e nove ferramentas de produção com aceite individual. A entrega deste checkpoint é o texto para o agente executor. Permanecem vigentes a qualificação do host e do incremento C antes do primeiro lote de interface.
 
+**Referência visual preservada em 24/11/2026.** O [índice de Porto das Lanternas](studio_grafico/PLANO_AUTO_ORGANIZACAO_LOGICA_ENGINE_2026-11-08.md#referencia-visual-20261124) registra 12 mockups, a prancha e a galeria. O pacote foi verificado no runtime do NVMe e no cartão WindowsSD contra o [manifesto de SHA-256](../data/studio_grafico/mockups-workspace-20261124.sha256). Usar as imagens na comparação futura com o candidato Tauri. A situação das funcionalidades e os aceites de jogo continuam os registrados no roadmap.
+
 Verificações do checkpoint Linux com Node 24.18.0, npm 11.16.0 e Rust 1.97.0:
 estrutura, lint, TypeScript, sintaxe dos launchers, formatação Rust e
 Vitest completo passaram. O Vitest registrou 1453 testes aprovados e 16
