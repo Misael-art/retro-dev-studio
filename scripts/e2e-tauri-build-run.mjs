@@ -19108,36 +19108,52 @@ async function observeAdvancedAuthoringRom(sessionId, projectDir, build) {
   };
   await input();
   for (let warmed = 0; warmed < 90; warmed += 15) await advance(15);
+  const observeRegions = async (regions) => {
+    const frame = await executeAsyncScript(sessionId, `
+      const done = arguments[arguments.length - 1];
+      const [regions] = arguments;
+      const invoke = window.__TAURI__?.core?.invoke ?? window.__TAURI_INTERNALS__?.invoke;
+      if (typeof invoke !== 'function') { done(null); return; }
+      invoke('emulator_observe', {}).then(({ framebuffer_rgba: pixels, ...identity }) => {
+        const crops = regions.map(([left, top, width, height]) => {
+          const rows = [];
+          for (let y = top; y < top + height; y += 1) {
+            const first = 4 * (y * identity.framebuffer_width + left);
+            rows.push(pixels.slice(first, first + width * 4));
+          }
+          return rows.flat();
+        });
+        done({ ...identity, crops });
+      }).catch(() => done(null));
+    `, [regions]);
+    if (!frame?.ok || frame.rom_sha256 !== build.rom_sha256 || !frame.disk_matches_loaded
+        || frame.framebuffer_width !== 320 || frame.framebuffer_height !== 224
+        || regions.some(([, , width, height], i) => frame.crops?.[i]?.length !== width * height * 4)) {
+      fail("O core mostrou uma ROM diferente ou um recorte incompleto.");
+    }
+    return frame;
+  };
   const control = [];
   const magenta = [];
-  const marker = (frame, left, top, width, height) => {
+  const marker = (crop, [left, top, width]) => {
     let x = 320, y = 224, count = 0;
-    for (let row = top; row < top + height; row += 1) {
-      for (let col = left; col < left + width; col += 1) {
-        const i = 4 * (row * frame.framebuffer_width + col);
-        const [r, g, b] = frame.framebuffer_rgba.slice(i, i + 3);
-        if (r < 220 || g > 40 || b < 220) continue;
-        x = Math.min(x, col);
-        y = Math.min(y, row);
-        count += 1;
-      }
+    for (let i = 0; i < crop.length; i += 4) {
+      if (crop[i] < 220 || crop[i + 1] > 40 || crop[i + 2] < 220) continue;
+      const pixel = i / 4;
+      x = Math.min(x, left + pixel % width);
+      y = Math.min(y, top + Math.floor(pixel / width));
+      count += 1;
     }
     return count ? [x, y, count] : null;
   };
+  const regions = [[76, 130, 44, 29], [270, 100, 12, 12], [208, 136, 32, 32]];
   let core;
   for (let i = 0; i < 34; i += 1) {
     await advance();
-    const frame = await invokeCoreObserve(sessionId);
-    if (!frame?.ok || frame.rom_sha256 !== build.rom_sha256 || !frame.disk_matches_loaded
-        || frame.framebuffer_width !== 320 || frame.framebuffer_height !== 224) fail("O core mostrou uma ROM diferente.");
+    const frame = await observeRegions(regions);
     if (!core) core = await collectCoreIdentity(frame);
-    magenta.push({ attached: marker(frame, 76, 130, 44, 29), parked: marker(frame, 270, 100, 12, 12) });
-    const hash = createHash("sha256");
-    for (let y = 136; y < 168; y += 1) {
-      const pixel = (y * 320 + 208) * 4;
-      hash.update(Buffer.from(frame.framebuffer_rgba.slice(pixel, pixel + 32 * 4)));
-    }
-    control.push(hash.digest("hex"));
+    magenta.push({ attached: marker(frame.crops[0], regions[0]), parked: marker(frame.crops[1], regions[1]) });
+    control.push(createHash("sha256").update(Buffer.from(frame.crops[2])).digest("hex"));
   }
   const neutral = await ram("logic_var_marca_som", 4);
   const listening = await executeAsyncScript(sessionId, `
@@ -19163,10 +19179,9 @@ async function observeAdvancedAuthoringRom(sessionId, projectDir, build) {
     await input({ y: true });
     for (let tick = 0; tick < 16; tick += 1) {
       await advance();
-      const frame = await invokeCoreObserve(sessionId);
-      const colorAt = (x, y) => frame.framebuffer_rgba.slice(4 * (y * frame.framebuffer_width + x), 4 * (y * frame.framebuffer_width + x) + 3);
+      const { crops } = await observeRegions([[30, 170, 1, 1], [10, 110, 1, 1]]);
       event.push({ first: await ram("logic_var_marca_inicio", 4), sound: await ram("logic_var_marca_som", 4),
-        runner: colorAt(30, 170), control: colorAt(10, 110), ...(await audio()) });
+        runner: crops[0].slice(0, 3), control: crops[1].slice(0, 3), ...(await audio()) });
     }
     await input();
     for (let tick = 0; tick < 10; tick += 1) {
@@ -19205,6 +19220,8 @@ async function observeAdvancedAuthoringRom(sessionId, projectDir, build) {
 }
 
 async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, timeoutMs) {
+  // A fixed-size screen capture can finish after a host supervision pause.
+  await webdriverRequest("POST", `/session/${sessionId}/timeouts`, { script: 120000 });
   const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
   const input = (id, value) => setInputByTestIdNative(sessionId, id, value);
   const shot = async (id, label) => addReportArtifact(report, await captureScreenshot(sessionId, prefix + "-" + id + ".png"), label);
@@ -19481,15 +19498,18 @@ async function verifyFloatingStudioPanels(sessionId, projectDir, report, prefix,
   await click("character-occurrence-o2");
   const main = (await webdriverRequest("GET", driver)).value;
   const before = await state();
-  const heights = () => executeScript(sessionId, `
-    return ['workspace-primary', 'workspace-timeline'].map((id) => document.getElementById(id)?.getBoundingClientRect().height);
+  const mainLayout = () => executeScript(sessionId, `
+    return { viewport: [innerWidth, innerHeight], panels: ['workspace-primary', 'workspace-timeline']
+      .map((id) => document.getElementById(id)?.getBoundingClientRect().height) };
   `);
-  const layout = await heights();
+  const layout = await mainLayout();
   await enter("float-timeline");
-  await switchChild("timeline", [main]);
+  const timeline = await switchChild("timeline", [main]);
   await check(`return document.querySelector('[data-testid="character-occurrence-o2"]')?.dataset.ticks === "3";`,
     "A timeline flutuante perdeu a ocorrência selecionada.");
-  await setSessionWindowRect(sessionId, 720, 596);
+  await webdriverRequest("POST", driver + "/rect", { width: 720, height: 596 });
+  await check(`return Math.abs(outerWidth - 720) <= 64 && Math.abs(outerHeight - 596) <= 96;`,
+    "O WebDriver não redimensionou a janela da timeline.");
   await focusInPanel("character-duration", true);
   await key("6");
   await key("\uE007");
@@ -19499,10 +19519,22 @@ async function verifyFloatingStudioPanels(sessionId, projectDir, report, prefix,
   await docked("timeline");
   await check(`return document.querySelector('[data-testid="character-occurrence-o2"]')?.dataset.ticks === "6";`,
     "A edição pendente desapareceu ao reencaixar a timeline.");
-  const pending = await state();
-  if (pending.selectedEntityId !== before.selectedEntityId || pending.undoDepth !== before.undoDepth + 1
-      || !isDeepStrictEqual(await heights(), layout)) fail("A janela da timeline mudou a seleção, o histórico ou o tamanho dos painéis.");
-  addReportStep(report, "floating_timeline_keyboard_draft_layout_history", "passed", { layout });
+  await waitFor(async () => !(await handles()).includes(timeline), 8000, "A janela da Timeline ficou aberta.", 100);
+  const identity = (snapshot) => ({ entity: snapshot.selectedEntityId, undo: snapshot.undoDepth });
+  const expected = { ...identity(before), undo: before.undoDepth + 1 };
+  let restored;
+  let pending;
+  try {
+    await waitFor(async () => {
+      restored = await mainLayout();
+      pending = identity(await state());
+      return isDeepStrictEqual(restored, layout) && isDeepStrictEqual(pending, expected);
+    }, 10000, "A Timeline alterou a seleção, o histórico ou as dimensões da janela principal.", 100);
+  } catch (error) {
+    report.floatingRestoration = { layout, restored, expected, pending };
+    throw error;
+  }
+  addReportStep(report, "floating_timeline_keyboard_draft_layout_history", "passed", { layout, ...pending });
 
   await enter("float-properties");
   const properties = await switchChild("properties", [main]);
