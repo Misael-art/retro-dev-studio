@@ -3025,30 +3025,38 @@ describe("App build flow", () => {
   it("keeps the production shell compact and opens warning details on demand", async () => {
     const warning =
       "[SGDK Gerenciado] VRAM Analysis: mode=sgdk_managed asset_total=4KB resident=2KB.";
+    const hardwareWithWarning = {
+      vram_used: 4096,
+      vram_limit: 65536,
+      sprite_count: 7,
+      sprite_limit: 80,
+      scanline_sprite_peak: 3,
+      scanline_sprite_limit: 20,
+      dma_used: 1024,
+      dma_limit: 7372,
+      palette_banks_used: 1,
+      palette_banks_limit: 4,
+      bg_layers: 0,
+      bg_layers_limit: 4,
+      errors: [],
+      warnings: [warning],
+    };
+    mocks.getHwStatus.mockResolvedValue(hardwareWithWarning);
+    mocks.validateSceneDraft.mockResolvedValue({
+      ok: true,
+      error: "",
+      hw_status: hardwareWithWarning,
+    });
 
     await act(async () => {
       useEditorStore.setState({
         hwValidationState: "fresh",
-        hwStatus: {
-          vram_used: 4096,
-          vram_limit: 65536,
-          sprite_count: 7,
-          sprite_limit: 80,
-          scanline_sprite_peak: 3,
-          scanline_sprite_limit: 20,
-          dma_used: 1024,
-          dma_limit: 7372,
-          palette_banks_used: 1,
-          palette_banks_limit: 4,
-          bg_layers: 0,
-          bg_layers_limit: 4,
-          errors: [],
-          warnings: [warning],
-        },
+        hwStatus: hardwareWithWarning,
       });
       useEditorStore.getState().logMessage("warn", warning);
-      await flush();
     });
+    await flushUntil(() => mocks.validateSceneDraft.mock.calls.length > 0, 30, 25);
+    expect(mocks.validateSceneDraft).toHaveBeenCalled();
 
     const topbar = container.querySelector("[data-testid='unified-topbar']");
     const statusBar = container.querySelector("[data-testid='production-status-bar']");

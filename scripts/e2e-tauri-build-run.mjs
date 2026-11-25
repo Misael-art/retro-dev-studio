@@ -17443,6 +17443,7 @@ async function verifyAuthoringDesk(sessionId, report, prefix) {
   await click("logic-view-split");
   await check(`return document.getElementById('logic-nodes')?.getBoundingClientRect().width > 0
     && document.getElementById('logic-code')?.getBoundingClientRect().width > 0;`, "Nós e Código não abriram juntos.");
+  await check(`return !!document.querySelector('[data-testid="nodegraph-canvas"]');`, "O editor de Nós não terminou de abrir.");
   if (!await focus("logic-view-divider")) fail("O divisor de Nós e Código não recebe foco.");
   const oldCodeWidth = await panelSize("logic-code");
   await key("\uE012");
