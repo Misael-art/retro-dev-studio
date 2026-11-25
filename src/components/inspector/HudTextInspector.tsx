@@ -84,11 +84,15 @@ export default function HudTextInspector({ entity }: { entity: Entity }) {
           value={hud.value ? `${hud.value.kind}:${hud.value.source}` : ""}
           onChange={(event) => {
             const [kind, source] = event.target.value.split(":");
-            apply({ value: kind ? { kind: kind as "strike_hp", source } : null, ...(kind ? {} : { bar_tiles: undefined }) });
+            if (kind === "logic_var") return;
+            apply({ value: kind === "strike_hp" ? { kind, source } : null, ...(kind ? {} : { bar_tiles: undefined }) });
           }}
           className="rounded border border-[#45475a] bg-[#11111b]"
         >
           <option value="">Só texto</option>
+          {hud.value?.kind === "logic_var" ? (
+            <option value={`logic_var:${hud.value.source}`}>Variável do grafo {hud.value.source}</option>
+          ) : null}
           {strikes.map((id) => (
             <option key={id} value={`strike_hp:${id}`}>
               Vida do alvo do golpe {id}
@@ -125,11 +129,11 @@ export default function HudTextInspector({ entity }: { entity: Entity }) {
               </button>)}
           </div>}
           <div className="flex flex-wrap gap-2">
-            <label>Texto <select value={preview.text} className="rounded border border-[#45475a] bg-[#11111b]"
+            <label>Texto <select data-testid="hud-preview-text" value={preview.text} className="rounded border border-[#45475a] bg-[#11111b]"
               onChange={(event) => setPreview({ ...preview, text: event.target.value as typeof preview.text })}>
               <option value="original">Da cena</option><option value="short">Curto</option><option value="long">Longo</option>
             </select></label>
-            <label><input type="checkbox" checked={preview.light} onChange={(event) => setPreview({ ...preview, light: event.target.checked })} /> Fundo claro</label>
+            <label><input type="checkbox" data-testid="hud-preview-light" checked={preview.light} onChange={(event) => setPreview({ ...preview, light: event.target.checked })} /> Fundo claro</label>
           </div>
           <label>Deslocamento de câmera na prévia
             <input data-testid="hud-preview-camera-x" type="range" min={0} max={64} value={preview.cameraX}

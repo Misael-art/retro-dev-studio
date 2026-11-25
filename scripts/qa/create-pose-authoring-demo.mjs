@@ -255,6 +255,40 @@ async function writeWaveProject(directory) {
   return projectPath;
 }
 
+async function writeHudProject(directory) {
+  const projectPath = await writeProject(directory, false, false, true);
+  const project = JSON.parse(await readFile(projectPath, "utf8"));
+  project.name = "Porto das Lanternas — HUD";
+  const scenePath = path.join(directory, project.entry_scene);
+  const scene = JSON.parse(await readFile(scenePath, "utf8"));
+  scene.display_name = project.name;
+  const background = "assets/tilesets/fundo-do-hud.png";
+  const pixels = Buffer.alloc(384 * 224, 1);
+  for (let y = 0; y < 192; y++) {
+    for (let x = 0; x < 384; x++) pixels[y * 384 + x] = 2 + ((x + (y % 8)) % 24 < 9 ? 0 : 1);
+  }
+  await writeFile(path.join(directory, background), indexedAtlasPng(384, 224,
+    [[0, 0, 0], [1, 1, 4], [6, 5, 2], [3, 6, 4]], [pixels]));
+  scene.entities.find(({ entity_id }) => entity_id === "paisagem").components.tilemap.tileset = background;
+  const node = (id, type, params) => ({ id, type, label: id, x: 0, y: 0, params });
+  const edge = (fromNode, fromPort, toNode) => ({ id: toNode, fromNode, fromPort, toNode, toPort: "exec" });
+  const values = [1, 9, 99];
+  scene.entities.find(({ entity_id }) => entity_id === "raposa").components.logic = {
+    graph: JSON.stringify({
+      version: 1,
+      nodes: [node("quadro", "event_update", {}), node("marcos", "timeline_sequence",
+        { slot_0_delay: 90, slot_1_delay: 110, slot_2_delay: 130 }),
+        ...values.map((value) => node(`valor_${value}`, "var_set", { var_name: "contador", value }))],
+      edges: [edge("quadro", "exec", "marcos"), ...values.map((value, i) => edge("marcos", `slot_${i}`, `valor_${value}`))],
+    }),
+  };
+  scene.entities.push({ entity_id: "hud_vida", display_name: "Mostrador de teste", transform: { x: 0, y: 0 },
+    components: { hud: { label: "VIDA ", column: 2, row: 25, digits: 3, value: { kind: "logic_var", source: "contador" } } } });
+  await writeFile(scenePath, JSON.stringify(scene, null, 2) + "\n");
+  await writeFile(projectPath, JSON.stringify(project, null, 2) + "\n");
+  return projectPath;
+}
+
 async function writeTerrainProject(directory) {
   const projectPath = await writeProject(directory, false);
   const project = JSON.parse(await readFile(projectPath, "utf8"));
@@ -290,6 +324,8 @@ if (process.argv.includes("--atlas-replacement")) {
   console.log(await writeLinkedAtlasProject(path.join(root, "substituicao-atlas"), { replacement: true }));
 } else if (process.argv.includes("--wave")) {
   console.log(await writeWaveProject(path.join(root, "onda")));
+} else if (process.argv.includes("--hud")) {
+  console.log(await writeHudProject(path.join(root, "hud")));
 } else if (process.argv.includes("--terrain")) {
   console.log(await writeTerrainProject(path.join(root, "terreno")));
 } else if (process.argv.includes("--indexed-effects")) {

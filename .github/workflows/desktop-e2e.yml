@@ -479,6 +479,18 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Add-Content -Path $env:RDS_E2E_LEDGER -Value 'wave_band'
 
+      - name: Check HUD extremes and fixed screen coordinates in the Mega Drive core
+        id: hud_extremes
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'authoring' }}
+        env:
+          RDS_POSE_PROOF: hud
+        run: |
+          $project = node scripts/qa/create-pose-authoring-demo.mjs --hud
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'hud_extremes'
+
       - name: Report step outcomes before verification
         if: always()
         shell: pwsh
@@ -545,6 +557,7 @@ jobs:
             "- Terrain and seam edits: ${{ steps.terrain_and_seam.outcome }}",
             "- Motion trace and gravity control: ${{ steps.motion_trace.outcome }}",
             "- Wave with camera and foreground control: ${{ steps.wave_band.outcome }}",
+            "- HUD extremes and screen-space controls: ${{ steps.hud_extremes.outcome }}",
             "- Pillar, aperture and control pixel comparison: ${{ steps.point_occlusion.outcome }}",
             "- Linked atlas copy, reordering and control comparison: ${{ steps.linked_atlas.outcome }}",
             "- Smoke SNES: ${{ steps.smoke_snes.outcome }}",

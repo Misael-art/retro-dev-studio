@@ -18693,10 +18693,130 @@ async function verifyLightingVariant(sessionId, projectDir, report, prefix, time
   addReportStep(report, "lighting_preview_and_local_palette_in_core", "passed", { preview, swatches, baseline, edited });
 }
 
+async function verifyHudExtremes(sessionId, projectDir, report, prefix, timeoutMs) {
+  const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  const state = () => readAutomationState(sessionId);
+  const readHud = async () => {
+    const scene = JSON.parse(await readFile(path.join(projectDir, "scenes", "main.json"), "utf8"));
+    return scene.entities.find(({ entity_id }) => entity_id === "hud_vida").components.hud;
+  };
+  const word = async (address) => {
+    const result = await invokeCoreObserveCommand(sessionId, "emulator_read_memory", { region: 2, offset: address & 0xffff, length: 2 });
+    if (!result?.ok || result.data?.length !== 2) fail("O core não retornou a palavra vinculada ao HUD.");
+    return result.data[0] | (result.data[1] << 8);
+  };
+  const crop = (sample, left, top, width, height) => Buffer.concat(
+    Array.from({ length: height }, (_, y) => sample.subarray(((top + y) * 320 + left) * 4, ((top + y) * 320 + left + width) * 4))
+  );
+  const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
+  const capture = async (label) => {
+    const build = await runBuildRunAndCollect(sessionId, label, timeoutMs, report, `${prefix}-${label}`, { nativeClick: true });
+    await click("viewport-pause");
+    await waitFor(async () => (await state())?.emulPaused, 15000, "A ROM do HUD não pausou.", 100);
+    const link = JSON.parse(await readFile(path.join(projectDir, "build", "megadrive", "rds-runtime-link.v1.json"), "utf8"));
+    const hud = link.hud.find(({ entity_id }) => entity_id === "hud_vida");
+    if (!link.camera || link.rom_sha256 !== build.rom_sha256 || !hud?.shown_symbol || hud.x !== 16 || hud.y !== 200 || hud.width_px !== 80) {
+      fail(`Vínculo inesperado do HUD: ${JSON.stringify(hud)}.`);
+    }
+    let last = await invokeCoreObserve(sessionId);
+    const samples = [];
+    for (const [frame, expected] of [[75, 0], [103, 1], [123, 9], [150, 99]]) {
+      const frames = frame - last.frames_run;
+      if (frames < 1 || !(await invokeCoreObserveCommand(sessionId, "emulator_run_frames", { frames }))?.ok) {
+        fail(`O core não alcançou o quadro ${frame} do HUD.`);
+      }
+      last = await invokeCoreObserve(sessionId);
+      const shown = await word(hud.shown_symbol);
+      if (!last.ok || !last.disk_matches_loaded || last.rom_sha256 !== link.rom_sha256 || last.frames_run !== frame
+          || last.framebuffer_width !== 320 || last.framebuffer_height !== 224 || shown !== expected) {
+        fail(`HUD no quadro ${frame}: valor ${shown}; esperado ${expected}.`);
+      }
+      const pixels = Buffer.from(last.framebuffer_rgba);
+      samples.push({ frame, shown, camera: await word(link.camera.x),
+        label: digest(crop(pixels, 16, 200, 40, 8)), digits: digest(crop(pixels, 56, 200, 40, 8)),
+        left: digest(crop(pixels, 0, 200, 16, 8)), right: digest(crop(pixels, 96, 200, 224, 8)),
+        outside: digest(crop(pixels, 0, 192, 320, 8)), moving: digest(crop(pixels, 0, 176, 320, 8)) });
+    }
+    if (new Set(samples.map(({ label }) => label)).size !== 1 || new Set(samples.map(({ digits }) => digits)).size !== 4
+        || new Set(samples.map(({ camera }) => camera)).size < 2 || new Set(samples.map(({ moving }) => moving)).size < 2
+        || new Set(samples.map(({ outside }) => outside)).size !== 1) {
+      fail(`Glifos ou controles do HUD inesperados: ${JSON.stringify(samples)}.`);
+    }
+    return { rom: link.rom_sha256, core: await collectCoreIdentity(last), samples };
+  };
+
+  await setSessionWindowRect(sessionId, 1366, 768);
+  await click("unified-topbar-menu-trigger");
+  await click("workspace-reset-layout");
+  const original = await readHud();
+  const baseline = await capture("hud-original");
+  await click("workspace-rail-scene");
+  await click("workspace-project-tab-scene");
+  await click("hierarchy-select-hud_vida");
+  const details = '[data-testid="inspector-hud-extremes"]';
+  const summary = `${details} > summary`;
+  await clickElement(sessionId, await findElement(sessionId, summary));
+  const preview = () => executeScript(sessionId, `
+    const frame = document.querySelector('[data-testid="hud-preview-frame"]');
+    return frame ? { text: frame.querySelector('span').textContent, position: frame.querySelector('span').getAttribute('style'),
+      color: getComputedStyle(frame).backgroundColor, scroll: getComputedStyle(frame).backgroundPositionX } : null;
+  `);
+  const prior = await state();
+  const variants = [];
+  for (const value of [0, 1, 9, 99]) {
+    await click(`hud-preview-value-${value}`);
+    const view = await preview();
+    if (view?.text !== "VIDA " + String(value).padStart(3, "0")) fail(`A prévia do HUD divergiu para ${value}.`);
+    variants.push(view);
+  }
+  await selectOptionByTestIdNative(sessionId, "hud-preview-text", "short");
+  await click("hud-preview-light");
+  const movedSlider = await findElement(sessionId, '[data-testid="hud-preview-camera-x"]');
+  await webdriverRequest("POST", `/session/${sessionId}/element/${movedSlider}/value`, { text: "\uE010", value: ["\uE010"] });
+  const light = await preview();
+  if (light?.text !== "HP 099" || light.position !== variants[0].position || light.color === variants[0].color
+      || light.scroll === variants[0].scroll) fail(`A prévia não isolou o texto da câmera e do fundo: ${JSON.stringify(light)}.`);
+  await selectOptionByTestIdNative(sessionId, "hud-preview-text", "long");
+  if (!(await preview())?.text.endsWith(" - 099")) fail("O texto longo não apareceu no ensaio.");
+  addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-hud-previa.png`), "Texto longo e fundo claro com a câmera movida");
+  await webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [{
+    type: "key", id: "hud-preview-escape", actions: [{ type: "keyDown", value: "\uE00C" }, { type: "keyUp", value: "\uE00C" }],
+  }] });
+  const after = await state();
+  if (await preview() || after.undoDepth !== prior.undoDepth || after.sceneRevision !== prior.sceneRevision
+      || !isDeepStrictEqual(await readHud(), original)) fail("Fechar a prévia do HUD alterou a autoria ou deixou a inspeção aberta.");
+
+  const label = '[data-testid="inspector-hud-label"]';
+  const labelInput = await findElement(sessionId, label);
+  await fillInputBySelector(sessionId, label, "PONT ");
+  await webdriverRequest("POST", `/session/${sessionId}/element/${labelInput}/value`, { text: "\uE007", value: ["\uE007"] });
+  const save = async (expected) => {
+    await clickTopBarMenuAction(sessionId, "Salvar");
+    await waitFor(async () => isDeepStrictEqual(await readHud(), expected), 10000, "O HUD salvo divergiu do Inspector.", 100);
+  };
+  const updated = { ...original, label: "PONT " };
+  await save(updated);
+  await clickTopBarMenuAction(sessionId, "Desfazer");
+  await save(original);
+  await clickTopBarMenuAction(sessionId, "Refazer");
+  await save(updated);
+  await clickTopBarMenuAction(sessionId, "Fechar");
+  await waitFor(async () => !(await state())?.activeProjectDir, 15000, "A fase do HUD não fechou.", 100);
+  await openSavedProjectWizard(sessionId, projectDir);
+  await waitFor(async () => (await state())?.activeProjectDir === projectDir, 30000, "A fase do HUD não reabriu.", 100);
+  if (!isDeepStrictEqual(await readHud(), updated)) fail("O HUD reabriu com configuração diferente.");
+  const edited = await capture("hud-publicado");
+  if (baseline.rom === edited.rom || baseline.samples.some(({ label: beforeLabel, ...control }, index) => {
+    const { label: afterLabel, ...changed } = edited.samples[index];
+    return beforeLabel === afterLabel || !isDeepStrictEqual(control, changed);
+  })) fail("Trocar o texto do HUD alterou os dígitos, a câmera ou a região de controle.");
+  addReportStep(report, "hud_extreme_values_and_fixed_core_controls", "passed", { variants, baseline, edited });
+}
+
 async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
   const revision = process.env.RDS_POSE_PROOF || "baseline";
   const occlusionModes = ["occlusion", "occlusion-region", "occlusion-motion"];
-  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace", "linked-atlas", "asset-replace", "terrain", "seam", "wave", "lighting", ...occlusionModes, ...indexedEffectModes].includes(revision)) {
+  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace", "linked-atlas", "asset-replace", "terrain", "seam", "wave", "hud", "lighting", ...occlusionModes, ...indexedEffectModes].includes(revision)) {
     fail(`RDS_POSE_PROOF desconhecido: ${revision}.`);
   }
   const prefix = `pose-cadence-${artifactTimestamp()}`;
@@ -18714,11 +18834,12 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
     if (report.atlasSha256 !== "8f104172610518705021450603f04bfd4d2fc0ed997e7c71de21cdb54874c735") fail("O atlas da prova mudou.");
     const atlas = decodeWindowPng(atlasBytes);
     report.executableSha256 = createHash("sha256").update(await readFile(app)).digest("hex");
-    if (revision === "wave") {
+    if (revision === "wave" || revision === "hud") {
       await openSavedProjectWizard(sessionId, projectDir);
       await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir,
-        60000, "A sala da onda não abriu.", 200);
-      await verifyWaveBand(sessionId, projectDir, report, prefix, timeoutMs);
+        60000, "A sala de efeitos não abriu.", 200);
+      const verify = revision === "wave" ? verifyWaveBand : verifyHudExtremes;
+      await verify(sessionId, projectDir, report, prefix, timeoutMs);
       report.status = "passed";
       return;
     }
