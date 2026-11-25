@@ -6720,6 +6720,13 @@ pub fn run() {
                     .ok_or("Configuração da janela principal ausente")?;
                 let main = WebviewWindowBuilder::from_config(app, config)?
                     .on_new_window(move |url, features| {
+                        if url.path() != "/src/studio-panel.html" {
+                            return if matches!(url.scheme(), "http" | "https") {
+                                NewWindowResponse::Allow
+                            } else {
+                                NewWindowResponse::Deny
+                            };
+                        }
                         let Some(origin) = handle
                             .get_webview_window("main")
                             .and_then(|main| main.url().ok())
@@ -6729,7 +6736,6 @@ pub fn run() {
                         if url.scheme() != origin.scheme()
                             || url.host_str() != origin.host_str()
                             || url.port_or_known_default() != origin.port_or_known_default()
-                            || url.path() != "/src/studio-panel.html"
                             || url.fragment().is_some()
                         {
                             return NewWindowResponse::Deny;
