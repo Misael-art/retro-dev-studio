@@ -545,6 +545,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({
+  isTauri: () => false,
   convertFileSrc: mocks.convertFileSrc,
 }));
 

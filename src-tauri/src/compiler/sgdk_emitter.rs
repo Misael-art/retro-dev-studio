@@ -2113,7 +2113,9 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
                 strike_id: None,
                 ..
             } => {
-                writeln!(out, "{indent_str}rds_palswap_{swap_id}_requested = TRUE;").unwrap();
+                out.push_str(&format!(
+                    "{indent_str}rds_palswap_{swap_id}_requested = TRUE;\n"
+                ));
             }
             LogicOp::PalettePulse { .. } => {
                 // O plano de paletas emite a observação dos acertos do golpe.

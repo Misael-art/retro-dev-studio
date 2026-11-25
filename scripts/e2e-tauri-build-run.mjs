@@ -19374,7 +19374,7 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
   addReportStep(report, "material_motion_and_footsteps_in_rom", "passed", { offsets });
 }
 
-async function verifyFloatingStudioPanels(sessionId, projectDir, report, prefix) {
+async function verifyFloatingStudioPanels(sessionId, projectDir, report, prefix, timeoutMs) {
   const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
   const enter = (id) => activateByTestIdWithEnter(sessionId, id);
   const state = () => readAutomationState(sessionId);
@@ -19391,7 +19391,16 @@ async function verifyFloatingStudioPanels(sessionId, projectDir, report, prefix)
     const child = await waitFor(async () => (await handles()).find((handle) => !before.includes(handle)),
       10000, "O WebDriver não encontrou uma janela Tauri separada para " + panel + ".", 100);
     await switchTo(child);
-    await check(`return document.body.dataset.studioFloatingPanel === arguments[0];`, "A janela não recebeu o painel " + panel + ".", [panel]);
+    try {
+      await check(`return document.body.dataset.studioFloatingPanel === arguments[0];`, "A janela não recebeu o painel " + panel + ".", [panel]);
+    } catch (error) {
+      report.floatingDocument = await executeScript(sessionId, `
+        return { url: location.href, opener: Boolean(window.opener), title: document.title,
+          ready: document.readyState, width: innerWidth, height: innerHeight,
+          contents: document.body?.textContent.trim().slice(0, 250) };
+      `).catch(() => null);
+      throw error;
+    }
     return child;
   };
   const docked = (name) => check(`return document.querySelector('[data-testid="studio-workspace-shell"]')?.dataset[arguments[0]] === "false"
@@ -19401,6 +19410,12 @@ async function verifyFloatingStudioPanels(sessionId, projectDir, report, prefix)
   await setSessionWindowRect(sessionId, 1366, 768);
   await click("unified-topbar-menu-trigger");
   await click("workspace-reset-layout");
+  const game = await runBuildRunAndCollect(sessionId, "sessão compartilhada dos painéis", timeoutMs, report, prefix, { nativeClick: true });
+  await click("viewport-pause");
+  await waitFor(async () => (await state())?.emulPaused, 15000, "A ROM da mesa não pausou.", 100);
+  const epoch = await invokeCoreObserveEpoch(sessionId);
+  await click("workspace-rail-scene");
+  await closeVisibleConsoleDrawer(sessionId, "antes de destacar os painéis");
   await selectPoseActorsOnCanvas(sessionId);
   await click("unified-topbar-menu-trigger");
   await click("workspace-preset-animate");
@@ -19449,8 +19464,19 @@ async function verifyFloatingStudioPanels(sessionId, projectDir, report, prefix)
   await enter("floating-studio-dock");
   await switchTo(main);
   await docked("properties");
-  if ((await handles()).includes(properties) || (await state()).selectedEntityId !== "raposa") fail("A janela de Propriedades ficou aberta ou perdeu a seleção.");
+  await waitFor(async () => !(await handles()).includes(properties), 8000, "A janela de Propriedades ficou aberta.", 100);
+  if ((await state()).selectedEntityId !== "raposa") fail("O Inspector perdeu a seleção.");
   addReportStep(report, "floating_inspector_shared_selection_undo_redo_save_redock", "passed");
+  await enter("float-properties");
+  await switchChild("properties", [main]);
+  await webdriverRequest("DELETE", driver);
+  await switchTo(main);
+  await docked("properties");
+  const core = await invokeCoreObserve(sessionId);
+  if (!core?.disk_matches_loaded || core.rom_sha256 !== game.rom_sha256 || await invokeCoreObserveEpoch(sessionId) !== epoch) {
+    fail("Destacar os painéis modificou a sessão do jogo.");
+  }
+  addReportStep(report, "closing_the_native_window_restores_the_dock", "passed", { epoch, sha256: game.rom_sha256 });
 }
 
 async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
