@@ -1124,6 +1124,8 @@ As medições de ROM coincidiram no Deck e no Windows. As quatro ocorrências ma
 
 Sob admissão do Fôlego, o Deck concluiu a certificação Full de `a1087af` com sete gates verdes. Vitest executou 1.497 testes e pulou 14. Rust executou 1.221 e marcou 133 como ignorados. Passaram também Clippy, formatação e a prova upstream com SGDK e PVSnesLib. O driver de captura espera a seleção de 16 × 16 e confere cada dimensão após a entrada pelo teclado. O ZIP inclui a cópia exata do driver usado e as duas salas editadas para reabertura.
 
+Na regressão Windows de `5f0b00e`, a comparação da ROM da pilastra passou, mas em duas tentativas a sonda leu a cor de uma coluna vizinha ao avançar a câmera. O driver passa a apresentar o quadro pelo botão do emulador, verificar a câmera estabilizada e confrontar posição e RGBA do clique com a ROM. A captura de sprites arquivada preserva o driver original de `5f0b00e`. [Execução com o diagnóstico da pilastra](https://github.com/Misael-art/retro-dev-studio/actions/runs/45868735158)
+
 As saídas abaixo são relativas a `$RDS_WORK_ROOT/sessions/`. A conferência contém 48 grupos sobre 12 capturas em 1920 × 1080, as 12 verificações em 1366 × 768 e o PDF de 13 páginas. A observação com artistas e o ensaio presencial em monitores de DPI diferentes permanecem pendentes.
 
 | Arquivo | Identidade |

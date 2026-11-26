@@ -17834,35 +17834,35 @@ async function verifyPointAndOcclusion(sessionId, projectDir, report, prefix, ti
     await waitFor(async () => executeScript(sessionId, `return document.querySelector('[data-testid="scene-save-status"]')?.dataset.status === 'saved';`),
       15000, "A prioridade não foi gravada.", 100);
   };
+  const cameraAt = async (romSha) => {
+    const link = JSON.parse(await readFile(path.join(projectDir, "build", "megadrive", "rds-runtime-link.v1.json"), "utf8"));
+    if (link.rom_sha256 !== romSha || !link.camera) fail("Vínculo da câmera ausente para a ROM em teste.");
+    const word = async (address) => {
+      const result = await invokeCoreObserveCommand(sessionId, "emulator_read_memory", { region: 2, offset: address & 0xffff, length: 2 });
+      if (!result?.ok || result.data?.length !== 2) fail("O core não retornou a coordenada da câmera.");
+      const value = result.data[0] | (result.data[1] << 8);
+      return value > 32767 ? value - 65536 : value;
+    };
+    return { x: await word(link.camera.x), y: await word(link.camera.y) };
+  };
   const observed = async (label) => {
     const built = await runBuildRunAndCollect(sessionId, label, timeoutMs, report, `${prefix}-${label}`, { nativeClick: true });
     await click("viewport-pause");
     await waitFor(async () => (await state())?.emulPaused, 15000, "A ROM não pausou.", 100);
-    const cameraAt = async () => {
-      const link = JSON.parse(await readFile(path.join(projectDir, "build", "megadrive", "rds-runtime-link.v1.json"), "utf8"));
-      if (link.rom_sha256 !== built.rom_sha256 || !link.camera) fail("Vínculo da câmera ausente para a ROM em teste.");
-      const word = async (address) => {
-        const result = await invokeCoreObserveCommand(sessionId, "emulator_read_memory", { region: 2, offset: address & 0xffff, length: 2 });
-        if (!result?.ok || result.data?.length !== 2) fail("O core não retornou a coordenada da câmera.");
-        const value = result.data[0] | (result.data[1] << 8);
-        return value > 32767 ? value - 65536 : value;
-      };
-      return { x: await word(link.camera.x), y: await word(link.camera.y) };
-    };
-    const initial = movingCamera ? await cameraAt() : { x: 0, y: 0 };
+    const initial = movingCamera ? await cameraAt(built.rom_sha256) : { x: 0, y: 0 };
     const warmed = await invokeCoreObserveCommand(sessionId, "emulator_run_frames", { frames: 120 });
     if (!warmed?.ok) fail("O core não avançou para a cena da pilastra.");
-    let camera = movingCamera ? await cameraAt() : initial;
+    let camera = movingCamera ? await cameraAt(built.rom_sha256) : initial;
     if (movingCamera) {
       if (!(camera.x > initial.x && camera.x < 64 && camera.y === 0)) fail(`O avanço não demonstrou a câmera em movimento: ${JSON.stringify({ initial, camera })}`);
       // Read a frame where sprites and planes are already presented at the same camera coordinate.
       const stepped = await invokeCoreObserveCommand(sessionId, "emulator_run_frames", { frames: 1 });
       if (!stepped?.ok) fail("O quadro seguinte da câmera não avançou.");
-      const next = await cameraAt();
+      const next = await cameraAt(built.rom_sha256);
       if (next.x !== camera.x) {
         const settled = await invokeCoreObserveCommand(sessionId, "emulator_run_frames", { frames: 1 });
         if (!settled?.ok) fail("O quadro posterior ao deslocamento de câmera não avançou.");
-        camera = await cameraAt();
+        camera = await cameraAt(built.rom_sha256);
         if (camera.x !== next.x || camera.y !== next.y) fail("A amostra ficou entre duas coordenadas da câmera.");
       }
     }
@@ -17976,30 +17976,55 @@ async function verifyPointAndOcclusion(sessionId, projectDir, report, prefix, ti
   addReportStep(report, "point_aperture_priority_and_control_in_core", "passed", {
     before, after, low, high, gap, opaque, aperture, ...(regional ? { adjacent, region: expectedRegion } : {}),
   });
-  let pointOnScreen = { x: opaque.x - after.camera.x, y: opaque.y - after.camera.y };
-  if (movingCamera) {
-    const link = JSON.parse(await readFile(path.join(projectDir, "build", "megadrive", "rds-runtime-link.v1.json"), "utf8"));
-    // Direct core stepping does not paint the WebView. Present a frame through the normal control
-    // and read the coordinates for that presentation before using the Canvas probe.
-    const frameBeforeStep = (await invokeCoreObserve(sessionId)).frames_run;
+  // Direct core stepping does not paint the WebView. Present a frame using the normal control.
+  let presentedFrame = after.core.frames_run;
+  const presentNext = async () => {
+    const expected = presentedFrame + 1;
     await click("viewport-step-frame");
-    await waitFor(async () => (await invokeCoreObserve(sessionId))?.frames_run === frameBeforeStep + 1,
-      15000, "O botão de passos não apresentou o quadro seguinte da câmera.", 100);
-    const position = await invokeCoreObserveCommand(sessionId, "emulator_read_memory",
-      { region: 2, offset: link.camera.x & 0xffff, length: 2 });
-    if (!position?.ok || position.data?.length !== 2) fail("A câmera não foi lida no quadro de apresentação.");
-    pointOnScreen = { x: opaque.x - (position.data[0] | (position.data[1] << 8)), y: opaque.y };
+    const frame = await waitFor(async () => {
+      const candidate = await invokeCoreObserve(sessionId);
+      return candidate?.frames_run === expected && candidate;
+    }, 15000, "O botão não apresentou o quadro seguinte da pilastra.", 100);
+    presentedFrame = frame.frames_run;
+    return frame;
+  };
+  let frame = await presentNext();
+  let camera = after.camera;
+  if (movingCamera) {
+    // RAM can advance one VBlank before the new column appears on screen.
+    const next = await cameraAt(after.rom);
+    if (!isDeepStrictEqual(next, camera)) {
+      frame = await presentNext();
+      camera = await cameraAt(after.rom);
+      if (!isDeepStrictEqual(camera, next)) fail("A câmera da pilastra não estabilizou no segundo quadro apresentado.");
+    }
   }
+  const pointOnScreen = { x: opaque.x - camera.x, y: opaque.y - camera.y };
+  const offset = 4 * (pointOnScreen.y * frame.framebuffer_width + pointOnScreen.x);
+  const rgba = Array.from(frame.framebuffer_rgba.slice(offset, offset + 4));
+  if (frame.rom_sha256 !== after.rom || !isDeepStrictEqual(rgba, after.opaque)) {
+    fail(`O pixel da pilastra no quadro apresentado divergiu da ROM medida: ${JSON.stringify({ presentedFrame, camera, pointOnScreen, rgba, expected: after.opaque })}`);
+  }
+  const color = `#${after.opaque.slice(0, 3).map((v) => v.toString(16).padStart(2, "0")).join("")}`;
   await click("inspect-toggle");
   await click("inspect-read-pixel");
-  await clickCanvasPointNatively(sessionId, '[data-testid="inspect-overlay"]', (pointOnScreen.x + 0.5) / 320, (pointOnScreen.y + 0.5) / 224,
-    "Ler o pixel da pilastra no quadro pausado");
-  const color = `#${after.opaque.slice(0, 3).map((value) => value.toString(16).padStart(2, "0")).join("")}`;
-  await waitFor(async () => executeScript(sessionId, `const text = document.querySelector('[data-testid="inspect-pixel-result"]')?.textContent;
-    return text?.includes(arguments[0]) && text.includes('desconhecida');`, [color]), 10000,
-  "A leitura do quadro pausado não apresentou a cor observada, com origem desconhecida.", 100);
+  // WebDriver takes integer CSS coordinates. At 1×, rounding a pixel center can select its neighbor.
+  const target = await executeScript(sessionId, `
+    const canvas = document.querySelector('[data-testid="viewport-game-canvas"]');
+    const overlay = document.querySelector('[data-testid="inspect-overlay"]');
+    const surface = canvas.getBoundingClientRect(), bounds = overlay.getBoundingClientRect();
+    const x = Math.ceil(surface.left + canvas.clientLeft + arguments[0].x * canvas.clientWidth / canvas.width);
+    const y = Math.ceil(surface.top + canvas.clientTop + arguments[0].y * canvas.clientHeight / canvas.height);
+    return { x: (x - bounds.left) / bounds.width, y: (y - bounds.top) / bounds.height };
+  `, [pointOnScreen]);
+  await clickCanvasPointNatively(sessionId, '[data-testid="inspect-overlay"]', target.x, target.y, "Ler o pixel da pilastra no quadro pausado");
+  const coordinates = `(${pointOnScreen.x}, ${pointOnScreen.y})`;
+  await waitFor(async () => executeScript(sessionId, `
+    const text = document.querySelector('[data-testid="inspect-pixel-result"]')?.textContent;
+    return text?.includes(arguments[0]) && text.includes(arguments[1]) && text.includes('desconhecida');
+  `, [coordinates, color]), 10000, `A leitura da pilastra não confirmou ${coordinates} e ${color} no quadro pausado.`, 100);
   addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-pixel-core.png`), "Ponto lido no quadro pausado");
-  addReportStep(report, "paused_view_reports_observed_pixel", "passed", { pointOnScreen, color });
+  addReportStep(report, "paused_view_reports_observed_pixel", "passed", { pointOnScreen, color, camera, presentedFrame });
 }
 
 async function replaceAtlasFromBrowser(sessionId, projectDir, originalPath, before, disk, report, prefix) {
