@@ -15,6 +15,7 @@
  *   de mapear execucao real para nodes.
  */
 
+import { idleExecutionOutput } from "./eventSchedule";
 import type {
   GraphNode,
   NodeEdge,
@@ -618,7 +619,7 @@ export function validateNodeGraph(
       const connectedOutputs = outgoingExecByNodePort.get(node.id) ?? new Set();
       const missingOutputs = node.outputs
         .filter((port) => port.kind === "exec")
-        .filter((port) => !connectedOutputs.has(port.id));
+        .filter((port) => !connectedOutputs.has(port.id) && !idleExecutionOutput(node, port.id, connectedOutputs));
       if (missingOutputs.length > 0) {
         issues.push({
           severity: "warning",

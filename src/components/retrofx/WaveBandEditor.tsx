@@ -17,10 +17,21 @@ const fields = [
 const buttonClass = "rounded border border-[var(--rds-border-default)] px-2 py-1 disabled:opacity-40";
 const selectClass = "min-w-16 rounded border border-[var(--rds-border-default)] bg-[var(--rds-surface-inset)] p-1";
 
+export function wavePreviewTick(elapsedMs: number, fps: number): number {
+  return Math.max(0, Math.floor(elapsedMs * fps / 1000));
+}
+
+export function waveLineOffset(wave: RetroFXWaveBand, relativeLine: number, tick: number): number {
+  const phase = wave.phase + tick * wave.speed + Math.floor(relativeLine * 256 / wave.wavelength);
+  const sample = wave.amplitude * Math.sin(((phase & 255) >> 3) * Math.PI / 16);
+  return Math.sign(sample) * Math.round(Math.abs(sample));
+}
+
 export default function WaveBandEditor() {
   const project = useEditorStore((state) => state.activeProjectDir);
   const scenePath = useEditorStore((state) => state.activeScenePath);
   const scene = useEditorStore((state) => state.activeScene);
+  const projectFps = useEditorStore(state => state.projectFps);
   const selected = useEditorStore((state) => state.selectedEntityId);
   const wave = scene?.retrofx?.wave ?? null;
   const planes = useMemo(() => resolvedTilemapPlanes(scene?.entities ?? []).filter(({ plane }) => plane !== "WINDOW"), [scene]);
@@ -62,7 +73,7 @@ export default function WaveBandEditor() {
     let previousTick = -1;
     const draw = (now: number) => {
       start ??= now;
-      const tick = Math.max(0, Math.floor((now - start) / 32));
+      const tick = wavePreviewTick(now - start, projectFps);
       if (tick !== previousTick) {
         context.clearRect(0, 0, screen.width, screen.height);
         context.imageSmoothingEnabled = false;
@@ -72,8 +83,7 @@ export default function WaveBandEditor() {
             continue;
           }
           for (let line = Math.max(0, y); line < Math.min(y + image.height, screen.height); line += 1) {
-            const offset = line < top || line > bottom ? 0 : Math.round(wave.amplitude * Math.sin(
-              (((wave.phase + tick * wave.speed + Math.floor((line - top) * 256 / wave.wavelength)) & 255) >> 3) * Math.PI / 16));
+            const offset = line < top || line > bottom ? 0 : waveLineOffset(wave, line - top, tick);
             context.drawImage(image, 0, line - y, image.width, 1, x + offset, line, image.width, 1);
           }
         }
@@ -88,7 +98,7 @@ export default function WaveBandEditor() {
     };
     draw(performance.now());
     return () => cancelAnimationFrame(frame);
-  }, [artwork, drag, original, playing, wave]);
+  }, [artwork, drag, original, playing, projectFps, wave]);
 
   function apply(value: RetroFXWaveBand | null) {
     const state = useEditorStore.getState();

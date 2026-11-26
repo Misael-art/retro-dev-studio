@@ -73,6 +73,32 @@ export const NODE_CATEGORIES: NodeCategory[] = [
   { id: "error_unsupported", label: "Nao suportado", color: "#f38ba8" },
 ];
 
+// Shared by the canvas legend, card headers and the event ruler.
+export const GRAPH_ROLES = {
+  event: { label: "Evento", color: "#865019", icon: "flash" },
+  condition: { label: "Condição", color: "#265885", icon: "fork" },
+  action: { label: "Ação", color: "#286446", icon: "arrows" },
+  data: { label: "Dado", color: "#206766", icon: "variable" },
+  time: { label: "Tempo", color: "#813b64", icon: "clock" },
+  visual: { label: "Visual", color: "#995519", icon: "film" },
+  sound: { label: "Som", color: "#673e85", icon: "sound" },
+  code: { label: "Código", color: "#514e69", icon: "chip" },
+  unsupported: { label: "Sem suporte", color: "#873d4e", icon: "warning-triangle" },
+} as const satisfies Record<string, { label: string; color: string; icon: NodeIconName }>;
+
+export function graphRole(node: GraphNode): keyof typeof GRAPH_ROLES {
+  const category = getNodeCategory(node.type).id;
+  if (node.type.startsWith("event_") || category === "trigger_input") return "event";
+  if (category === "error_unsupported") return "unsupported";
+  if (category === "bridge_source_mapping" || node.type === "code_block") return "code";
+  if (node.type === "timeline_sequence" || category === "timer") return "time";
+  if (category === "audio") return "sound";
+  if (node.type === "palette_swap" || node.type === "effect_parallax" || category === "vdp_dma_palette" || category === "animation") return "visual";
+  if (node.outputs.some(port => port.kind === "exec" && port.id === "true") || category === "transition") return "condition";
+  if (node.outputs.length && node.outputs.every(port => port.kind === "data")) return "data";
+  return "action";
+}
+
 export type NodeCatalogEntry = {
   type: NodeType;
   category: NodeCategoryId;

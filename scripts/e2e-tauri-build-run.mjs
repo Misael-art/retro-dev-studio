@@ -19607,6 +19607,95 @@ async function verifyIcePath(sessionId, projectDir, report, prefix, timeoutMs) {
   addReportStep(report, "ice_release_and_platform_return", "passed", { releasedAt: coast[0], stoppedAt: frames.at(-1) });
 }
 
+async function verifySharedSequenceSlot(sessionId, originalDir, report, prefix, timeoutMs) {
+  const dir = await mkdtemp(path.join(path.dirname(originalDir), "respostas-compartilhadas-"));
+  for (const file of ["project.rds", "scenes", "assets"]) {
+    await cp(path.join(originalDir, file), path.join(dir, file), { recursive: true });
+  }
+  const scenePath = path.join(dir, "scenes/main.json");
+  const scene = JSON.parse(await readFile(scenePath, "utf8"));
+  const logic = scene.entities.find(entity => entity.entity_id === "anel").components.logic;
+  const graph = JSON.parse(logic.graph);
+  const a = graph.nodes.find(node => node.id === "tempo");
+  a.params.slot_1_delay = 4;
+  const b = { ...structuredClone(a), id: "tempo_b", label: "Resposta B", x: a.x, y: 860,
+    params: { ...a.params, slot_0_delay: -1, slot_1_delay: 13, slot_2_delay: -1 } };
+  const fox = JSON.parse(scene.entities.find(entity => entity.entity_id === "raposa").components.logic.graph);
+  const add = (fromNode, fromPort, toNode) => graph.edges.push({ id: fromNode+"_"+toNode, fromNode, fromPort, toNode, toPort: "exec" });
+  graph.nodes.push(b, ...fox.nodes.filter(node => ["movimento","direita"].includes(node.id)),
+    { ...structuredClone(graph.nodes.find(node => node.id === "marcar")), id: "marca_b", label: "Registrar resposta B",
+      x: 1360, y: 860, params: { var_name: "resposta_b", value: 37 } });
+  add("movimento","exec","direita");
+  add("direita","exec",b.id);
+  add(b.id,"slot_1","som");
+  add(b.id,"slot_1","marca_b");
+  logic.graph = JSON.stringify(graph);
+  await writeFile(scenePath, JSON.stringify(scene));
+  const click = id => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  const enter = id => activateByTestIdWithEnter(sessionId, id);
+  const open = async () => {
+    await openSavedProjectWizard(sessionId, dir);
+    await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === dir, 60000, "A cópia de duas respostas não abriu.");
+    await click("workspace-rail-scene");
+    await click("hierarchy-select-anel");
+    await click("workspace-rail-logic");
+    await click("logic-view-nodes");
+    await click("nodegraph-open-composer");
+    await selectOptionByTestIdNative(sessionId, "event-sequence-picker", b.id);
+  };
+  const readStep = () => executeScript(sessionId, `
+    const get = id => document.querySelector('[data-testid="'+id+'"]');
+    return [get("event-sequence-picker")?.value, get("event-sequence-ticks-1")?.value,
+      document.querySelector('[data-testid^="node-card-"][data-selected="true"]')?.dataset.testid];
+  `);
+  await open();
+  for (const [button, node] of [["event-sequence-select-1-marca_b", "marca_b"], ["event-sequence-select-1", "som"]]) {
+    await enter(button);
+    const step = await readStep();
+    if (!isDeepStrictEqual(step, [b.id, "13", "node-card-"+node])) fail("A ação compartilhada perdeu sua sequência: "+JSON.stringify(step));
+  }
+  await setInputByTestIdNative(sessionId, "event-sequence-ticks-1", "7");
+  await enter("event-sequence-ticks-1");
+  await pressNativeUndoRedo(sessionId, "z");
+  await waitFor(async () => (await readStep())[1] === "13", 6000, "Desfazer não recuperou B.");
+  await pressNativeUndoRedo(sessionId, "y");
+  await waitFor(async () => (await readStep())[1] === "7", 6000, "Refazer não recuperou B.");
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  await waitFor(async () => {
+    const saved = JSON.parse(await readFile(scenePath, "utf8"));
+    const current = JSON.parse(saved.entities.find(entity => entity.entity_id === "anel").components.logic.graph);
+    return current.nodes.find(node => node.id === a.id).params.slot_1_delay === 4
+      && current.nodes.find(node => node.id === b.id).params.slot_1_delay === 7
+      && current.edges.filter(edge => edge.fromNode === b.id && edge.fromPort === "slot_1").length === 2;
+  }, 10000, "A alteração mudou de sequência ou perdeu uma ação.");
+  await clickTopBarMenuAction(sessionId, "Fechar");
+  await waitFor(async () => !(await readAutomationState(sessionId))?.activeProjectDir, 15000, "A cópia não fechou.");
+  await open();
+  if ((await readStep())[1] !== "7") fail("B não recuperou o tick ao reabrir.");
+  const build = await runBuildRunAndCollect(sessionId, "resposta-b", timeoutMs, report, prefix+"-resposta-b", {
+    nativeClick: true, framebufferTimeoutMs: 90000,
+  });
+  await click("viewport-pause");
+  const probe = await openTimedRoomProbe(sessionId, dir, build);
+  const samples = [];
+  await probe.listen();
+  try {
+    if (await probe.ram("logic_var_resposta_b",4) !== 0) fail("A ação da resposta B já estava ativa.");
+    await probe.input({ right: true });
+    for (let frame = 0; frame < 14; frame++) {
+      await probe.advance();
+      if (frame === 0) await probe.input();
+      const audio = await probe.audio();
+      samples.push({ clock: await probe.ram("logic_var_timeline_event_tempo_b",4),
+        marker: await probe.ram("logic_var_resposta_b",4), audible: audio.firstSignal >= 0 });
+    }
+    if (samples.find(sample => sample.marker === 37)?.clock !== 8 || !samples.some(sample => sample.audible)) {
+      fail("A marca no tick 7 e o som simultâneo precisam aparecer no core: "+JSON.stringify(samples));
+    }
+  } finally { await probe.input(); await probe.close(); }
+  addReportStep(report, "shared_action_and_two_destinations_in_rom", "passed", { a: 4, b: 7, rom: build.rom_sha256, samples });
+}
+
 async function verifyRingAuthoring(sessionId, projectDir, report, prefix, timeoutMs) {
   const click = id => clickButtonByTestIdNativeWhenReady(sessionId, id);
   const enter = id => activateByTestIdWithEnter(sessionId, id);
@@ -19704,6 +19793,21 @@ async function verifyRingAuthoring(sessionId, projectDir, report, prefix, timeou
   await pressNativeUndoRedo(sessionId, "y");
   await waitFor(async () => await ticks() === "6", 6000, "Ctrl+Y não recuperou 6 ticks.");
   if (await zoom() !== initialZoom) fail("A edição do tick mudou o zoom.");
+  const graphReading = await js(`
+    const get = id => document.querySelector('[data-testid="'+id+'"]');
+    const canvas = get("nodegraph-canvas").getBoundingClientRect();
+    const toolbar = get("nodegraph-toolbar").getBoundingClientRect();
+    const legend = get("nodegraph-legend");
+    const cards = ["evento","contato","primeira","tempo","som","brilho","contar"].map(id => {
+      const rect = get("node-card-"+id).getBoundingClientRect();
+      return { id, visible: rect.left >= canvas.left-1 && rect.right <= canvas.right+1
+        && rect.top >= toolbar.bottom && rect.bottom <= canvas.bottom+1 };
+    });
+    return { cards, roles: legend?.textContent, warnings: get("nodegraph-validation-preview")?.innerText };
+  `);
+  if (graphReading.cards.some(card => !card.visible) || !["Evento","Condição","Ação","Tempo","Som","Visual"].every(role => graphReading.roles?.includes(role))
+      || graphReading.warnings?.includes("sem destino")) fail("O caminho da coleta, a legenda ou os terminais divergiram: " + JSON.stringify(graphReading));
+  report.ringGraphReading = graphReading;
   await shot("05-som-selecionado");
   await clickTopBarMenuAction(sessionId, "Salvar");
   const scenePath = path.join(projectDir, "scenes/main.json");
@@ -19725,6 +19829,9 @@ async function verifyRingAuthoring(sessionId, projectDir, report, prefix, timeou
     fail("O despacho do som deve atrasar exatamente dois ticks e a frente PCM deve acompanhá-lo dentro de um VBlank: " + JSON.stringify(report.ringTiming));
   }
   addReportStep(report, "ring_contact_once_timing_and_controls", "passed", { initialZoom });
+  await clickTopBarMenuAction(sessionId, "Fechar");
+  await waitFor(async () => !(await readAutomationState(sessionId))?.activeProjectDir, 15000, "A sala não fechou.");
+  await verifySharedSequenceSlot(sessionId, projectDir, report, prefix, timeoutMs);
 }
 
 async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, timeoutMs) {

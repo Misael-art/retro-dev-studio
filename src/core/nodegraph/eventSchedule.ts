@@ -43,3 +43,10 @@ export function actionTitle(graph: NodeGraph, node: GraphNode, names: ReadonlyMa
   }
   return node.label || describeNodeAction(node);
 }
+
+/** An unused conditional alternative or a disabled slot deliberately ends here. */
+export function idleExecutionOutput(node: GraphNode, port: string, connected: ReadonlySet<string>) {
+  if (node.type === "timeline_sequence" && /^slot_[0-3]$/.test(port) && Number(node.params[port + "_delay"] ?? -1) < 0) return "disabled";
+  if ((port === "false" && connected.has("true")) || (port === "true" && connected.has("false"))) return "terminal";
+  return null;
+}

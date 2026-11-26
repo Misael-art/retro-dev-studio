@@ -2329,16 +2329,36 @@ fn compile_logic_chain(
     parallax_layers: &mut Vec<ParallaxLayerConfig>,
     raster_lines: &mut Vec<RasterLineConfig>,
 ) -> Vec<LogicOp> {
-    let mut ops = Vec::new();
-    let mut next_node_id = next_exec_target(graph, source_node_id, source_port);
+    compile_logic_path(
+        graph,
+        next_exec_target(graph, source_node_id, source_port),
+        runtime_entities,
+        visited.clone(),
+        setup_nodes,
+        runtime_nodes,
+        parallax_layers,
+        raster_lines,
+    )
+}
 
+#[allow(clippy::too_many_arguments)]
+fn compile_logic_path(
+    graph: &StoredNodeGraph,
+    mut next_node_id: Option<String>,
+    runtime_entities: &HashMap<String, LogicRuntimeEntity>,
+    mut visited: std::collections::HashSet<String>,
+    setup_nodes: &mut Vec<AstNode>,
+    runtime_nodes: &mut Vec<AstNode>,
+    parallax_layers: &mut Vec<ParallaxLayerConfig>,
+    raster_lines: &mut Vec<RasterLineConfig>,
+) -> Vec<LogicOp> {
+    let mut ops = Vec::new();
     while let Some(node_id) = next_node_id {
         if !visited.insert(node_id.clone()) {
             break;
         }
 
         let Some(node) = graph.nodes.iter().find(|node| node.id == node_id) else {
-            visited.remove(&node_id);
             break;
         };
 
@@ -2346,7 +2366,7 @@ fn compile_logic_chain(
             node,
             graph,
             runtime_entities,
-            visited,
+            &mut visited,
             setup_nodes,
             runtime_nodes,
             parallax_layers,
@@ -2375,8 +2395,6 @@ fn compile_logic_chain(
                 next_node_id = next_exec_target(graph, &node.id, "exec");
             }
         }
-
-        visited.remove(&node_id);
     }
 
     ops
@@ -3259,18 +3277,24 @@ fn compile_logic_node(
                     continue;
                 }
 
-                let mut slot_visited = visited.clone();
-                let actions = compile_logic_chain(
-                    graph,
-                    &node.id,
-                    &format!("slot_{}", index),
-                    runtime_entities,
-                    &mut slot_visited,
-                    setup_nodes,
-                    runtime_nodes,
-                    parallax_layers,
-                    raster_lines,
-                );
+                let port = format!("slot_{index}");
+                let mut actions = Vec::new();
+                for edge in graph
+                    .edges
+                    .iter()
+                    .filter(|edge| edge.from_node == node.id && edge.from_port == port)
+                {
+                    actions.extend(compile_logic_path(
+                        graph,
+                        Some(edge.to_node.clone()),
+                        runtime_entities,
+                        visited.clone(),
+                        setup_nodes,
+                        runtime_nodes,
+                        parallax_layers,
+                        raster_lines,
+                    ));
+                }
                 if actions.is_empty() {
                     continue;
                 }
