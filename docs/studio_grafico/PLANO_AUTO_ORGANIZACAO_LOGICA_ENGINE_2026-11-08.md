@@ -571,3 +571,34 @@ Para abrir a mesa de conferência, execute `node scripts/qa/review-workspace.mjs
 Para revisar artefatos de outro host, o campo `nativeReport` aceita o relatório JSON do cenário E2E. Ele fornece o hash do executável e identifica as capturas que podem ser usadas. Mantenha os PNGs com o nome gravado no relatório e ao lado dele ao extrair o artefato da CI. Se informar também `binary`, os hashes do executável e do relatório precisam concordar. Em uma linha de base histórica, use `"purpose": "baseline"`. Os campos `viewport` e `scalePercent` aceitam `null` nesse caso quando a medição estiver ausente.
 
 Em 24/11 o operador autorizou a execução do [prompt integral](../handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#prompt-entrega-integral-workspace) e pediu a comparação de cada tela com estes 12 mockups. A execução começa pelo aceite do editor C em Linux e Windows. As cinco vistas complementares do plano de 08/11 seguem como propostas para revisão visual com o operador.
+
+### Conferência do reagrupamento por propósito de uso
+
+A rodada de 25/11/2026 conserva a navegação global à esquerda e as abas da área atual. No cabeçalho ficam projeto, comandos comuns e execução. A partir de 1480 px esses grupos ocupam uma linha. O guia da área abre por botão e teclado. As dicas dos ícones aparecem ao apontar ou focar. Comandos de edição da cena, de visualização e de transporte do jogo ficam junto da superfície que controlam.
+
+| Referência | Onde conferir |
+| --- | --- |
+| 01 · Cena | Selecionar, pintar, apagar e editar colisão junto ao palco. Zoom e enquadramento abaixo. Hierarquia e Camadas continuam acessíveis na lateral. |
+| 02 · Animação | Selecionar a segunda ocorrência na timeline e abrir seu atlas. Para um sprite sem atlas vinculado, usar **Abrir editor de pixels**. |
+| 03 · Arte | No editor de pixels, escolher um documento de plano, abrir Tiles e inspecionar a emenda. |
+| 04 · Arquivos | Abrir o catálogo pela navegação global e atualizar os arquivos do projeto. |
+| 05 · Lógica | Abrir Nós e expandir o compositor para editar as etapas. Conferir o tempo da segunda etapa. |
+| 06 · Código | Alternar para a projeção da instância pelo mesmo contexto de Lógica. |
+| 07 · Efeitos | Abrir Ondular no RetroFX e consultar os parâmetros da faixa. |
+| 08 · Teste | Compilar e executar. Em Teste, usar o transporte junto da ROM, F8 para pausar ou retomar e F10 para avançar um quadro em pausa. |
+| 09 · Depurar | Abrir a depuração da sessão e os instrumentos de leitura do movimento. |
+| 10 · Workspace | Aplicar a disposição Animar, destacar a timeline e devolver o painel ao dock. |
+| 11 · Terreno | Escolher Colisão, Materiais e Areia. O pincel fica junto da pintura e a regra tem controles de precisão no Inspetor. Com o Inspetor indisponível, os controles continuam junto da cena. |
+| 12 · Efeitos de sprite | No documento de sprite, abrir Cores e a prévia Fantasma. |
+
+No Deck, com a mesma sala a 1920 × 1080 e escala 1×, o cabeçalho passou de 89 para 49 px. O canvas da cena manteve 560 × 392 px e seu topo passou de Y=513 para Y=419. A 1366 × 768, a navegação global mediu 88 px, sem transbordamento horizontal. O ensaio abriu o guia por teclado e leu a dica de Salvar com Ctrl+S ao focar o botão. As medições estão em `sessions/capturas-fullhd-VylAf5j6/cena.json` e `sessions/workspace-purpose-OZJMocUH/final/`. Os estados de edição dependem da seleção e dos recursos do projeto aberto.
+
+A [rodada Windows de c69f4c5](https://github.com/Misael-art/retro-dev-studio/actions/runs/45742512368) percorreu as doze vistas e as janelas destacadas. No Genesis Plus GX a ROM editada de 131072 bytes teve SHA-256 `6773cb9df1a725e4797e53de17d783bde1f9bf484db66844bf6f9962cceebefd`. A resposta do material, os passos, o encaixe da lanterna e os eventos foram comparados com a ROM de controle. A primeira captura da volta a Teste revelou que a janela podia perder a imagem da fase pausada ao recriar o canvas.
+
+O candidato `4ebd242` recupera o framebuffer da ROM pausada ao reabrir Teste. As [doze vistas e as janelas destacadas passaram no Tauri Windows](https://github.com/Misael-art/retro-dev-studio/actions/runs/45744555953). O executável tem SHA-256 `b7f8362e4466b5322268216f6a862abebdce612e30b7dfdde578e51749d7438f`. A ROM editada repetiu o hash acima. Ao voltar da edição para Teste, os pixels no canvas e no core tiveram SHA-256 `7e46be48805a7374efd708b0de2c13a1237dd8ff6059d3139bf8515e5f9fdd0a` e o core permaneceu no quadro 258. As 12 capturas têm área útil de 1920 × 1080, escala 1× e cabeçalho de 49 px, sem transbordamento horizontal da janela. O compositor foi capturado expandido.
+
+A mesa local com os 12 pares está em `sessions/conferencia-workspace-rzgmvN/index.html`. Para reproduzir, execute o workflow **Desktop E2E** com `target=advanced-authoring`, preserve o relatório `advanced-flash` e os PNGs `-mesa-`, e use a rodada com `scripts/qa/review-workspace.mjs`. O JSON desta conferência está em `sessions/workspace-purpose-OZJMocUH/validado/windows-45744555953/rodada.json`. O inventário nos componentes alterados conservou os 487 identificadores de teste registrados antes da reorganização. A visita nativa verificou comandos por tarefa. As vistas de Arte e Efeitos de sprite usam um documento sem atlas vinculado. Usabilidade por participantes e dois monitores físicos continuam em aberto.
+
+O Tauri Linux de `4ebd242` também percorreu as 12 vistas no Deck. A mesa fica em `sessions/conferencia-workspace-iRwwjc/index.html`. Ao abrir Areia com oito células, o palco manteve posição e dimensões. Na sala simples, Build & Run compilou 524288 bytes e o Genesis Plus GX carregou o mesmo SHA-256 do arquivo, `e02491ed86cb4e0f61ea4e96828cdca07543185bc29a4a3e84a5a222aeccc2cd`. F8 pausou no quadro 33 e F10 levou ao 34. Ao sair e retornar a Teste, o framebuffer permaneceu idêntico. O executável é `04cf979aad1a47f54bff5974b11e61844336cc0969adc6a5003f38e7a54167c9`. O recibo de execução está em `sessions/workspace-purpose-OZJMocUH/validado/rom.json`. O diagnóstico do host foi READY. O Fôlego adiou a recertificação completa local pelo limite de RAM após a carga prevista.
+
+A [regressão desktop completa do mesmo candidato](https://github.com/Misael-art/retro-dev-studio/actions/runs/45744556808) passou no Windows, incluindo Mega Drive, SNES e edições C compartilhadas e por instância.
