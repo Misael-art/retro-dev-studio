@@ -4390,7 +4390,18 @@ export default function ArtStudioPanel() {
       ) : null}
 
       {artMode === "pixel" ? (
-        <div className="min-h-0 flex-1 px-3 pb-3">
+        <div className="flex min-h-0 flex-1 flex-col px-3 pb-3">
+          {selectedEntity && !importedPixelPath && <label className="flex flex-wrap items-center gap-2 p-1 text-xs">
+            <span>{getEntityDisplayName(selectedEntity)} · sem documento de pixels vinculado</span>
+            <select aria-label="Abrir arte vinculada da cena" value="" onChange={event => {
+              if (event.target.value) useEditorStore.getState().openStudioEditor({ focus: { task: "pixels", entityId: event.target.value } });
+            }}>
+              <option value="">Arte vinculada da cena…</option>
+              {activeScene?.entities.filter(entity => resolveLinkedPixelAsset(entity)).map(entity =>
+                <option key={entity.entity_id} value={entity.entity_id}>{getEntityDisplayName(entity)} · {resolveLinkedPixelAsset(entity)}</option>)}
+            </select>
+            <span>Use Novo para começar um documento.</span>
+          </label>}
           <PixelEditor
             key={activeProjectDir ?? ""}
             projectDir={activeProjectDir}

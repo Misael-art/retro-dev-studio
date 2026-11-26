@@ -15335,7 +15335,6 @@ async function runJumpCanvasJourneyScenario(initialSessionId, appPath, uiBootstr
     addCheck("sonic1.refazer_restaura_a_edicao", rd.cutValue === "-1536", { cutValue: rd.cutValue });
     // organizar e mover sem alterar a semantica
     const antes = await readBridge();
-    await clickButtonByTestIdNativeWhenReady(sessionId, "nodegraph-more-actions", "abrir ações de organização do grafo");
     await clickButtonByTestIdNativeWhenReady(sessionId, "nodegraph-organize-all", "organizar tudo");
     await pause(600);
     const org = await readBridge();

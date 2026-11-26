@@ -80,6 +80,7 @@ import { paintGameFrame } from "./gameFramePresentation";
 import RuntimeInspectOverlay from "./RuntimeInspectOverlay";
 import MotionTracePanel from "./MotionTracePanel";
 import { gameMayTakeKeyDown } from "../../core/keyboardFocus";
+import { HudExtremes } from "../inspector/HudTextInspector";
 import TestAdjustPanel from "./TestAdjustPanel";
 import PoseDurationField from "../artstudio/PoseDurationField";
 import ScenePointInspector, { type ScenePointProbe, type SceneProbePoint } from "./ScenePointInspector";
@@ -337,11 +338,13 @@ function drawResizeHandle(
 export default function ViewportPanel({
   showWorkspaceTabs = true,
   compactTools = false,
+  onAnimateInScene,
   stopSessionButton,
   materialDock,
 }: {
   showWorkspaceTabs?: boolean;
   compactTools?: boolean;
+  onAnimateInScene?: () => void;
   stopSessionButton?: ReactNode;
   materialDock?: HTMLElement | null;
 }) {
@@ -6270,7 +6273,14 @@ export default function ViewportPanel({
                   {gameFrameSize.width}x{gameFrameSize.height} @ {gameViewportScale}x
                 </div>
               </div>
-              <TestAdjustPanel paused={emulPaused} renderedFrames={renderedFrameCount} />
+              <div className="min-w-0 max-w-md overflow-auto">
+                <TestAdjustPanel paused={emulPaused} renderedFrames={renderedFrameCount} />
+                {activeScene?.entities.filter(entity => entity.components.hud).map(entity =>
+                  <section key={entity.entity_id} className="mt-1 rounded border border-[var(--rds-border-default)] bg-[var(--rds-surface-panel)] p-2 text-xs text-[var(--rds-text-primary)]">
+                    <strong>{getEntityDisplayName(entity)}</strong>
+                    <HudExtremes entity={entity} testId={"test-extremes-" + entity.entity_id} idPrefix={"test-hud-" + entity.entity_id} />
+                  </section>)}
+              </div>
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2">
               <div role="group" aria-label="Controlar a ROM carregada" className="rds-command-group">
@@ -6415,7 +6425,7 @@ export default function ViewportPanel({
                 ? `${emulatorRomIdentity.sourceLabel} · ROM ${emulatorRomIdentity.sha256} · ${emulatorRomIdentity.size} bytes · ${emulatorRomIdentity.coreLabel} · frames renderizados ${renderedFrameCount} · input ACK ${lastJoypadAck?.seq ?? 0}`
                 : "Identidade da ROM ainda não observada"}
             </div>
-            <MotionTracePanel renderedFrames={renderedFrameCount} paused={emulPaused} />
+            <MotionTracePanel screen={canvasRef.current} renderedFrames={renderedFrameCount} paused={emulPaused} />
           </div>
         )}
 
@@ -6477,7 +6487,7 @@ export default function ViewportPanel({
             {studio.focus.task !== "pixels" && selectedEntity?.components.sprite && (showNativePoses ||
               Object.values(selectedEntity.components.sprite.animations ?? {}).some((animation) => Array.isArray(animation.mugen_frames))) ? (
               <Suspense fallback={<WorkspaceViewportFallback label="Carregando Personagem..." />}>
-                <CharacterTimelinePanel key={selectedEntity.entity_id} entity={selectedEntity} authored={showNativePoses} />
+                <CharacterTimelinePanel key={selectedEntity.entity_id} entity={selectedEntity} authored={showNativePoses} onAnimateInScene={onAnimateInScene} />
               </Suspense>
             ) : (
               <Suspense fallback={<WorkspaceViewportFallback label="Carregando ArtStudio..." />}>

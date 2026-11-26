@@ -1548,7 +1548,7 @@ function NodeCard({
           className={`port-handle shrink-0 cursor-crosshair border-2 ${kind === "data" ? "h-3 w-3 rounded-full" : "h-3 w-3 rotate-45 rounded-[2px]"} ${
             snapped ? "scale-150 ring-2 ring-[#f9e2af]" : compatible ? "ring-2 ring-[#f9e2af]/50" : ""
           }`}
-          style={{ borderColor: PORT_VISUAL_COLORS[kind], backgroundColor: `${PORT_VISUAL_COLORS[kind]}${kind === "data" ? "66" : "cc"}` }}
+          style={{ borderColor: PORT_VISUAL_COLORS[kind], backgroundColor: `color-mix(in srgb, ${PORT_VISUAL_COLORS[kind]} ${kind === "data" ? "45%" : "85%"}, transparent)` }}
           onMouseDown={(e) => onPortMouseDown(e, port.id, output)}
           onMouseUp={(e) => onPortMouseUp(e, port.id, output)}
         />
@@ -4756,7 +4756,7 @@ export default function NodeGraphEditor() {
               ) + 18 * view.zoom;
               const hovered = hoveredEdgeId === edge.id;
               const active = activeEdgeId === edge.id;
-              const color = active ? "#f9e2af" : PORT_VISUAL_COLORS[kind];
+              const color = active ? "var(--rds-status-warning)" : PORT_VISUAL_COLORS[kind];
               return (
                 <g key={edge.id}>
                   <path

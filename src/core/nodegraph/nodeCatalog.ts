@@ -388,10 +388,10 @@ export function getPortVisualKind(port: Pick<NodePort, "id" | "kind">): PortVisu
 }
 
 export const PORT_VISUAL_COLORS: Record<PortVisualKind, string> = {
-  exec: "#e2e8f0",
-  data: "#89b4fa",
-  true: "#a6e3a1",
-  false: "#f38ba8",
+  exec: "var(--rds-text-secondary)",
+  data: "var(--rds-status-info)",
+  true: "var(--rds-status-success)",
+  false: "var(--rds-status-error)",
 };
 
 // ── Compatibilidade de conexao ────────────────────────────────────────────────

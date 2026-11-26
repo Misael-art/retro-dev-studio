@@ -222,6 +222,7 @@ export default function PixelEditor({ projectDir, source, log, beforeSave, onSav
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
   }, []);
+  const [lightComparison, setLightComparison] = useState(false);
   const [previewFrame, setPreviewFrame] = useState(0);
   const [status, setStatus] = useState<string | null>(null);
   const [preview, setPreview] = useState<Uint8Array | null>(null);
@@ -329,6 +330,10 @@ export default function PixelEditor({ projectDir, source, log, beforeSave, onSav
     if (!ctx) return;
     ctx.imageSmoothingEnabled = false;
     const cell = Math.max(4, Math.round(zoom / 2));
+    if (imagePreview && doc.target === "sprite") {
+      ctx.fillStyle = lightComparison ? "#eadfcf" : "#18202b";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    } else
     for (let y = 0; y < canvas.height; y += cell)
       for (let x = 0; x < canvas.width; x += cell) {
         ctx.fillStyle = ((x + y) / cell) % 2 === 0 ? "#1e2433" : "#272e40";
@@ -350,6 +355,7 @@ export default function PixelEditor({ projectDir, source, log, beforeSave, onSav
       if (frame < doc.frames.length - 1) paint(compositeFrame(doc, frame + 1), 0.12);
     }
     paint(composite, 1);
+    if (imagePreview && doc.target === "sprite") return;
     // Tiles com mais de uma linha de paleta.
     for (const tile of analyzeTiles(displayDoc, composite))
       if (tile.lines.length > 1) {
@@ -405,7 +411,7 @@ export default function PixelEditor({ projectDir, source, log, beforeSave, onSav
       ctx.strokeRect(selection.x * zoom + 0.5, selection.y * zoom + 0.5, selection.w * zoom - 1, selection.h * zoom - 1);
       ctx.setLineDash([]);
     }
-  }, [doc, displayDoc, frame, composite, zoom, onion, hover, selection, tool, brushSize, imagePreview, showGrid, isolation, tileMap, tileView, tileReuse]);
+  }, [doc, displayDoc, frame, composite, zoom, onion, hover, selection, tool, brushSize, imagePreview, lightComparison, showGrid, isolation, tileMap, tileView, tileReuse]);
 
   // ── Preview animado ──
   useEffect(() => {
@@ -998,7 +1004,16 @@ export default function PixelEditor({ projectDir, source, log, beforeSave, onSav
               }}>Cancelar</button>
             </div>
           ) : null}
-          <div ref={stageRef} data-testid="pixel-stage" className="min-h-24 flex-1 overflow-auto rounded-xl border border-[#313244] bg-[#0b0f19] p-3"><div className="flex min-h-full min-w-full w-max items-center justify-center">
+          {imagePreview && doc.target === "sprite" && <div className="flex shrink-0 items-center justify-between text-xs">
+            <span>Original e tratamento · quadro {frame + 1} · {zoom}×</span>
+            <label><input type="checkbox" checked={lightComparison} onChange={e => setLightComparison(e.target.checked)} /> Fundo claro</label>
+          </div>}
+          <div ref={stageRef} data-testid="pixel-stage" className="min-h-24 flex-1 overflow-auto rounded-xl border border-[#313244] bg-[#0b0f19] p-3"><div className="flex min-h-full min-w-full w-max items-center justify-center gap-2">
+            {imagePreview && doc.target === "sprite" &&
+              <figure style={{ background: lightComparison ? "#eadfcf" : "#18202b" }}><figcaption className="bg-[var(--rds-surface-panel)] text-xs">Original</figcaption>
+                <PixelFrameCanvas doc={doc} index={frame} scale={zoom} label="Pose original" /></figure>}
+            <figure>
+            {imagePreview && doc.target === "sprite" && <figcaption className="bg-[var(--rds-surface-panel)] text-xs">Tratamento</figcaption>}
             <canvas
               ref={canvasRef}
               data-testid="pixel-canvas"
@@ -1012,6 +1027,7 @@ export default function PixelEditor({ projectDir, source, log, beforeSave, onSav
               }}
               className="cursor-crosshair [image-rendering:pixelated]"
             />
+            </figure>
           </div></div>
           <div className="flex items-center gap-3 px-1 text-[10px] text-[#94a3b8]" data-testid="pixel-status">
             <span>{hover ? `x ${hover[0]} · y ${hover[1]} · tile ${Math.floor(hover[0] / TILE)},${Math.floor(hover[1] / TILE)}` : `${doc.width}×${doc.height} px · ${doc.width / TILE}×${doc.height / TILE} tiles`}</span>
@@ -1280,14 +1296,15 @@ function Section({ title, children, priority = false }: { title: string; childre
   );
 }
 
-function FrameThumb({ doc, index, active, onSelect }: { doc: PixelDoc; index: number; active: boolean; onSelect: () => void }) {
+function PixelFrameCanvas({ doc, index, scale, label, className }: {
+  doc: PixelDoc; index: number; scale?: number; label: string; className?: string;
+}) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
-    const scale = Math.max(1, Math.floor(48 / Math.max(doc.width, doc.height)));
-    canvas.width = doc.width * scale;
-    canvas.height = doc.height * scale;
+    canvas.width = doc.width;
+    canvas.height = doc.height;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const pixels = compositeFrame(doc, index);
@@ -1295,9 +1312,15 @@ function FrameThumb({ doc, index, active, onSelect }: { doc: PixelDoc; index: nu
       const css = pixelCss(doc, pixels[i]);
       if (!css) continue;
       ctx.fillStyle = css;
-      ctx.fillRect((i % doc.width) * scale, Math.floor(i / doc.width) * scale, scale, scale);
+      ctx.fillRect(i % doc.width, Math.floor(i / doc.width), 1, 1);
     }
   }, [doc, index]);
+  return <canvas ref={ref} aria-label={label} className={className} style={scale ? {
+    width: doc.width * scale, height: doc.height * scale, imageRendering: "pixelated"
+  } : undefined} />;
+}
+
+function FrameThumb({ doc, index, active, onSelect }: { doc: PixelDoc; index: number; active: boolean; onSelect: () => void }) {
   return (
     <button
       type="button"
@@ -1306,7 +1329,7 @@ function FrameThumb({ doc, index, active, onSelect }: { doc: PixelDoc; index: nu
       data-active={active}
       className={`relative flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border bg-[#0b0f19] ${active ? "border-[#7dd3fc]" : "border-[#313244]"}`}
     >
-      <canvas ref={ref} className="max-h-14 max-w-14 [image-rendering:pixelated]" />
+      <PixelFrameCanvas doc={doc} index={index} label={"Quadro " + (index + 1)} scale={Math.max(1, Math.floor(48 / Math.max(doc.width, doc.height)))} className="max-h-14 max-w-14 [image-rendering:pixelated]" />
       <span className="absolute left-1 top-0.5 text-[9px] text-[#94a3b8]">{index + 1}</span>
       <span className="absolute bottom-0.5 right-1 text-[8px] text-[#6c7086]">{doc.frames[index].durationMs}ms</span>
     </button>

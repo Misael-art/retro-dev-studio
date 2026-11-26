@@ -108,7 +108,7 @@ function boxRect(box: unknown): { x: number; y: number; w: number; h: number } |
  * Linha do tempo por ocorrência. A autoria Mega Drive edita a instância
  * selecionada. Animações importadas pelo perfil MUGEN editam o modelo.
  */
-export default function CharacterTimelinePanel({ entity, authored = false }: { entity: Entity; authored?: boolean }) {
+export default function CharacterTimelinePanel({ entity, authored = false, onAnimateInScene }: { entity: Entity; authored?: boolean; onAnimateInScene?: () => void }) {
   const activeProjectDir = useEditorStore((state) => state.activeProjectDir);
   const activeScene = useEditorStore((state) => state.activeScene);
   const projectFps = useEditorStore((state) => state.projectFps);
@@ -473,6 +473,8 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
             <button type="button" aria-label="Ampliar zoom da prévia" disabled={previewZoom >= 12}
               onClick={() => setPreviewZoom((zoom) => zoom + 1)} className="min-h-6 min-w-6 rounded border border-[#45475a] disabled:opacity-45">+</button>
           </div>
+          {authored && onAnimateInScene && <button type="button" data-testid="character-preview-in-scene" className="rounded border px-2 py-1"
+            onClick={onAnimateInScene} title="Abrir a cena e a timeline na mesa Animar">Ver pose na cena</button>}
           <span data-testid="character-total-ticks" className="ml-auto text-[#94a3b8]">
             {occurrences.length} ocorrências ·{" "}
             {total === null ? (authored ? "termina parada" : "termina parada (-1)") : `${total} ticks = ${(total / tickRate).toFixed(3).replace(".", ",")} s`} ·
@@ -483,7 +485,7 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
           <div
             data-testid="character-preview"
             data-shown-occurrence={shown?.id ?? ""}
-            className="relative m-auto shrink-0 bg-[repeating-conic-gradient(#1e293b_0_25%,#0f172a_0_50%)] [background-size:16px_16px]"
+            className="relative mx-auto mb-1 mt-auto shrink-0 bg-[repeating-conic-gradient(#1e293b_0_25%,#0f172a_0_50%)] [background-size:16px_16px]"
             style={{ width: stage.w, height: stage.h }}
           >
             {onion && previous ? (
@@ -638,7 +640,7 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
               </p>
             </div>
             <label className="block">
-              <span className="mb-0.5 block">Duração (ticks de 1/{tickRate} s)</span>
+              <span className="mb-0.5 block">Duração desta ocorrência (ticks de 1/{tickRate} s)</span>
               <input
                 data-testid="character-duration"
                 type="text"

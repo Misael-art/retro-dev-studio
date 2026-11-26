@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
+import AssetPreview from "../common/AssetPreview";
 import { atlasUses, replaceLinkedAtlas } from "../../core/imageIngress";
 import { loadPixelArtDoc } from "../../core/ipc/artStudioService";
 import type { Entity, Scene } from "../../core/ipc/sceneService";
@@ -166,7 +167,16 @@ export default function ReplaceLinkedAtlasPanel({ projectDir, asset, assets, sce
           {!compared && <button type="button" data-testid="explorer-atlas-compare" className={control} disabled={busy || !complete}
             onClick={() => void compare()}>Comparar paletas e vínculos</button>}
         </>}
+        {atlases && <div className="grid grid-cols-2 gap-2">
+          {[[asset, "Atlas atual", atlases.old.frames.length], [nextAsset, "Substituição", atlases.next.frames.length]].map(([file, label, count]) =>
+            <figure key={file} className="min-w-0 rounded border p-1">
+              <figcaption>{label} · {count} quadros</figcaption>
+              <AssetPreview projectDir={projectDir} relativePath={String(file)} alt={String(label)}
+                imageClassName="mx-auto h-16 max-w-full object-contain" fallbackClassName="h-16" pixelated />
+            </figure>)}
+        </div>}
         {compared && <div className="grid gap-2">
+          <p>Cena afetada · {scene.display_name ?? scene.scene_id}</p>
           <ul>{owners.map((owner) => {
             const sprite = owner.components.sprite;
             const boxes = Object.values(sprite?.animations ?? {}).reduce((total, animation) => total + (animation.hitboxes?.length ?? 0), 0);

@@ -5188,7 +5188,7 @@ export default function App() {
     </Suspense>
   ) : (
     <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Workspace..." />}>
-      <ViewportPanel showWorkspaceTabs={false} compactTools={splitTimeline}
+      <ViewportPanel showWorkspaceTabs={false} compactTools={splitTimeline} onAnimateInScene={() => changeSceneDesk("animate")}
         materialDock={useMaterialDock ? materialDock : null} stopSessionButton={transportAtGame ? stopSessionButton : undefined} />
     </Suspense>
   );
@@ -5233,6 +5233,9 @@ export default function App() {
               <button type="button" data-testid="float-timeline" className="rounded px-2 py-0.5 text-[11px]"
                 onClick={() => floating.floatPanel("timeline")}>{floating.open.timeline ? "Mostrar janela da timeline" : "Destacar timeline"}</button>
             </div>}
+            {floating.open.timeline && <p className="rounded border border-dashed border-[var(--rds-border-strong)] p-2 text-center text-xs">
+              Encaixe da Timeline · pressione Esc na janela destacada para voltar aqui.
+            </p>}
             <div className="min-h-0 flex-1 overflow-hidden" ref={floating.timelineDock} />
           </div>
         </Panel>

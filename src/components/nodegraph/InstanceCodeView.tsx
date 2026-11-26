@@ -211,10 +211,17 @@ export function InstanceCodeView() {
         {error ? <p role="alert" data-testid="instance-code-error" className="text-[#f38ba8]">Projeção indisponível: {error}</p> : null}
         {!entity ? <p className="text-[#a6adc8]">Selecione um objeto na cena para ver o código da lógica dele.</p> : null}
         {poseBinding && document && entity ? (
+          <>
+          <button type="button" data-testid="code-return-pose" className="rds-button rds-button--secondary rds-button--sm"
+            onClick={() => useEditorStore.getState().openStudioEditor({ focus: { task: "character", entityId: entity.entity_id,
+              animation: poseBinding.pose.animation, occurrenceId: poseBinding.pose.occurrence_id } })}>
+            Voltar à pose · {poseBinding.pose.animation} / {poseBinding.pose.occurrence_id}
+          </button>
           <RegionEditor key={JSON.stringify([poseBinding.instance_id, poseBinding.pose])}
             document={document} binding={poseBinding} scope="instance"
             draft={entity.components.sprite?.animations?.[poseBinding.pose.animation]?.pose_code_drafts?.[poseBinding.pose.occurrence_id] ?? null}
             onResult={setMessage} />
+          </>
         ) : document && studioFocus.animation && studioFocus.occurrenceId && entity?.components.sprite ? (
           <p>Esta ocorrência ainda usa a duração padrão do recurso. Edite os ticks na linha do tempo para abrir o campo C.</p>
         ) : null}

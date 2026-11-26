@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { RetroFXWaveBand } from "../../core/ipc/sceneService";
+import type { RetroFXWaveBand, TilemapComponent } from "../../core/ipc/sceneService";
 import { entityEditLock, entityLockScopeKey, resolvedTilemapPlanes } from "../../core/sceneComposition";
 import { persistActiveScene } from "../../core/scenePersistence";
 import { useEditorStore } from "../../core/store/editorStore";
-import { getTilemapArtwork, loadSceneArtworkAsset, type ViewportAssetCacheEntry } from "../viewport/sceneArtworkRenderer";
+import { getTilemapArtwork, loadSceneArtworkAsset } from "../viewport/sceneArtworkRenderer";
 
 const screen = { width: 320, height: 224 };
 const fields = [
@@ -26,27 +26,35 @@ export default function WaveBandEditor() {
   const planes = useMemo(() => resolvedTilemapPlanes(scene?.entities ?? []).filter(({ plane }) => plane !== "WINDOW"), [scene]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [original, setOriginal] = useState(false);
   const [playing, setPlaying] = useState(false);
-  const [asset, setAsset] = useState<ViewportAssetCacheEntry | null>(null);
+  const [artwork, setArtwork] = useState<{ id: string; x: number; y: number; image: HTMLCanvasElement }[]>([]);
   const [drag, setDrag] = useState<[number, number] | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const map = scene?.entities.find((entity) => entity.entity_id === wave?.entity_id)?.components.tilemap;
-  const path = map?.tileset;
+  const entities = scene?.entities;
   const legacyFx = scene?.retrofx?.parallax_layers.some(({ enabled }) => enabled) || scene?.retrofx?.raster_lines.some(({ enabled }) => enabled);
 
   useEffect(() => {
     let cancelled = false;
-    setAsset(null);
-    if (project && path) void loadSceneArtworkAsset(project, path).then((result) => {
-      if (!cancelled) setAsset(result);
-    }).catch(() => { if (!cancelled) setMessage("Abra um cenário com arte disponível para ver a faixa."); });
+    setArtwork([]);
+    if (project && entities) {
+      const maps = resolvedTilemapPlanes(entities).filter(({ plane }) => plane !== "WINDOW")
+        .sort((a, b) => Number(b.plane === "BG_B") - Number(a.plane === "BG_B"));
+      void Promise.all(maps.map(async ({ entityId }) => {
+        const entity = entities.find(item => item.entity_id === entityId)!;
+        const map: TilemapComponent = entity.components.tilemap!;
+        const asset = await loadSceneArtworkAsset(project, map.tileset);
+        const image = getTilemapArtwork(asset, map);
+        return image ? [{ id: entityId, x: entity.transform.x, y: entity.transform.y, image }] : [];
+      })).then(layers => { if (!cancelled) setArtwork(layers.flat()); })
+        .catch(() => { if (!cancelled) setMessage("Abra um cenário com arte disponível para ver a faixa."); });
+    }
     return () => { cancelled = true; };
-  }, [path, project]);
+  }, [entities, project]);
 
   useEffect(() => {
     const context = canvas.current?.getContext("2d");
     if (!context || !wave) return;
-    const source = asset && map ? getTilemapArtwork(asset, map) : null;
     const top = drag ? Math.min(...drag) : wave.first_line;
     const bottom = drag ? Math.max(...drag) : wave.last_line;
     let frame = 0;
@@ -58,12 +66,15 @@ export default function WaveBandEditor() {
       if (tick !== previousTick) {
         context.clearRect(0, 0, screen.width, screen.height);
         context.imageSmoothingEnabled = false;
-        if (source) {
-          const width = Math.min(source.width, screen.width);
-          for (let y = 0; y < Math.min(source.height, screen.height); y += 1) {
-            const offset = y < top || y > bottom ? 0 : Math.round(wave.amplitude * Math.sin(
-              (((wave.phase + tick * wave.speed + Math.floor((y - top) * 256 / wave.wavelength)) & 255) >> 3) * Math.PI / 16));
-            context.drawImage(source, 0, y, width, 1, offset, y, width, 1);
+        for (const { id, image, x, y } of artwork) {
+          if (original || id !== wave.entity_id) {
+            context.drawImage(image, x, y);
+            continue;
+          }
+          for (let line = Math.max(0, y); line < Math.min(y + image.height, screen.height); line += 1) {
+            const offset = line < top || line > bottom ? 0 : Math.round(wave.amplitude * Math.sin(
+              (((wave.phase + tick * wave.speed + Math.floor((line - top) * 256 / wave.wavelength)) & 255) >> 3) * Math.PI / 16));
+            context.drawImage(image, 0, line - y, image.width, 1, x + offset, line, image.width, 1);
           }
         }
         context.fillStyle = "#45eed728";
@@ -77,7 +88,7 @@ export default function WaveBandEditor() {
     };
     draw(performance.now());
     return () => cancelAnimationFrame(frame);
-  }, [asset, drag, map, playing, wave]);
+  }, [artwork, drag, original, playing, wave]);
 
   function apply(value: RetroFXWaveBand | null) {
     const state = useEditorStore.getState();
@@ -118,14 +129,19 @@ export default function WaveBandEditor() {
     }
   }
 
-  return <section data-testid="retrofx-wave-editor" className="min-h-0 flex-1 space-y-3 overflow-auto p-4">
+  return <section data-testid="retrofx-wave-editor" className="min-h-0 flex-1 space-y-3 overflow-auto bg-[var(--rds-surface-panel)] p-4 text-[var(--rds-text-primary)]">
     <p className="text-sm font-semibold">Ondular <span className="text-[var(--rds-text-secondary)]">Experimental</span></p>
     <p className="text-xs">Cada linha move o plano inteiro na horizontal. O outro plano, os sprites e o HUD mantêm seus deslocamentos. Até 896 B por quadro para as duas tabelas.</p>
     {wave && <p className="text-xs">Velocidade zero mantém a fase. Use um valor negativo para inverter o sentido de avanço.</p>}
     {legacyFx && <p role="status">Desligue Raster e Parallax legados antes de exportar. A paralaxe da câmera visual pode continuar ativa.</p>}
-    {!wave && <button type="button" className={buttonClass} disabled={!planes.length} onClick={add}>Criar faixa</button>}
+    {!wave && <button type="button" className="rds-button rds-button--primary" disabled={!planes.length} onClick={() => { setOriginal(false); add(); }}>Criar faixa</button>}
     {wave && <div className="grid gap-2 text-xs lg:grid-cols-[minmax(250px,420px)_1fr]">
       <div>
+        <div className="mb-1 flex flex-wrap items-center gap-1">
+          <button type="button" className={buttonClass} aria-pressed={original} onClick={() => setOriginal(true)}>Antes</button>
+          <button type="button" className={buttonClass} aria-pressed={!original} onClick={() => setOriginal(false)}>Com onda</button>
+          <strong>{wave.entity_id} · linhas {wave.first_line}–{wave.last_line}</strong>
+        </div>
         <canvas ref={canvas} width={screen.width} height={screen.height} role="img" tabIndex={0} data-testid="retrofx-wave-canvas"
           aria-label="Vista da faixa de scroll horizontal nas linhas da tela" className="w-full touch-none bg-[var(--rds-surface-inset)] [image-rendering:pixelated]"
           onPointerDown={(event) => {

@@ -258,6 +258,34 @@ async function writeWaveProject(directory) {
   return projectPath;
 }
 
+async function writeWaterTileProject(directory) {
+  const projectPath = await writeProject(directory, false);
+  const project = JSON.parse(await readFile(projectPath, "utf8"));
+  const scenePath = path.join(directory, project.entry_scene);
+  const scene = JSON.parse(await readFile(scenePath, "utf8"));
+  project.name = scene.display_name = "Porto das Lanternas — Tile de água";
+  const asset = "assets/tilesets/pixel/agua.png";
+  const document = asset.replace(/\.png$/, ".rdspixel.json");
+  const palette = [[0, 0, 0], [0, 2, 4], [1, 4, 6], [4, 7, 7]];
+  while (palette.length < 16) palette.push([0, 0, 0]);
+  const pixels = Buffer.from(["11222111", "22333222", "22111222", "11111111",
+    "21111122", "32222233", "12222211", "11111111"].join("").split("").map(Number));
+  const water = scene.entities.find(entity => entity.entity_id === "paisagem");
+  water.display_name = "Água";
+  water.components.tilemap.tileset = asset;
+  water.components.logic = { logic_hints: [`pixel_art:document=${document}`] };
+  const doc = { schema: "retrodev.pixel/v1", name: "agua", target: "plane", width: 8, height: 8,
+    palettes: Array.from({ length: 4 }, () => palette), paletteLines: [0],
+    layers: [{ id: "agua", name: "Água", visible: true }],
+    frames: [{ id: "agua-1", durationMs: 100, cels: [pixels.toString("base64")] }] };
+  await mkdir(path.dirname(path.join(directory, asset)), { recursive: true });
+  await writeFile(path.join(directory, asset), indexedAtlasPng(8, 8, palette, [pixels]));
+  await writeFile(path.join(directory, document), JSON.stringify(doc) + "\n");
+  await writeFile(scenePath, JSON.stringify(scene, null, 2) + "\n");
+  await writeFile(projectPath, JSON.stringify(project, null, 2) + "\n");
+  return projectPath;
+}
+
 async function writeHudProject(directory) {
   const projectPath = await writeProject(directory, false, false, true);
   const project = JSON.parse(await readFile(projectPath, "utf8"));
@@ -425,6 +453,26 @@ async function writeAdvancedAuthoringProject(directory, withFlash) {
   return projectPath;
 }
 
+async function writeIceProject(directory) {
+  const projectPath = await writeAdvancedAuthoringProject(directory, false);
+  const project = JSON.parse(await readFile(projectPath, "utf8"));
+  const scenePath = path.join(directory, project.entry_scene);
+  const scene = JSON.parse(await readFile(scenePath, "utf8"));
+  project.name = scene.display_name = "Porto das Lanternas — Gelo e plataforma";
+  const platform = scenery().find(e => e.entity_id === "elevador");
+  platform.transform = { x: 152, y: 152 };
+  scene.entities = scene.entities.filter(entity => entity.entity_id !== "Lanterna");
+  platform.components.sprite.palette_slot = 2;
+  scene.entities.push(platform);
+  await copyFile(path.join(artwork, path.basename(gate)), path.join(directory, gate));
+  scene.collision_map.materials = [{ name: "Gelo", friction: 0, cells: Array.from({ length: 8 }, (_, i) => 22 * 40 + 6 + i) }];
+  const runner = scene.entities.find(e => e.entity_id === "corredor");
+  runner.components.physics.friction = 12;
+  await writeFile(scenePath, JSON.stringify(scene, null, 2) + "\n");
+  await writeFile(projectPath, JSON.stringify(project, null, 2) + "\n");
+  return projectPath;
+}
+
 async function writeRingProject(directory) {
   const projectPath = await writeAdvancedAuthoringProject(directory, true);
   const project = JSON.parse(await readFile(projectPath, "utf8"));
@@ -478,7 +526,11 @@ async function writeRingProject(directory) {
 
 await mkdir(sessions, { recursive: true });
 const root = await mkdtemp(path.join(sessions, "ensaio-poses-"));
-if (process.argv.includes("--ring")) {
+if (process.argv.includes("--water-tile")) {
+  console.log(await writeWaterTileProject(path.join(root, "tile-de-agua")));
+} else if (process.argv.includes("--ice-path")) {
+  console.log(await writeIceProject(path.join(root, "gelo-e-plataforma")));
+} else if (process.argv.includes("--ring")) {
   console.log(await writeRingProject(path.join(root, "coleta-do-anel")));
 } else if (process.argv.includes("--atlas-replacement")) {
   console.log(await writeLinkedAtlasProject(path.join(root, "substituicao-atlas"), { replacement: true }));

@@ -13,15 +13,10 @@ export default function HudTextInspector({ entity }: { entity: Entity }) {
   const updateEntity = useEditorStore((state) => state.updateEntity);
   const hud = entity.components.hud!;
   const [labelDraft, setLabelDraft] = useState<string | null>(null);
-  const [preview, setPreview] = useState<{ value: number; text: "original" | "short" | "long"; light: boolean; cameraX: number } | null>(null);
   const labelInputRef = useRef<HTMLInputElement>(null);
   const problems = hudProblems(hud, activeScene);
   const strikes = strikeIds(activeScene);
-  const maximum = hudMaxValue(hud, activeScene) ?? 99;
-  const previewText = preview ? hudSampleText({
-    ...hud, label: preview.text === "short" ? "HP " : preview.text === "long" ? "VIDA DO PERSONAGEM - " : labelDraft ?? hud.label,
-  }, preview.value, maximum) : "";
-  const previewClips = hud.column < 0 || hud.row < 0 || hud.column + previewText.length > MD_TEXT_COLUMNS || hud.row >= MD_TEXT_ROWS;
+
 
   const apply = (patch: Partial<HudTextComponent>) => {
     updateEntity(entity.entity_id, { components: { hud: { ...hud, ...patch } } });
@@ -111,46 +106,7 @@ export default function HudTextInspector({ entity }: { entity: Entity }) {
       <p className="text-[9px] text-[#94a3b8]">
         Posição em blocos de 8 px na tela do Mega Drive (320×224). Fonte padrão do SGDK.
       </p>
-      <details data-testid="inspector-hud-extremes" className="rounded border border-[#45475a] px-2 py-1"
-        onKeyDown={(event) => {
-          if (event.key !== "Escape" || !event.currentTarget.open) return;
-          event.stopPropagation();
-          event.currentTarget.open = false;
-          event.currentTarget.querySelector("summary")?.focus();
-        }}
-        onToggle={(event) => setPreview(event.currentTarget.open ? { value: maximum, text: "original", light: false, cameraX: 0 } : null)}>
-        <summary className="cursor-pointer font-semibold">Prévia de situações extremas</summary>
-        {preview ? <div className="mt-2 space-y-2">
-          {hud.value && <div className="flex flex-wrap gap-1" role="group" aria-label="Valores para ensaio do HUD">
-            {[0, 1, 9, 99, maximum].filter((value, index, values) => values.indexOf(value) === index).map((value) =>
-              <button type="button" key={value} data-testid={`hud-preview-value-${value}`} aria-pressed={preview.value === value}
-                onClick={() => setPreview({ ...preview, value })} className="rounded border border-[#45475a] px-2 py-1 aria-pressed:border-[#89b4fa]">
-                {value === 0 ? "Vazio (0)" : value === maximum ? `Cheio (${value})` : value}
-              </button>)}
-          </div>}
-          <div className="flex flex-wrap gap-2">
-            <label>Texto <select data-testid="hud-preview-text" value={preview.text} className="rounded border border-[#45475a] bg-[#11111b]"
-              onChange={(event) => setPreview({ ...preview, text: event.target.value as typeof preview.text })}>
-              <option value="original">Da cena</option><option value="short">Curto</option><option value="long">Longo</option>
-            </select></label>
-            <label><input type="checkbox" data-testid="hud-preview-light" checked={preview.light} onChange={(event) => setPreview({ ...preview, light: event.target.checked })} /> Fundo claro</label>
-          </div>
-          <label>Deslocamento de câmera na prévia
-            <input data-testid="hud-preview-camera-x" type="range" min={0} max={64} value={preview.cameraX}
-              onChange={(event) => setPreview({ ...preview, cameraX: event.target.valueAsNumber })} />
-          </label>
-          <div role="img" aria-label={`Prévia do HUD na coluna ${hud.column}, linha ${hud.row}: ${previewText}`}
-            data-testid="hud-preview-frame"
-            className={`relative aspect-[10/7] overflow-hidden rounded border font-mono [container-type:inline-size] ${preview.light ? "bg-[#e7debb] text-[#211b25]" : "bg-[#11111b] text-white"}`}
-            style={{ backgroundImage: "repeating-linear-gradient(90deg, transparent 0 15px, currentColor 15px 16px)",
-              backgroundPositionX: `-${preview.cameraX}px`, backgroundBlendMode: "soft-light" }}>
-            <span className="absolute whitespace-pre" style={{ left: `${100 * hud.column / MD_TEXT_COLUMNS}%`,
-              top: `${100 * hud.row / MD_TEXT_ROWS}%`, fontSize: "2.3cqw", lineHeight: 1 }}>{previewText}</span>
-          </div>
-          {previewClips ? <button type="button" data-testid="hud-preview-fit-warning" className="rounded border border-[#fab387] px-2 py-1 text-[#fab387]"
-            onClick={() => labelInputRef.current?.focus()}>O texto excede a área. Revisar texto.</button> : null}
-        </div> : null}
-      </details>
+      <HudExtremes entity={entity} labelDraft={labelDraft} onReview={() => labelInputRef.current?.focus()} />
       {problems.length > 0 ? (
         <ul role="alert" data-testid="inspector-hud-problems" className="space-y-0.5 text-[#f38ba8]">
           {problems.map((problem) => (
@@ -161,5 +117,62 @@ export default function HudTextInspector({ entity }: { entity: Entity }) {
         <p data-testid="inspector-hud-ok" className="text-[#a6e3a1]">✓ Cabe na tela e usa a fonte do destino.</p>
       )}
     </section>
+  );
+}
+
+
+export function HudExtremes({ entity, labelDraft, onReview, testId = "inspector-hud-extremes", idPrefix = "hud-preview" }: {
+  entity: Entity; labelDraft?: string | null; onReview?: () => void; testId?: string; idPrefix?: string;
+}) {
+  const activeScene = useEditorStore(state => state.activeScene);
+  const hud = entity.components.hud!;
+  const [preview, setPreview] = useState<{ value: number; text: "original" | "short" | "long"; light: boolean; cameraX: number } | null>(null);
+  const maximum = hudMaxValue(hud, activeScene) ?? 99;
+  const previewText = preview ? hudSampleText({
+    ...hud, label: preview.text === "short" ? "HP " : preview.text === "long" ? "VIDA DO PERSONAGEM - " : labelDraft ?? hud.label,
+  }, preview.value, maximum) : "";
+  const previewClips = hud.column < 0 || hud.row < 0 || hud.column + previewText.length > MD_TEXT_COLUMNS || hud.row >= MD_TEXT_ROWS;
+  return (
+      <details data-testid={testId} className="rounded border border-[#45475a] px-2 py-1"
+        onKeyDown={(event) => {
+          if (event.key !== "Escape" || !event.currentTarget.open) return;
+          event.stopPropagation();
+          event.currentTarget.open = false;
+          event.currentTarget.querySelector("summary")?.focus();
+        }}
+        onToggle={(event) => setPreview(event.currentTarget.open ? { value: maximum, text: "original", light: false, cameraX: 0 } : null)}>
+        <summary className="cursor-pointer font-semibold">Prévia de situações extremas</summary>
+        {preview ? <div className="mt-2 space-y-2">
+          <p>Valor simulado · {hud.value ? (hud.value.kind === "logic_var" ? "Variável " : "Vida de ") + hud.value.source : "Texto da cena"}</p>
+          {hud.value && <div className="flex flex-wrap gap-1" role="group" aria-label="Valores para ensaio do HUD">
+            {[0, 1, 9, 99, maximum].filter((value, index, values) => values.indexOf(value) === index).map((value) =>
+              <button type="button" key={value} data-testid={`${idPrefix}-value-${value}`} aria-pressed={preview.value === value}
+                onClick={() => setPreview({ ...preview, value })} className="rounded border border-[#45475a] px-2 py-1 aria-pressed:border-[#89b4fa]">
+                {value === 0 ? "Vazio (0)" : value === maximum ? `Cheio (${value})` : value}
+              </button>)}
+          </div>}
+          <div className="flex flex-wrap gap-2">
+            <label>Texto <select data-testid={idPrefix + "-text"} value={preview.text} className="rounded border border-[#45475a] bg-[#11111b]"
+              onChange={(event) => setPreview({ ...preview, text: event.target.value as typeof preview.text })}>
+              <option value="original">Da cena</option><option value="short">Curto</option><option value="long">Longo</option>
+            </select></label>
+            <label><input type="checkbox" data-testid={idPrefix + "-light"} checked={preview.light} onChange={(event) => setPreview({ ...preview, light: event.target.checked })} /> Fundo claro</label>
+          </div>
+          <label>Deslocamento de câmera na prévia
+            <input data-testid={idPrefix + "-camera-x"} type="range" min={0} max={64} value={preview.cameraX}
+              onChange={(event) => setPreview({ ...preview, cameraX: event.target.valueAsNumber })} />
+          </label>
+          <div role="img" aria-label={`Prévia do HUD na coluna ${hud.column}, linha ${hud.row}: ${previewText}`}
+            data-testid={idPrefix + "-frame"}
+            className={`relative aspect-[10/7] overflow-hidden rounded border font-mono [container-type:inline-size] ${preview.light ? "bg-[#e7debb] text-[#211b25]" : "bg-[#11111b] text-white"}`}
+            style={{ backgroundImage: "repeating-linear-gradient(90deg, transparent 0 15px, currentColor 15px 16px)",
+              backgroundPositionX: `-${preview.cameraX}px`, backgroundBlendMode: "soft-light" }}>
+            <span className="absolute whitespace-pre" style={{ left: `${100 * hud.column / MD_TEXT_COLUMNS}%`,
+              top: `${100 * hud.row / MD_TEXT_ROWS}%`, fontSize: "2.3cqw", lineHeight: 1 }}>{previewText}</span>
+          </div>
+          {previewClips && onReview ? <button type="button" data-testid={idPrefix + "-fit-warning"} className="rounded border border-[#fab387] px-2 py-1 text-[#fab387]"
+            onClick={onReview}>O texto excede a área. Revisar texto.</button> : null}
+        </div> : null}
+      </details>
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { emulatorInputObservation, emulatorObserve } from "../../core/ipc/emulatorService";
 import { inputAtObservedFrame, MAX_MOTION_SAMPLES, motionTraceSummary, type MotionSample, type MotionTrace } from "../../core/motionTrace";
 import type { RuntimeLinkEntity } from "../../core/runtimeLink";
@@ -16,7 +17,7 @@ async function observePosition(actor: RuntimeLinkEntity, epoch: number, lastFram
     ? { frame: after.frames_run, x, y, input: inputAtObservedFrame(after) } : null;
 }
 
-export default function MotionTracePanel({ renderedFrames, paused }: { renderedFrames: number; paused: boolean }) {
+export default function MotionTracePanel({ renderedFrames, paused, screen }: { renderedFrames: number; paused: boolean; screen: HTMLCanvasElement | null }) {
   const project = useEditorStore((state) => state.activeProjectDir);
   const scene = useEditorStore((state) => state.activeScenePath);
   const selected = useEditorStore((state) => state.selectedEntityId);
@@ -33,6 +34,18 @@ export default function MotionTracePanel({ renderedFrames, paused }: { renderedF
   const linkedActor = link?.entities.find(({ entity_id }) => entity_id === selected);
   const [message, setMessage] = useState("");
   const [starting, setStarting] = useState(false);
+  const [overlay, setOverlay] = useState(false);
+  const [camera, setCamera] = useState<{ x: number; y: number; frame: number; epoch: number | null; sha: string } | null>(null);
+  const [point, setPoint] = useState<{ track: MotionTrace; sample: MotionSample } | null>(null);
+  useEffect(() => {
+    if (!overlay || !paused || !link || link.rom_sha256 !== rom?.sha256) return;
+    let cancelled = false;
+    const read = link.camera ? Promise.all([readRuntimeWord(link.camera.x, true), readRuntimeWord(link.camera.y, true)]) : Promise.resolve([0, 0]);
+    void read.then(([x, y]) => {
+      if (!cancelled) setCamera({ x, y, frame: renderedFrames, epoch, sha: link.rom_sha256 });
+    }).catch(() => { if (!cancelled) setCamera(null); });
+    return () => { cancelled = true; };
+  }, [overlay, paused, epoch, rom?.sha256, link, renderedFrames]);
   const canvas = useRef<HTMLCanvasElement>(null);
   const eligible = paused && project !== null && scene !== null && linkedActor !== undefined
     && revision !== null && epoch !== null && rom !== null && link?.rom_sha256 === rom.sha256;
@@ -135,6 +148,20 @@ export default function MotionTracePanel({ renderedFrames, paused }: { renderedF
     {slot && <p>Avance um quadro por vez para registrar posição e entrada consumida pelo core.</p>}
     {message && <p role="status">{message}</p>}
     {session && <>
+      <label className="flex items-center gap-1"><input type="checkbox" checked={overlay} onChange={e => setOverlay(e.target.checked)} /> Sobrepor ao cenário pausado</label>
+      {overlay && paused && screen?.parentElement && camera && camera.epoch === epoch && camera.sha === rom?.sha256 && camera.frame === renderedFrames
+        && !(session.a && session.b && session.a.entityId !== session.b.entityId) && createPortal(
+          <svg viewBox={`0 0 ${screen.width} ${screen.height}`} aria-label="Trajetos medidos no cenário" className="pointer-events-none absolute inset-0 h-full w-full">
+            {([session.a, session.b] as const).map((track, i) => {
+              if (!track) return null;
+              const color = i ? "#fcd34d" : "#99f6e4";
+              const path = track.samples.map((p, index) => (index && p.frame === track.samples[index - 1].frame + 1 ? "L" : "M")
+                + (p.x - camera.x) + " " + (p.y - camera.y)).join(" ");
+              const marks = motionTraceSummary(track.samples, track.initialFrame);
+              return <g key={i}><path d={path} stroke={color} fill="none" strokeWidth="1.5" strokeDasharray={i ? "3 1" : undefined} />
+                {[marks.takeoff, marks.apex, marks.landing].map((p, index) => p && <circle key={index} r={2} cx={p.x - camera.x} cy={p.y - camera.y} fill={color} />)}</g>;
+            })}
+          </svg>, screen.parentElement)}
       <canvas ref={canvas} role="img" aria-label="Traços de posição em pixels do mundo, A em verde e B em amarelo"
         width={400} height={128} className="mt-2 w-full max-w-[400px] rounded bg-[#111827]" />
       {session.a && session.b && <p>{session.a.entityId !== session.b.entityId ? "Escolha o mesmo ator nos dois ensaios para sobrepor."
@@ -152,7 +179,12 @@ export default function MotionTracePanel({ renderedFrames, paused }: { renderedF
           <p>{name.toUpperCase()} · {value.entityId} · revisão {value.sceneRevision} · {value.samples.length} amostras · {missing} quadros sem leitura</p>
           <p className="break-all" title={value.romSha256}>ROM {value.romSha256.slice(0, 12)} · {value.coreLabel} · início no quadro {value.initialFrame}</p>
           {last && <p>Quadro {last.frame} em ({last.x}, {last.y}) px do mundo · entrada {buttons ? buttons.join(", ") || "neutra" : "sem leitura"}</p>}
-          <p>Decolagem {takeoff?.frame ?? "—"} · ápice {apex?.frame ?? "—"} · aterrissagem {landing?.frame ?? "—"}</p>
+          <div className="flex flex-wrap gap-1">
+            {([{ label: "Saída", sample: takeoff }, { label: "Ápice", sample: apex }, { label: "Pouso", sample: landing }]).map(({ label, sample }) =>
+              <button type="button" key={label} className={button} disabled={!sample} onClick={() => sample && setPoint({ track: value, sample })}>
+                {label} {sample?.frame ?? "—"}</button>)}
+          </div>
+          {point?.track === value && <p>RAM do core · {value.entityId} · quadro {point.sample.frame} · ({point.sample.x}, {point.sample.y}) px · entrada {point.sample.input ? Object.entries(point.sample.input).filter(([, pressed]) => pressed).map(([key]) => key).join(", ") || "neutra" : "sem leitura"}</p>}
         </div>;
       })}
     </>}
