@@ -35,6 +35,23 @@ describe("deformação de sprite indexado", () => {
     expect(cel[17]).toBe(3);
     expect(deformSpriteArea(doc, scope, {width:2,height:2,shear:0}, false).doc).toBe(doc);
   });
+  it("espelha nos dois eixos e gira os índices em torno da própria seleção", () => {
+    const doc = fixture();
+    const sample = (size: Parameters<typeof deformSpriteArea>[2]) => {
+      const out = deformSpriteArea(doc, scope, size, false).doc.frames[0].cels[0];
+      return [out[9], out[10], out[17], out[18]];
+    };
+    const base = { width: 2, height: 2, shear: 0 };
+    expect(sample({ ...base, mirror: "horizontal" })).toEqual([2,1,4,3]);
+    expect(sample({ ...base, mirror: "vertical" })).toEqual([3,4,1,2]);
+    expect(sample({ ...base, quarterTurn: true })).toEqual([3,1,4,2]);
+  });
+  it("curva o centro suavemente conservando os extremos e os índices de cor", () => {
+    const doc = fixture(), cel = doc.frames[0].cels[0]; cel.fill(0);
+    for (let y=1; y<=5; y++) cel[y*8+1] = 4;
+    const out = deformSpriteArea(doc, {...scope, rect:{x:1,y:1,w:1,h:5}}, {width:1,height:5,shear:0,bend:2}, false).doc.frames[0].cels[0];
+    expect([...out.keys()].filter(i => out[i])).toEqual([9,19,27,35,41]);
+  });
   it("isola uma ocorrência repetida e conserva a variante, durações e caixas depois de reabrir", () => {
     const doc = fixture(), changed = deformSpriteArea(doc, scope, {width:1,height:2,shear:1}, false, binding, doc);
     const saved = deserializePixelDoc(serializePixelDoc(changed.doc));

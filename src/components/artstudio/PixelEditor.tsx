@@ -55,6 +55,7 @@ import { prepareImage } from "../../core/imageIngress";
 import { clearUnusedPixelColors, copyPixelDoc, disablePixelPalette, duplicatePixelLayer, enablePixelPalette, erasePixelRegion, fitPixelDoc, mergePixelLayerDown, type PixelEditScope } from "../../core/pixelImageOps";
 import Icon, { type IconName } from "../common/Icon";
 import type { SpriteSequenceBinding } from "../../core/pixelDeformation";
+import PixelFrameCanvas from "./PixelFrameCanvas";
 import PixelImagePanel, { PIXEL_TASKS, type PixelTask, type PixelTileView } from "./PixelImagePanel";
 
 export type PixelTool =
@@ -666,8 +667,8 @@ export default function PixelEditor({ projectDir, source, binding, log, beforeSa
       setSecondary(primary);
     } else if (key === "[") setBrushSize((s) => Math.max(1, s - 1));
     else if (key === "]") setBrushSize((s) => Math.min(8, s + 1));
-    else if (key === "h") flip(true);
-    else if (key === "v") flip(false);
+    else if (key === "h" && task !== "deform") flip(true);
+    else if (key === "v" && task !== "deform") flip(false);
     else if (key === "escape") setSelection(null);
     else if (key === "arrowleft") setFrameIndex((f) => Math.max(0, f - 1));
     else if (key === "arrowright") setFrameIndex((f) => Math.min(doc.frames.length - 1, f + 1));
@@ -1075,7 +1076,7 @@ export default function PixelEditor({ projectDir, source, binding, log, beforeSa
 
         {/* Coluna direita */}
         <div ref={optionsRef} hidden={!optionsOpen} inert={Boolean(transparencyPreview)} aria-label="Opções da tarefa de edição" className={`${optionsOpen ? "flex" : "hidden"} min-h-0 flex-col gap-2 overflow-y-auto pr-1 text-xs text-[#cdd6f4]`}>
-          <PixelImagePanel binding={binding} previous={boundDocumentRef.current?.source === autoSourceIdentity ? boundDocumentRef.current.doc : undefined} onFrame={setFrameIndex} task={task} doc={doc} projectDir={projectDir} scope={editScope} primary={primary} assetLine={report.lineUsage[0]?.line ?? pixelLine(primary)} onPrimary={value => { setPrimary(value); setActiveLine(pixelLine(value)); }} originalAvailable={Boolean(originalPath)} onReconvert={method => void reopenOriginal(method)}
+          <PixelImagePanel hardware={report} binding={binding} previous={boundDocumentRef.current?.source === autoSourceIdentity ? boundDocumentRef.current.doc : undefined} onFrame={setFrameIndex} task={task} doc={doc} projectDir={projectDir} scope={editScope} primary={primary} assetLine={report.lineUsage[0]?.line ?? pixelLine(primary)} onPrimary={value => { setPrimary(value); setActiveLine(pixelLine(value)); }} originalAvailable={Boolean(originalPath)} onReconvert={method => void reopenOriginal(method)}
             onCommit={(next, base, separate) => { if (docRef.current !== base) { setStatus("A imagem mudou. Gere uma nova prévia; seu trabalho foi preservado."); return; } commit(separate && source?.autoOpen ? copyPixelDoc(next) : next); if (!enabledPixelPalettes(next).includes(activeLine)) { const line = enabledPixelPalettes(next)[0]; setActiveLine(line); setPrimary(packPixel(line, 1)); setSecondary(packPixel(line, 2)); setEditingSlot(null); } setImagePreview(null); setIsolation(null); }}
             onPreview={(next) => { if (!transparencyPreview) setImagePreview(next); }}
             onSelectLayer={setLayerIndex} onSelectTool={next => { setTool(next); setTileMap(false); }} onSelection={setSelection} onIsolation={setIsolation}
@@ -1274,7 +1275,7 @@ export default function PixelEditor({ projectDir, source, binding, log, beforeSa
             <p className="mt-1 text-[#a6adc8]">Camadas são editáveis separadamente; o PNG junta as camadas visíveis. Duplicar, unir e excluir permitem Ctrl+Z.</p>
           </Section>
 
-          <Section title="Transformar">
+          {task !== "deform" && <Section title="Transformar">
             <div className="flex flex-wrap gap-1">
               <button type="button" onClick={() => flip(true)} className="rounded border border-[#313244] px-2 py-0.5" title="Flip horizontal (H) — gratuito no hardware">⇋ Flip H</button>
               <button type="button" onClick={() => flip(false)} className="rounded border border-[#313244] px-2 py-0.5" title="Flip vertical (V)">⇵ Flip V</button>
@@ -1282,7 +1283,7 @@ export default function PixelEditor({ projectDir, source, binding, log, beforeSa
             </div>
             <label className="mt-1 flex items-center gap-1"><input type="checkbox" checked={moveAll} onChange={(e) => setMoveAll(e.target.checked)} /> Aplicar a todos os frames e layers</label>
             <label className="flex items-center gap-1"><input type="checkbox" checked={wrapMove} onChange={(e) => setWrapMove(e.target.checked)} /> Mover com wrap nas bordas</label>
-          </Section>
+          </Section>}
 
           <Section title="Exportar para SGDK">
             <p className="text-[#94a3b8]">Folha horizontal de {doc.frames.length} frame(s), PNG 4-bit indexado com PAL{exportLine}; índice 0 transparente.</p>
@@ -1309,30 +1310,6 @@ function Section({ title, children, priority = false }: { title: string; childre
       {children}
     </section>
   );
-}
-
-function PixelFrameCanvas({ doc, index, scale, label, className }: {
-  doc: PixelDoc; index: number; scale?: number; label: string; className?: string;
-}) {
-  const ref = useRef<HTMLCanvasElement | null>(null);
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    canvas.width = doc.width;
-    canvas.height = doc.height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const pixels = compositeFrame(doc, index);
-    for (let i = 0; i < pixels.length; i += 1) {
-      const css = pixelCss(doc, pixels[i]);
-      if (!css) continue;
-      ctx.fillStyle = css;
-      ctx.fillRect(i % doc.width, Math.floor(i / doc.width), 1, 1);
-    }
-  }, [doc, index]);
-  return <canvas ref={ref} aria-label={label} className={className} style={scale ? {
-    width: doc.width * scale, height: doc.height * scale, imageRendering: "pixelated"
-  } : undefined} />;
 }
 
 function FrameThumb({ doc, index, active, onSelect }: { doc: PixelDoc; index: number; active: boolean; onSelect: () => void }) {

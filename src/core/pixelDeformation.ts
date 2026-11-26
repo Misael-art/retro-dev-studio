@@ -8,7 +8,14 @@ export interface SpriteSequenceBinding {
   animation?: string;
   occurrence?: string;
 }
-export interface DeformationSize { width: number; height: number; shear: number }
+export interface DeformationSize {
+  width: number; height: number; shear: number; bend?: number;
+  mirror?: "horizontal" | "vertical"; quarterTurn?: boolean;
+}
+/** A smooth bow is zero at both ends and reaches its signed amplitude halfway down. */
+export function deformationOffset(t: number, shear: number, bend = 0) {
+  return Math.round(t * shear + 4 * t * (1 - t) * bend);
+}
 
 /** Sample at pixel centers without inventing palette entries. The upper left corner
  * stays anchored. Shear moves the bottom edge horizontally; the sheet clips overflow. */
@@ -16,8 +23,8 @@ export function deformSpriteArea(doc: PixelDoc, scope: PixelEditScope, size: Def
   sequence: boolean, binding?: SpriteSequenceBinding, previous?: PixelDoc) {
   const rect = scope.rect;
   if (!rect || rect.w < 1 || rect.h < 1 || rect.x < 0 || rect.y < 0 || rect.x + rect.w > doc.width || rect.y + rect.h > doc.height) throw new Error("Marque uma área no sprite.");
-  const { width, height, shear } = size;
-  if (![width, height, shear].every(Number.isSafeInteger) || width < 1 || height < 1 || width > doc.width || height > doc.height || Math.abs(shear) > doc.width) throw new Error("Confira as medidas em pixels e os limites do quadro.");
+  const { width, height, shear, bend = 0 } = size;
+  if (![width, height, shear, bend].every(Number.isSafeInteger) || width < 1 || height < 1 || width > (size.quarterTurn ? doc.height : doc.width) || height > (size.quarterTurn ? doc.width : doc.height) || Math.abs(shear) > doc.width || Math.abs(bend) > doc.width) throw new Error("Confira as medidas em pixels e os limites do quadro.");
   const targets = new Map<number, string[]>();
   const protectedFrames = new Set<number>();
   if (binding) {
@@ -52,10 +59,12 @@ export function deformSpriteArea(doc: PixelDoc, scope: PixelEditScope, size: Def
       if (selected(src[pos])) out[pos] = 0;
     }
     for (let dy = 0; dy < Math.min(height, doc.height - rect.y); dy++) {
-      const left = rect.x + Math.round(shear * dy / Math.max(1, height - 1));
-      const sy = rect.y + Math.floor((dy + 0.5) * rect.h / height);
+      const left = rect.x + deformationOffset(dy / Math.max(1, height - 1), shear, bend);
+      const row = Math.floor((dy + 0.5) * (size.quarterTurn ? rect.w : rect.h) / height);
       for (let x = Math.max(left, 0); x < Math.min(left + width, doc.width); x++) {
-        const sx = rect.x + Math.floor((x - left + 0.5) * rect.w / width);
+        const column = Math.floor((x - left + 0.5) * (size.quarterTurn ? rect.h : rect.w) / width);
+        const sx = rect.x + (size.quarterTurn ? row : size.mirror === "horizontal" ? rect.w - 1 - column : column);
+        const sy = rect.y + (size.quarterTurn ? rect.h - 1 - column : size.mirror === "vertical" ? rect.h - 1 - row : row);
         const value = src[sy * doc.width + sx];
         const dest = (rect.y + dy) * doc.width + x;
         if (selected(value) && (scope.color == null || !src[dest] || src[dest] === scope.color)) out[dest] = value;

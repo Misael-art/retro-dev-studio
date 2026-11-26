@@ -92,7 +92,9 @@ RetroDevStudio/
 |   |   |   |-- ImageIngress.tsx (entrada única de imagens/GIF por colar, soltar e seletor; fluxo Experimental MD)
 |   |   |   |-- PixelEditor.tsx (editor indexado MD: desenho, contexto, histórico/salvar, CRAM, frames/layers)
 |   |   |   |-- PixelImagePanel.tsx (controles por tarefa/prévias de imagem, filtros, composição e diagnóstico de tiles)
-|   |   |   |-- PixelDeformationPanel.tsx (seleção, alças, medidas e alcance da deformação)
+|   |   |   |-- PixelDeformationPanel.tsx (ferramentas de transformação, medidas, alcance e custo de tiles/cores)
+|   |   |   |-- PixelTransformHandles.tsx (alças de escala e curvatura sobre a célula)
+|   |   |   |-- PixelFrameCanvas.tsx (mesma pose composta no palco, alças e miniaturas)
 |   |   |   `-- useSpriteAnimator.ts
 |   |   `-- viewport/
 |   |-- core/

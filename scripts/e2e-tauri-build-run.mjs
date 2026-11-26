@@ -18333,15 +18333,22 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
     if (mode === "effect-ghost") return (x + y) % 2 === 0 ? 0 : value;
     return cels[0][indexAt(y - 1, 14 - x)];
   });
-  // Independent oracle for an 8×8 selection shrunk to 4×6 with a two-pixel shear.
-  const sourceOffset = (x, y) => {
-    if (!isInside(x, y)) return indexAt(x, y);
-    const row = y - 4, column = x - 3 - [0, 0, 1, 1, 2, 2][row];
-    if (row >= 6 || column < 0 || column >= 4) return null;
-    return indexAt([4, 6, 8, 10][column], [4, 6, 7, 8, 10, 11][row]);
+  // Independent nearest-pixel lookup for 8×8 → 4×6, or the eight measured
+  // row shifts of a two-pixel base offset plus a two-pixel parabolic bow.
+  const sourceOffset = (cel, x, y) => {
+    const offset = indexAt(x, y), row = y - 4;
+    if (row < 0 || row >= 8) return offset;
+    if (entireSequence) {
+      const sx = x - [0, 1, 2, 3, 3, 3, 3, 2][row], src = indexAt(sx, y);
+      if (sx >= 3 && sx <= 10 && cel[src]) return src;
+      return isInside(x, y) ? null : offset;
+    }
+    if (!isInside(x, y)) return offset;
+    if (row >= 6 || x >= 7) return null;
+    return indexAt([4, 6, 8, 10][x - 3], [4, 6, 7, 8, 10, 11][row]);
   };
   const deformed = cels.map(cel => cel.map((_, offset) => {
-    const src = sourceOffset(offset % 16, Math.floor(offset / 16));
+    const src = sourceOffset(cel, offset % 16, Math.floor(offset / 16));
     return src == null ? 0 : cel[src];
   }));
   const baseline = await observed("efeito-original", palette);
@@ -18365,6 +18372,15 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
   const normal = await colorAt(targetPoint.x, targetPoint.y);
   if (!normal || normal[0] < 180) fail(`Amostra original do editor não é o pixel opaco esperado: ${normal}.`);
   await click(deform ? "pixel-task-deform" : mode === "effect-rotation" ? "pixel-task-image" : "pixel-task-colors");
+  if (deform) {
+    await click("transform-full-frame");
+    await click("transform-vertical");
+    const fromBottom = await colorAt(6, 13);
+    await click("deform-preview");
+    await waitFor(async () => isDeepStrictEqual(await colorAt(6, 2), fromBottom), 7000, "Espelhar verticalmente não inverteu a pose.");
+    await click("pixel-cancel-image");
+    await click("transform-scale");
+  }
   let apply = "pixel-apply-image";
   if (mode === "effect-transparent") {
     apply = "pixel-transparent-apply";
@@ -18390,16 +18406,26 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
     if (deform) {
       const wasYellow = await colorAt(8, 6), orange = await colorAt(5, 6);
       if (isDeepStrictEqual(wasYellow, orange)) fail("A seleção perdeu a borda entre as cores da pose.");
+      await click("transform-horizontal");
+      await click("deform-preview");
+      await waitFor(async () => isDeepStrictEqual(await colorAt(8, 6), orange), 7000, "Espelhar horizontalmente não inverteu a ilha.");
+      await click("pixel-cancel-image");
+      await click("transform-scale");
       await fillInputBySelector(sessionId, 'input[name="Largura"]', "12");
       await click("deform-preview");
       await waitFor(async () => isDeepStrictEqual(await colorAt(8, 6), orange), 7000, "Ampliar a largura não deslocou a borda laranja.");
       addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-ampliacao.png`), "Prévia da seleção ampliada de oito para doze pixels");
       await click("pixel-cancel-image");
       await waitFor(async () => isDeepStrictEqual(await colorAt(8, 6), wasYellow), 7000, "Cancelar a ampliação não recuperou a borda.");
-      await fillInputBySelector(sessionId, 'input[name="Largura"]', "4");
-      await fillInputBySelector(sessionId, 'input[name="Altura"]', "6");
-      await fillInputBySelector(sessionId, 'input[name="Inclinação"]', "2");
-      if (entireSequence) await selectOptionByTestIdNative(sessionId, "deform-scope", "sequence", { confirm: false });
+      if (entireSequence) {
+        await click("transform-warp");
+        await fillInputBySelector(sessionId, 'input[name="Inclinação"]', "2");
+        await fillInputBySelector(sessionId, 'input[name="Curvatura"]', "2");
+        await selectOptionByTestIdNative(sessionId, "deform-scope", "sequence", { confirm: false });
+      } else {
+        await fillInputBySelector(sessionId, 'input[name="Largura"]', "4");
+        await fillInputBySelector(sessionId, 'input[name="Altura"]', "6");
+      }
       await click("deform-preview");
       await click("pixel-cancel-image");
       await waitFor(async () => isDeepStrictEqual(await colorAt(targetPoint.x, targetPoint.y), normal), 5000, "Cancelar alterou o sprite.");
@@ -18419,6 +18445,10 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
     const value = await colorAt(targetPoint.x, targetPoint.y);
     return value && !isDeepStrictEqual(value, normal) ? value : false;
   }, 10000, "A prévia não alterou o pixel da área escolhida.", 100);
+  if (deform) {
+    report.effect.cost = await executeScript(sessionId, `return document.querySelector('[data-testid="transform-cost"]')?.innerText;`);
+    if (!report.effect.cost?.includes("Antes → prévia") || !report.effect.cost.includes("padrões únicos")) fail("A prévia não mostrou o custo da arte.");
+  }
   const transient = await state();
   const unchanged = {
     scene: isDeepStrictEqual(await disk(), before),
@@ -18580,8 +18610,8 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
         const original = baseTarget.get(ticks), result = editedTarget.get(ticks);
         const count = [];
         for (let offset = 0; offset < 256; offset++) {
-          const src = entireSequence || ticks === 4 ? sourceOffset(offset % 16, Math.floor(offset / 16)) : offset;
           const pose = [0, 1, 2, 1][i];
+          const src = entireSequence || ticks === 4 ? sourceOffset(cels[pose], offset % 16, Math.floor(offset / 16)) : offset;
           const wanted = src === offset ? rgba(original, offset)
             : src == null || cels[pose][src] === 0 ? rgba(background, offset) : rgba(original, src);
           if (!rgba(result, offset).equals(wanted)) fail(`Deformação divergente em o${i+1}, pixel ${offset}.`);
