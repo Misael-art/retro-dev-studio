@@ -3,8 +3,11 @@ import { describe, expect, it } from "vitest";
 import type { AnimationDef } from "./ipc/sceneService";
 import {
   addSoundEvent,
+  addOccurrenceBox,
+  alignPoseSupport,
   describeOccurrences,
   moveOccurrence,
+  occurrenceBoxes,
   occurrenceIds,
   removeEvent,
   retimeEventsToFit,
@@ -35,6 +38,54 @@ function kenLike(): AnimationDef {
 }
 
 describe("characterTimeline", () => {
+  it("retimes an authored occurrence without migrating the art or duplicating the repeated image", () => {
+    const original: AnimationDef = { frames: [0, 1, 2, 1], fps: 16, loop: true };
+    expect(describeOccurrences(original, 50).map(({ ticks }) => ticks)).toEqual([3, 3, 3, 3]);
+    const edited = setOccurrenceDuration(original, "o2", "6", 50);
+    expect(edited.ok && edited.def.frame_durations).toEqual([3, 6, 3, 3]);
+    expect(edited.ok && edited.def.occurrence_ids).toEqual(["o1", "o2", "o3", "o4"]);
+    expect(original.frame_durations).toBeUndefined();
+    expect(setOccurrenceDuration(original, "o2", "-1", 50).ok).toBe(false);
+  });
+
+  it("aligns the marked foot without shifting the other use of that image", () => {
+    const original: AnimationDef = { frames: [0, 1, 2, 1], fps: 12, loop: true };
+    const edited = alignPoseSupport(original, { id: "o1", anchor: { x: 14, y: 27 } },
+      { id: "o2", anchor: { x: 13, y: 26 } }, { width: 32, height: 32 });
+    expect(edited.ok && edited.def.pose_alignment).toEqual({
+      o1: { anchor: { x: 14, y: 27 }, offset: { x: 0, y: 0 } },
+      o2: { anchor: { x: 13, y: 26 }, offset: { x: 1, y: 1 } },
+    });
+    expect(original.pose_alignment).toBeUndefined();
+    expect(alignPoseSupport(original, { id: "o1", anchor: { x: 32, y: 27 } },
+      { id: "o2", anchor: { x: 13, y: 26 } }, { width: 32, height: 32 }).ok).toBe(false);
+  });
+
+  it("binds a sound to a native occurrence with the project's tick rate", () => {
+    const def: AnimationDef = { frames: [4, 4], fps: 16, loop: true };
+    const result = addSoundEvent(def, "o2", 2, "passo", 50);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(describeOccurrences(result.def, 50).map((occ) => occ.events.length)).toEqual([0, 1]);
+    expect(setOccurrenceDuration(result.def, "o2", "2", 50).ok).toBe(false);
+    expect(addSoundEvent(def, "o2", 3, "passo", 50).ok).toBe(false);
+    expect(addSoundEvent({ ...def, fps: 0 }, "o2", 0, "passo", 50).ok).toBe(false);
+  });
+
+  it("keeps native boxes tied to the occurrence even after reordering a repeated image", () => {
+    const imageBox = { frame: 13, kind: "attack" as const, x: 1, y: 2, width: 2, height: 3 };
+    const def: AnimationDef = { frames: [13, 5, 13], fps: 12, loop: true, hitboxes: [imageBox] };
+    const box = { x1: 8, y1: 3, x2: 18, y2: 19 };
+    const added = addOccurrenceBox(def, "o3", "clsn1", box);
+    if (!added.ok) throw new Error(added.message);
+    const moved = moveOccurrence(added.def, "o3", 0);
+    if (!moved.ok) throw new Error(moved.message);
+    expect(occurrenceBoxes(moved.def, "o3", "clsn1")).toEqual([box]);
+    expect(occurrenceBoxes(moved.def, "o1", "clsn1")).toEqual([]);
+    expect(moved.def.hitboxes).toContainEqual(imageBox);
+    expect(describeOccurrences(moved.def).map((occ) => occ.attackBoxes)).toEqual([1, 0, 0]);
+  });
+
   it("describes occurrences with source, boxes and start ticks", () => {
     const occ = describeOccurrences(kenLike());
     expect(occ.map((o) => [o.id, o.image, o.startTick, o.attackBoxes])).toEqual([

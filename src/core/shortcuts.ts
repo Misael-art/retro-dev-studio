@@ -310,6 +310,20 @@ export const DEFAULT_SHORTCUTS: ShortcutCommand[] = [
     scope: "nodegraph",
   },
   {
+    id: "emulator.togglePause",
+    group: "Emulador",
+    label: "Pausar ou retomar a ROM",
+    keys: ["F8"],
+    scope: "emulator",
+  },
+  {
+    id: "emulator.stepFrame",
+    group: "Emulador",
+    label: "Avançar um quadro em pausa",
+    keys: ["F10"],
+    scope: "emulator",
+  },
+  {
     id: "emulator.inputA",
     group: "Emulador",
     label: "Botao A",
@@ -550,6 +564,23 @@ export function eventMatchesShortcut(
   }
   const eventKey = normalizeShortcutEvent(event);
   return shortcut.keys.some((key) => normalizeShortcutChord(key) === eventKey);
+}
+
+const PROJECT_ASSET_COMMAND_PREFIX = "project.asset:";
+
+export function projectAssetCommands(paths: string[]): ShortcutCommand[] {
+  return [...new Set(paths)].map((path) => ({
+    id: PROJECT_ASSET_COMMAND_PREFIX + path,
+    label: path.split("/").pop() ?? path,
+    description: path,
+    group: "Arquivos",
+    keys: [],
+  }));
+}
+
+export function assetPathFromCommand(commandId: string): string | null {
+  return commandId.startsWith(PROJECT_ASSET_COMMAND_PREFIX)
+    ? commandId.slice(PROJECT_ASSET_COMMAND_PREFIX.length) : null;
 }
 
 function normalizeSearchText(value: string): string {

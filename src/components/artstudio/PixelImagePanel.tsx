@@ -1,19 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 import { chooseImagePath } from "../../core/sceneryImport";
 import { IMAGE_CONVERSIONS, prepareImage } from "../../core/imageIngress";
-import { addLayer, deserializePixelDoc, mdColorToCss, mdLevelTo8, packPixel, pixelLine, quantizeRgba, removePixelBackground, type PixelConversion, type PixelDoc, type PixelRect, type PixelTileReuse } from "../../core/pixelEditor";
-import { addPixelBorder, applyPixelEffect, collagePixelDoc, cropPixelDoc, effectRgb, PIXEL_EFFECTS, rotatePixelDoc, scalePixelDoc, unifyPixelPalettes, type PixelEditScope } from "../../core/pixelImageOps";
+import { addLayer, deserializePixelDoc, mdColorToCss, mdLevelTo8, packPixel, pixelLine, quantizeRgba, removePixelBackground, type PixelHardwareReport, type PixelConversion, type PixelDoc, type PixelRect, type PixelTileReuse } from "../../core/pixelEditor";
+import { addPixelBorder, applyPixelEffect, collagePixelDoc, cropPixelDoc, ditherTransparency, effectRgb, makeColorTransparent, PIXEL_EFFECTS, rotateIndexedSelection, rotatePixelDoc, scalePixelDoc, unifyPixelPalettes, type PixelEditScope } from "../../core/pixelImageOps";
+import PixelDeformationPanel from "./PixelDeformationPanel";
+import type { SpriteSequenceBinding } from "../../core/pixelDeformation";
+import PixelSeamPreview from "./PixelSeamPreview";
 
-export type PixelTask = "draw" | "image" | "colors" | "compose" | "layers" | "tiles";
+export type PixelTask = "deform" | "draw" | "image" | "colors" | "compose" | "layers" | "tiles";
 export const PIXEL_TASKS: { id: PixelTask; label: string }[] = [
   { id: "draw", label: "Desenhar" }, { id: "image", label: "Imagem e fundo" },
-  { id: "colors", label: "Cores e filtros" }, { id: "compose", label: "Colagem e texto" },
+  { id: "deform", label: "Transformar seleção" }, { id: "colors", label: "Cores e filtros" }, { id: "compose", label: "Colagem e texto" },
   { id: "layers", label: "Camadas" }, { id: "tiles", label: "Otimizar tiles" },
 ];
 export type PixelTileView = "repeated" | "mirrored" | "exclusive" | "conflicts";
 
 interface Props {
   task: PixelTask;
+  binding?: SpriteSequenceBinding;
+  previous?: PixelDoc;
+  hardware: PixelHardwareReport;
+  onFrame: (index: number) => void;
   doc: PixelDoc;
   projectDir: string | null;
   scope: PixelEditScope;
@@ -25,7 +32,7 @@ interface Props {
   onCommit: (next: PixelDoc, base: PixelDoc, separateResource?: boolean) => void;
   onPreview: (doc: PixelDoc | null) => void;
   onSelectLayer: (index: number) => void;
-  onSelectTool: (tool: "select" | "move" | "background") => void;
+  onSelectTool: (tool: "select" | "move" | "background" | "transparent") => void;
   onSelection: (rect: PixelRect | null) => void;
   onIsolation: (value: number | null) => void;
   tolerance: number;
@@ -47,7 +54,7 @@ const input = "min-w-0 rounded border border-[#313244] bg-[#0b0f19] px-2 py-1";
 /** Contextual controls use the same document/history/publisher as drawing. */
 export default function PixelImagePanel(p: Props) {
   const { doc, scope, task } = p;
-  const [proposal, setProposal] = useState<{ base: PixelDoc; next: PixelDoc; label: string; clearsSelection: boolean } | null>(null);
+  const [proposal, setProposal] = useState<{ base: PixelDoc; next: PixelDoc; label: string; clearsSelection: boolean; separateResource: boolean } | null>(null);
   const [message, setMessage] = useState("");
   const [brightness, setBrightness] = useState(0), [contrast, setContrast] = useState(0);
   const [width, setWidth] = useState(doc.width), [height, setHeight] = useState(doc.height);
@@ -55,6 +62,8 @@ export default function PixelImagePanel(p: Props) {
   const [conversion, setConversion] = useState<PixelConversion>(doc.conversionMethod ?? "balanced");
   const [text, setText] = useState("Seu texto"), [fontSize, setFontSize] = useState(16), [thickness, setThickness] = useState(1);
   const [busy, setBusy] = useState(false);
+  const [seamOpen, setSeamOpen] = useState(false);
+  const [ghostPhase, setGhostPhase] = useState<0 | 1>(0);
   const current = useRef({ doc, project: p.projectDir }); current.current = { doc, project: p.projectDir };
   const request = useRef(0), mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; request.current++; }; }, []);
@@ -64,9 +73,9 @@ export default function PixelImagePanel(p: Props) {
     setConversion(doc.conversionMethod ?? "balanced");
   }, [doc, task, scope.frame, scope.layer, scope.allFrames, scope.rect, scope.color, p.tolerance]);
 
-  const show = (next: PixelDoc, label: string, clearsSelection = false) => {
+  const show = (next: PixelDoc, label: string, clearsSelection = false, separateResource = clearsSelection) => {
     if (next === doc) { setProposal(null); p.onPreview(null); setMessage(label.startsWith("Remover fundo") ? "Não foi identificado um fundo uniforme seguro nesta região. Ajuste a tolerância ou use Apagar uma região." : "Nenhum pixel foi alterado nesta região/camada."); return; }
-    setMessage(""); setProposal({ base: doc, next, label, clearsSelection }); p.onPreview(next);
+    setMessage(""); setProposal({ base: doc, next, label, clearsSelection, separateResource }); p.onPreview(next);
   };
   const run = (fn: () => PixelDoc, label: string, clearsSelection = false) => {
     try { show(fn(), label, clearsSelection); } catch (e) { setMessage(e instanceof Error ? e.message : String(e)); }
@@ -119,6 +128,8 @@ export default function PixelImagePanel(p: Props) {
     run(() => addPixelBorder(doc, scope, value, thickness, outline), outline ? "Contorno em nova camada" : "Moldura em nova camada");
   };
 
+  if (task === "deform") return <PixelDeformationPanel hardware={p.hardware} doc={doc} scope={scope} binding={p.binding} previous={p.previous}
+    onFull={() => p.onSelection({x: 0, y: 0, w: doc.width, h: doc.height})} onFrame={p.onFrame} onSelect={() => p.onSelectTool("select")} onPreview={p.onPreview} onCommit={p.onCommit} />;
   if (task === "draw" || task === "layers") return null;
   const visibleTiles = p.tiles.filter(t => !t.empty), unique = new Set(visibleTiles.map(t => t.pattern)).size;
   const tileMatches = visibleTiles.filter(t => p.tileView === "repeated" ? t.copies > 1 : p.tileView === "mirrored" ? t.flip !== "original" : p.tileView === "exclusive" ? t.exclusiveColors > 0 : t.lines.length > 1).length;
@@ -134,6 +145,27 @@ export default function PixelImagePanel(p: Props) {
       <div className="grid grid-cols-2 gap-2"><button type="button" className={button} onClick={() => p.onSelectTool("select")}>Selecionar recorte</button><button type="button" className={button} disabled={!scope.rect} data-testid="pixel-crop" onClick={() => run(() => cropPixelDoc(doc, scope.rect!), "Cortar todos os quadros e camadas", true)}>Cortar seleção</button></div>
       <p className="text-[#a6adc8]">Cortar, girar e redimensionar mantêm os quadros/camadas alinhados, em múltiplos de 8. Imagens da cena recebem uma cópia para proteger os outros usos do recurso.</p>
       <button type="button" className={button} data-testid="pixel-rotate-image" onClick={() => run(() => rotatePixelDoc(doc), "Girar imagem 90°", true)}>Girar imagem 90°</button>
+      <details className="rounded border border-[var(--rds-border-subtle)] p-2">
+        <summary className="cursor-pointer font-semibold">Girar em torno de um pivô</summary>
+        <form key={JSON.stringify(scope.rect ?? [doc.width, doc.height])} className="mt-2 grid gap-2" onSubmit={(event) => {
+          event.preventDefault();
+          const fields = new FormData(event.currentTarget);
+          try {
+            const next = rotateIndexedSelection(doc, scope, Number(fields.get("angle")), { x: Number(fields.get("x")), y: Number(fields.get("y")) });
+            show(next, "Rotação da área escolhida", false, true);
+          } catch (error) { setMessage(String(error)); }
+        }}>
+          <label>Ângulo em graus<input name="angle" required type="number" step="any" defaultValue={90} className={`${input} ml-2 w-20`} /></label>
+          <div className="grid grid-cols-2 gap-2">
+            <label>Pivô X<input name="x" required type="number" step="any" min={0} max={doc.width - 1}
+              defaultValue={(scope.rect?.x ?? 0) + ((scope.rect?.w ?? doc.width) - 1) / 2} className={`${input} w-full`} /></label>
+            <label>Pivô Y<input name="y" required type="number" step="any" min={0} max={doc.height - 1}
+              defaultValue={(scope.rect?.y ?? 0) + ((scope.rect?.h ?? doc.height) - 1) / 2} className={`${input} w-full`} /></label>
+          </div>
+          <p className="text-[#a6adc8]">A rotação usa pixels inteiros e recorta o que ultrapassar a área da edição.</p>
+          <button type="submit" className={button} data-testid="pixel-preview-rotation">Visualizar rotação</button>
+        </form>
+      </details>
       <div className="grid grid-cols-2 gap-2"><label>Largura<input aria-label="Largura da imagem" type="number" min={8} max={512} value={width} onChange={e => { const n = Number(e.target.value); setWidth(n); if (proportional) setHeight(Math.round(n * doc.height / doc.width)); }} className={`${input} w-full`} /></label><label>Altura<input aria-label="Altura da imagem" type="number" min={8} max={512} value={height} onChange={e => { const n = Number(e.target.value); setHeight(n); if (proportional) setWidth(Math.round(n * doc.width / doc.height)); }} className={`${input} w-full`} /></label></div>
       <label className="flex gap-2"><input type="checkbox" checked={proportional} onChange={e => setProportional(e.target.checked)} />Manter proporção</label>
       <button type="button" className={button} data-testid="pixel-resize-image" onClick={() => run(() => scalePixelDoc(doc, width, height), "Redimensionar conteúdo sem suavizar pixels", true)}>Redimensionar imagem</button>
@@ -142,13 +174,38 @@ export default function PixelImagePanel(p: Props) {
       <button type="button" disabled={!p.originalAvailable} className={button} data-testid="pixel-reconvert" onClick={() => p.onReconvert(conversion)}>Reconverter original preservado</button>
     </div>}
     {task === "colors" && <div className="flex flex-col gap-3">
+      <fieldset className="grid min-w-0 gap-2"><legend className="font-semibold">Transparência e isolamento</legend>
+      <div className="grid grid-cols-2 gap-2" aria-label="Cor transparente" role="group">
+        <button type="button" className={button} data-testid="pixel-transparent-island" onClick={() => p.onSelectTool("transparent")}>Cor transparente · ilha</button>
+        <button type="button" className={button} data-testid="pixel-transparent-color" disabled={p.primary % 16 === 0}
+          onClick={() => show(makeColorTransparent(doc, scope, p.primary), "Cor transparente na área escolhida", false, true)}>
+          Remapear a cor escolhida
+        </button>
+      </div>
+      {doc.target === "sprite" ? (
+        <div className="grid gap-2 rounded border border-[var(--rds-border-subtle)] p-2">
+          <label className="flex items-center justify-between gap-2">Padrão do Fantasma
+            <select value={ghostPhase} onChange={(event) => setGhostPhase(event.target.value === "1" ? 1 : 0)} className={input}>
+              <option value="0">Par</option><option value="1">Ímpar</option>
+            </select>
+          </label>
+          <button type="button" data-testid="pixel-preview-ghost" className={button}
+            onClick={() => show(ditherTransparency(doc, scope, ghostPhase), "Fantasma por pixels alternados", false, true)}>
+            Prévia do Fantasma
+          </button>
+          <p className="text-[#a6adc8]">Alterna pixels opacos e transparentes na área escolhida. Salve a variante para ver o fundo através da malha no jogo.</p>
+        </div>
+      ) : null}
       <div className="grid grid-cols-2 gap-2"><button type="button" className={button} data-testid="pixel-isolate-color" onClick={() => p.onIsolation(p.primary)}>Isolar cor escolhida</button><button type="button" className={button} onClick={() => p.onIsolation(null)}>Mostrar todas</button></div>
       <p className="text-[#a6adc8]">As outras cores ficam esmaecidas e protegidas. Combine com Seleção para editar só uma região. A prévia e o PNG final conservam todas as cores.</p>
+      </fieldset>
+      <fieldset className="grid min-w-0 gap-2"><legend className="font-semibold">Ajustar cor e iluminação</legend>
       <label>Brilho: {brightness}<input type="range" aria-label="Brilho" min={-100} max={100} value={brightness} onChange={e => setBrightness(Number(e.target.value))} className="block w-full" /></label>
       <label>Contraste: {contrast}<input type="range" aria-label="Contraste" min={-100} max={100} value={contrast} onChange={e => setContrast(Number(e.target.value))} className="block w-full" /></label>
       <button type="button" className={button} data-testid="pixel-preview-adjust" onClick={() => effect("adjust")}>Visualizar ajustes</button>
       <div className="grid grid-cols-2 gap-2">{PIXEL_EFFECTS.map(f => <button type="button" key={f.id} className={button} title={f.hint} data-testid={`pixel-filter-${f.id}`} onClick={() => effect(f.id)}><span className="mb-1 flex overflow-hidden rounded" aria-hidden>{[0, 64, 128, 192, 255].map(n => <span key={n} className="h-2 flex-1" style={{ backgroundColor: `rgb(${effectRgb([n, n * .7, n * .4], f.id).map(v => Math.round(Math.max(0, Math.min(255, v)))).join(",")})` }} />)}</span>{f.name}</button>)}</div>
       <p className="text-[#a6adc8]">Cores e efeitos são adaptados a 15 cores por paleta. Edições locais preservam as cores usadas nas outras regiões, camadas e quadros; a prévia informa aproximações.</p>
+      </fieldset>
       <button type="button" className={button} onClick={() => run(() => unifyPixelPalettes(doc), "Unificar paletas do recurso inteiro")}>Unificar paletas</button>
       <p className="text-[#a6adc8]">Converte todas as camadas, inclusive ocultas, e todos os quadros para uma paleta comum de até 15 cores + transparência. A redução pode aproximar cores; confira antes de aplicar. Necessário para salvar PNG quando a arte mistura paletas incompatíveis.</p>
     </div>}
@@ -163,6 +220,10 @@ export default function PixelImagePanel(p: Props) {
       <div className="grid grid-cols-2 gap-2"><button type="button" data-testid="pixel-add-border" className={button} onClick={() => border(false)}>Moldura</button><button type="button" data-testid="pixel-add-outline" className={button} onClick={() => border(true)}>Contorno do objeto</button></div>
     </div>}
     {task === "tiles" && <div className="flex flex-col gap-3">
+      {doc.target === "plane" ? <details open={seamOpen} onToggle={(event) => setSeamOpen(event.currentTarget.open)}>
+        <summary className={`${button} cursor-pointer`} data-testid="pixel-open-seam-preview">Prévia de emenda</summary>
+        {seamOpen ? <PixelSeamPreview doc={doc} frame={scope.frame} onSelectTile={(tile) => { p.onSelection(tile); p.onTileMap(true); }} /> : null}
+      </details> : null}
       <label className="flex gap-2"><input type="checkbox" data-testid="pixel-tile-map" checked={p.tileMap} onChange={e => p.onTileMap(e.target.checked)} />Mostrar mapa de tiles 8×8</label>
       <label>Destacar<select aria-label="Informação do mapa de tiles" value={p.tileView} onChange={e => p.onTileView(e.target.value as PixelTileView)} className={`${input} mt-1 w-full`}><option value="repeated">Padrões repetidos</option><option value="mirrored">Reutilização com espelho</option><option value="exclusive">Cores exclusivas de um tile</option><option value="conflicts">Mistura de paletas</option></select></label>
       <p>{unique} padrões únicos / {visibleTiles.length} tiles visíveis. Economia potencial de {(Math.max(0, visibleTiles.length - unique) * 32 / 1024).toFixed(2)} KB em padrões deste quadro.</p>
@@ -174,6 +235,6 @@ export default function PixelImagePanel(p: Props) {
       <p className="text-[#a6adc8]">Os botões acima alteram a arte. O compilador SGDK pode compartilhar padrões e espelhos H/V mantendo a imagem. Rotação 90° não é um recurso gratuito do VDP. A estimativa não inclui mapas, sprites, fonte ou reservas da cena; confira o build real.</p>
     </div>}
     {message && <p role="status" data-testid="pixel-image-message" className="mt-3 text-[#f9e2af]">{message}</p>}
-    {proposal && <div data-testid="pixel-image-proposal" className="sticky bottom-0 mt-3 rounded-lg border border-[#7dd3fc]/60 bg-[#111827] p-2"><p className="mb-2">Prévia: {proposal.label}. Nada foi salvo.</p><div className="flex gap-2"><button type="button" data-testid="pixel-apply-image" className={`${button} bg-[#7dd3fc]/20`} onClick={() => { if (proposal.base !== doc) { setMessage("A imagem mudou. Gere outra prévia."); return; } finish(proposal.next, proposal.base, proposal.clearsSelection); if (proposal.clearsSelection) p.onSelection(null); }}>Aplicar</button><button type="button" className={button} data-testid="pixel-cancel-image" onClick={() => { setProposal(null); p.onPreview(null); setMessage("Prévia cancelada; pixels preservados."); }}>Cancelar</button></div></div>}
+    {proposal && <div data-testid="pixel-image-proposal" className="sticky bottom-0 mt-3 rounded-lg border border-[#7dd3fc]/60 bg-[#111827] p-2"><p className="mb-2">Prévia: {proposal.label}. Nada foi salvo.</p><div className="flex gap-2"><button type="button" data-testid="pixel-apply-image" className={`${button} bg-[#7dd3fc]/20`} onClick={() => { if (proposal.base !== doc) { setMessage("A imagem mudou. Gere outra prévia."); return; } finish(proposal.next, proposal.base, proposal.separateResource); if (proposal.clearsSelection) p.onSelection(null); }}>Aplicar</button><button type="button" className={button} data-testid="pixel-cancel-image" onClick={() => { setProposal(null); p.onPreview(null); setMessage("Prévia cancelada; pixels preservados."); }}>Cancelar</button></div></div>}
   </section>;
 }

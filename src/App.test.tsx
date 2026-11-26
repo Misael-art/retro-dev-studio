@@ -545,6 +545,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({
+  isTauri: () => false,
   convertFileSrc: mocks.convertFileSrc,
 }));
 
@@ -2590,6 +2591,21 @@ describe("App build flow", () => {
     expect(localStorage.getItem("retrodev-workspace-guide-expanded")).toBe("false");
   });
 
+  it("keeps contextual help out of the stage and identifies edit, delivery and layout commands", async () => {
+    const trigger = container.querySelector<HTMLButtonElement>("[data-testid='workspace-guide-open']");
+    expect(trigger?.getAttribute("popovertarget")).toBe("studio-workspace-help");
+    const guide = container.querySelector("#studio-workspace-help");
+    expect(guide?.getAttribute("popover")).toBe("auto");
+    expect(guide?.querySelector("[data-testid='workspace-guide']")).toBeTruthy();
+    await act(async () => { findButton(container, "Menu").click(); await flush(); });
+    const menu = container.querySelector("#studio-main-menu") as HTMLElement;
+    const section = (label: string) => [...menu.children].find(group => group.firstElementChild?.textContent === label);
+    expect(section("Editar")?.textContent).toMatch(/Desfazer.*Refazer.*Histórico.*Copiar.*Colar/);
+    expect(section("Compilar, testar e entregar")?.textContent).toMatch(/Revisar projeto.*Abrir ROM externa.*Validar.*Gerar C/);
+    expect(section("Disposição")?.querySelector("[data-testid='workspace-preset-animate']")).toBeTruthy();
+    expect(container.querySelector("[data-testid='toolbar-save']")?.getAttribute("data-tool-hint")).toContain("Ctrl+S");
+  });
+
   it("opens the unified top bar menu and reaches the About dialog", async () => {
     await act(async () => {
       findButton(container, "Menu").click();
@@ -3025,30 +3041,38 @@ describe("App build flow", () => {
   it("keeps the production shell compact and opens warning details on demand", async () => {
     const warning =
       "[SGDK Gerenciado] VRAM Analysis: mode=sgdk_managed asset_total=4KB resident=2KB.";
+    const hardwareWithWarning = {
+      vram_used: 4096,
+      vram_limit: 65536,
+      sprite_count: 7,
+      sprite_limit: 80,
+      scanline_sprite_peak: 3,
+      scanline_sprite_limit: 20,
+      dma_used: 1024,
+      dma_limit: 7372,
+      palette_banks_used: 1,
+      palette_banks_limit: 4,
+      bg_layers: 0,
+      bg_layers_limit: 4,
+      errors: [],
+      warnings: [warning],
+    };
+    mocks.getHwStatus.mockResolvedValue(hardwareWithWarning);
+    mocks.validateSceneDraft.mockResolvedValue({
+      ok: true,
+      error: "",
+      hw_status: hardwareWithWarning,
+    });
 
     await act(async () => {
       useEditorStore.setState({
         hwValidationState: "fresh",
-        hwStatus: {
-          vram_used: 4096,
-          vram_limit: 65536,
-          sprite_count: 7,
-          sprite_limit: 80,
-          scanline_sprite_peak: 3,
-          scanline_sprite_limit: 20,
-          dma_used: 1024,
-          dma_limit: 7372,
-          palette_banks_used: 1,
-          palette_banks_limit: 4,
-          bg_layers: 0,
-          bg_layers_limit: 4,
-          errors: [],
-          warnings: [warning],
-        },
+        hwStatus: hardwareWithWarning,
       });
       useEditorStore.getState().logMessage("warn", warning);
-      await flush();
     });
+    await flushUntil(() => mocks.validateSceneDraft.mock.calls.length > 0, 30, 25);
+    expect(mocks.validateSceneDraft).toHaveBeenCalled();
 
     const topbar = container.querySelector("[data-testid='unified-topbar']");
     const statusBar = container.querySelector("[data-testid='production-status-bar']");
@@ -3091,7 +3115,7 @@ describe("App build flow", () => {
     while (Date.now() < explorerDeadline) {
       const text = container.textContent ?? "";
       if (
-        text.includes("Workspace contextual de arquivos") &&
+        container.querySelector('[role="group"][aria-label="Catálogo do projeto"]') &&
         text.includes("Cenas 2") &&
         text.includes("hero.png")
       ) {
@@ -3104,7 +3128,7 @@ describe("App build flow", () => {
 
     expect(useEditorStore.getState().activeWorkspace).toBe("explorer");
     expect(useEditorStore.getState().activeViewportTab).toBe("scene");
-    expect(container.textContent).toContain("Workspace contextual de arquivos");
+    expect(container.querySelector('[aria-label="Catálogo do projeto"] button[aria-label="Atualizar arquivos"]')).toBeInstanceOf(HTMLButtonElement);
     expect(container.textContent).toContain("Cenas 2");
     expect(container.textContent).toContain("hero.png");
     expect(container.textContent).toContain("src/main.c");

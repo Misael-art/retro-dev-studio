@@ -2,6 +2,50 @@
 
 Status: **não executado**. Nenhum resultado humano foi registrado; inspeção técnica não certifica usabilidade.
 
+## Autoria de uma fase Mega Drive
+
+Use uma cópia nova da sala por pessoa e por revisão. A partir do checkout,
+`node scripts/qa/create-pose-authoring-demo.mjs` imprime os caminhos dos dois
+`project.rds`. Guarde a pasta de cada sessão junto da revisão, do SHA-256 do
+executável e do tamanho e escala da janela. As atividades abaixo independem
+dos insumos BYOR das rodadas anteriores.
+
+| Pedido à pessoa | O que quem conduz deve observar |
+|---|---|
+| Na sala simples, faça a raposa da esquerda apoiar o pé no mesmo ponto nas duas primeiras poses. Mantenha a raposa da direita como está. | Qual ator, ocorrência e alcance escolheu? Na arte, o ponto de referência é (14, 27) na primeira imagem e (13, 26) na segunda, em pixels a partir do canto superior esquerdo de cada célula de 32×32. O deslocamento esperado da segunda pose é (+1, +1). |
+| Faça a segunda pose durar seis ticks. Abra sua origem no código e reduza para quatro. Desfaça, refaça e salve. | A pessoa deve conseguir conferir 3 → 6 → 4 → 6 → 4. A quarta ocorrência usa a mesma imagem e conserva 2 ticks. A outra raposa conserva 5, 3, 7 e 2 ticks. |
+| Feche, reabra, jogue esta revisão e volte ao ponto em que estava editando. Mostre como você reconhece a revisão em execução. | Cronometre até a primeira prévia e até a ROM. Anote o ator e a pose encontrados no retorno, tentativas de recuperação e recursos consultados para identificar a revisão. |
+| Na sala densa, encontre a mesma pose, abra uma ferramenta avançada pelo teclado e volte à edição. Reorganize os painéis e restaure sua disposição. | Anote perda de foco, seleção, zoom ou rascunho, e se a pessoa reencontra a ferramenta depois de restaurar o layout. |
+
+Faça a rodada de linha de base e a do candidato com participantes iniciantes
+e experientes. Alterne a ordem das revisões entre pessoas do mesmo perfil.
+Leia somente o pedido da primeira coluna. Registre a ajuda quando solicitada.
+Se a revisão não oferecer a ação, anote a etapa indisponível. Só calcule o
+tempo de conclusão para tentativas que chegaram ao resultado esperado.
+
+| Código e perfil | Revisão e sala | Tarefa | Concluiu sem ajuda? | Tempo até prévia / ROM | Trocas de painel | Seleções incorretas | Ajuda, recuperação e palavras da pessoa |
+|---|---|---|---|---|---|---|---|
+
+### Autoria avançada e painéis destacados
+
+Abra uma cópia da sala de controle do Porto das Lanternas por pessoa e revisão.
+`node scripts/qa/create-pose-authoring-demo.mjs --advanced-authoring --with-flash`
+cria uma sala nova. Registre os resultados na mesma tabela, com pelo menos uma
+pessoa iniciante e uma experiente. Identifique o sistema, a revisão e, se
+houver duas telas, a escala de cada uma.
+
+| Pedido à pessoa | O que quem conduz deve observar |
+|---|---|
+| Prenda a lanterna à mão da raposa em duas poses e ajuste a distância entre elas. Confira o que acontece na terceira pose. | Encontrou o ponto de encaixe e o alcance por ocorrência. Ajustou o deslocamento com controle numérico e localizou a lanterna ao trocar de pose e direção. |
+| Faça o corredor perder velocidade e emitir passos numa faixa de oito células. Desfaça o traço e refaça. | Encontrou a regra e explicou a quais células ela se aplica. Confirmou que o restante do piso conservou a solidez e repetiu a travessia na ROM. |
+| Faça o som da resposta tocar dois ticks mais tarde e dê à raposa uma pose própria depois do som. | Encontrou a sequência em Nós, confirmou a nova ordem e voltou ao grafo com as conexões anteriores. Percebeu o momento da pose e do som ao testar. |
+| Destaque a Timeline, edite uma duração pelo teclado e desfaça em Propriedades. Salve, reencaixe as janelas e volte ao ator. | Confira o histórico, o rascunho, a seleção e o foco. Com duas telas em escalas diferentes, repita após mover e fechar a janela auxiliar e após desconectar a segunda tela. |
+
+Sessões com participantes pendentes. A automação técnica já fornece as
+revisões, ROMs e medidas para preparar as tarefas. [Matriz e fase de demonstração](JORNADA_MEGA_DRIVE_2026-11-05.md#encaixes-materiais-respostas-e-janelas-nativas)
+
+## Rodadas anteriores do Studio Gráfico Integrado
+
 Preparação (feita por quem conduz, não pelo participante): app do binário final, Ken BYOR em
 `/home/misael/.retrodev/mugen-real-2026-09-30/source/ken8`, um WAV curto qualquer, Sonic 1 BYOR para a tarefa 6.
 Tela de pelo menos 1280×800. Não ajudar; anotar onde travou, quanto tempo levou e se pediu ajuda.

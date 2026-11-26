@@ -46,6 +46,148 @@ pub struct LogicSupportIssue {
     pub reason: String,
 }
 
+pub fn pose_attachment_issues(target: &str, scene: &Scene) -> Vec<LogicSupportIssue> {
+    let find = |id: &str| scene.entities.iter().find(|entity| entity.entity_id == id);
+    let mut issues = Vec::new();
+    for entity in &scene.entities {
+        let components = &entity.components;
+        let Some(link) = &components.pose_attachment else {
+            continue;
+        };
+        let check = || -> Result<(), &str> {
+            if target != "megadrive" {
+                return Err("encaixes de pose exigem Mega Drive");
+            }
+            let actor = find(&link.actor).ok_or("ator do encaixe ausente")?;
+            let mut visited = std::collections::HashSet::from([entity.entity_id.as_str()]);
+            let mut next = Some(actor);
+            while let Some(current) = next {
+                if !visited.insert(current.entity_id.as_str()) {
+                    return Err("vínculo circular de encaixe");
+                }
+                next = current
+                    .components
+                    .pose_attachment
+                    .as_ref()
+                    .and_then(|edge| find(&edge.actor));
+            }
+            if actor.components.pose_attachment.is_some() {
+                return Err("o ator de um encaixe precisa ter posição própria");
+            }
+            if entity.prefab.is_some()
+                || components.sprite.is_none()
+                || components.physics.is_some()
+                || components.input.is_some()
+                || components.collision.is_some()
+                || components.path.is_some()
+                || components.tilemap.is_some()
+                || components.hud.is_some()
+                || components.camera.is_some()
+                || components.logic.is_some()
+            {
+                return Err(
+                    "o acessório precisa ser um sprite visual com posição controlada pelo encaixe",
+                );
+            }
+            if !(-511..=511).contains(&link.offset.x) || !(-511..=511).contains(&link.offset.y) {
+                return Err("o deslocamento do encaixe deve ficar entre −511 e 511 px");
+            }
+            let sprite = actor
+                .components
+                .sprite
+                .as_ref()
+                .ok_or("ator do encaixe sem sprite")?;
+            if sprite
+                .animations
+                .values()
+                .any(|clip| clip.mugen_frames.is_some())
+            {
+                return Err("o ator do encaixe precisa usar animações autorais");
+            }
+            if components.sprite.as_ref().is_some_and(|child| {
+                child
+                    .animations
+                    .values()
+                    .any(|clip| clip.mugen_frames.is_some() || !clip.pose_alignment.is_empty())
+            }) {
+                return Err("o acessório precisa usar a posição do encaixe em todas as poses");
+            }
+            if !sprite.animations.values().any(|clip| {
+                clip.pose_sockets
+                    .values()
+                    .any(|points| points.iter().any(|point| point.name == link.socket))
+            }) {
+                return Err("ponto nomeado ausente nas poses do ator");
+            }
+            Ok(())
+        };
+        if let Err(reason) = check() {
+            issues.push(LogicSupportIssue {
+                platform: target.into(),
+                entity_id: entity.entity_id.clone(),
+                node_id: "pose_attachment".into(),
+                node_type: "pose_attachment".into(),
+                reason: reason.into(),
+            });
+        }
+    }
+    issues
+}
+
+pub fn surface_material_issue(target: &str, scene: &Scene) -> Option<LogicSupportIssue> {
+    let map = scene
+        .collision_map
+        .as_ref()
+        .filter(|map| !map.materials.is_empty())?;
+    let validate = || -> Result<(), &str> {
+        if target != "megadrive" {
+            return Err("materiais da colisão exigem Mega Drive");
+        }
+        let mut names = std::collections::HashSet::new();
+        let mut cells = std::collections::HashSet::new();
+        if map.materials.len() > 15 {
+            return Err("use até 15 materiais na cena");
+        }
+        for material in &map.materials {
+            if material.name.trim().is_empty()
+                || material.name.len() > 32
+                || !names.insert(&material.name)
+                || material.friction > 16
+            {
+                return Err("cada material precisa ter nome único e atrito entre 0 e 16");
+            }
+            if let Some(sound) = &material.step_sound {
+                if !scene.entities.iter().any(|entity| {
+                    entity
+                        .components
+                        .audio
+                        .as_ref()
+                        .is_some_and(|audio| audio.sfx.contains_key(sound))
+                }) {
+                    return Err("som de passo não está registrado na cena");
+                }
+            }
+            if material
+                .cells
+                .iter()
+                .any(|&idx| !cells.insert(idx) || map.data.get(idx as usize) != Some(&1))
+            {
+                return Err(
+                    "cada célula de material precisa ser sólida e pertencer a um só material",
+                );
+            }
+        }
+        Ok(())
+    };
+    validate().err().map(|reason| LogicSupportIssue {
+        platform: target.into(),
+        entity_id: scene.scene_id.clone(),
+        node_id: "surface_materials".into(),
+        node_type: "surface_materials".into(),
+        reason: reason.into(),
+    })
+}
+
 /// R5: object paths are refused before codegen when invalid, unsupported on the target, or
 /// competing with physics/input for the same object's position.
 pub fn path_support_issues(target: &str, resolved_scene: &Scene) -> Vec<LogicSupportIssue> {
@@ -88,6 +230,80 @@ pub fn effective_tilemap_plane(index: usize, plane: Option<&str>) -> &str {
     })
 }
 
+fn wave_plane(scene: &Scene, entity_id: &str) -> Option<&'static str> {
+    let (index, tilemap) = scene
+        .entities
+        .iter()
+        .filter_map(|entity| entity.components.tilemap.as_ref().map(|map| (entity, map)))
+        .enumerate()
+        .find_map(|(index, (entity, map))| {
+            (entity.entity_id == entity_id).then_some((index, map))
+        })?;
+    match effective_tilemap_plane(index, tilemap.plane.as_deref()) {
+        "BG_A" => Some("BG_A"),
+        "BG_B" => Some("BG_B"),
+        _ => None,
+    }
+}
+
+pub struct CompiledWaveBand<'scene> {
+    pub settings: &'scene crate::ugdm::entities::RetroFXWaveBand,
+    pub plane: &'static str,
+}
+
+pub fn compile_wave_band<'scene>(
+    target: &str,
+    scene: &'scene Scene,
+) -> Result<Option<CompiledWaveBand<'scene>>, LogicSupportIssue> {
+    let Some(fx) = &scene.retrofx else {
+        return Ok(None);
+    };
+    let Some(wave) = &fx.wave else {
+        return Ok(None);
+    };
+    let refuse = |reason: &str| LogicSupportIssue {
+        platform: target.to_string(),
+        entity_id: wave.entity_id.clone(),
+        node_id: "retrofx-wave".to_string(),
+        node_type: "retrofx_wave".to_string(),
+        reason: reason.to_string(),
+    };
+    if target != "megadrive" {
+        return Err(refuse("Ondular só usa o scroll por linha do Mega Drive"));
+    }
+    let plane = wave_plane(scene, &wave.entity_id)
+        .ok_or_else(|| refuse("escolha um tilemap residente no Plano A ou B"))?;
+    if wave.first_line > wave.last_line
+        || wave.last_line >= crate::ugdm::entities::RETROFX_WAVE_LINES
+        || !(1..=24).contains(&wave.amplitude)
+        || !(8..=224).contains(&wave.wavelength)
+        || !(-32..=32).contains(&wave.speed)
+    {
+        return Err(refuse(
+            "use linhas 0–223, amplitude 1–24 px, comprimento 8–224 linhas e velocidade -32–32",
+        ));
+    }
+    let legacy_camera = scene.entities.iter().any(|entity| {
+        entity
+            .components
+            .camera
+            .as_ref()
+            .is_some_and(|camera| camera.visual.is_none() && camera.follow_entity.is_some())
+    });
+    if fx.parallax_layers.iter().any(|layer| layer.enabled)
+        || fx.raster_lines.iter().any(|line| line.enabled)
+        || legacy_camera
+    {
+        return Err(refuse(
+            "use a câmera visual para paralaxe e desligue as linhas raster e a paralaxe legadas",
+        ));
+    }
+    Ok(Some(CompiledWaveBand {
+        settings: wave,
+        plane,
+    }))
+}
+
 /// R5: validate all effective planes, including mixed explicit/automatic allocation.
 pub fn tilemap_plane_issues(target: &str, resolved_scene: &Scene) -> Vec<LogicSupportIssue> {
     let mut issues = Vec::new();
@@ -107,10 +323,21 @@ pub fn tilemap_plane_issues(target: &str, resolved_scene: &Scene) -> Vec<LogicSu
         let plane = effective_tilemap_plane(index, tilemap.plane.as_deref());
         let reason = if tilemap.plane.is_some() && plane != "BG_A" && plane != "BG_B" {
             Some(format!("plano '{plane}' invalido (use BG_A ou BG_B)"))
-        } else if target != "megadrive" && (tilemap.plane.is_some() || tilemap.priority) {
+        } else if target != "megadrive"
+            && (tilemap.plane.is_some() || tilemap.priority || !tilemap.priority_regions.is_empty())
+        {
             Some("plano/prioridade explicitos ainda sem runtime nesta plataforma".to_string())
         } else if target != "megadrive" {
             None
+        } else if !tilemap.priority_regions.is_empty() && plane == "WINDOW" {
+            Some("regioes de prioridade precisam do plano A ou B".to_string())
+        } else if tilemap.priority_regions.iter().any(|region| {
+            region
+                .clipped(tilemap.map_width, tilemap.map_height)
+                .as_ref()
+                != Some(region)
+        }) {
+            Some("regiao de prioridade fora do tilemap ou sem area".to_string())
         } else {
             seen.insert(plane, entity.entity_id.as_str())
                 .map(|other| format!("o plano {plane} ja e usado por '{other}'"))
@@ -282,6 +509,7 @@ struct GraphNode {
 /// Varre os grafos de logica ja resolvidos (prefab e graph_ref aplicados).
 pub fn logic_support_issues(target: &str, resolved_scene: &Scene) -> Vec<LogicSupportIssue> {
     let mut issues = Vec::new();
+    let mut event_sequences = std::collections::HashSet::new();
     for entity in &resolved_scene.entities {
         let Some(graph) = entity
             .components
@@ -295,6 +523,74 @@ pub fn logic_support_issues(target: &str, resolved_scene: &Scene) -> Vec<LogicSu
             continue;
         };
         for node in parsed.nodes {
+            if node.node_type == "timeline_sequence"
+                && node
+                    .params
+                    .get("run_mode")
+                    .and_then(serde_json::Value::as_str)
+                    == Some("event")
+            {
+                let id: String = node
+                    .id
+                    .chars()
+                    .map(|c| {
+                        if c.is_ascii_alphanumeric() {
+                            c.to_ascii_lowercase()
+                        } else {
+                            '_'
+                        }
+                    })
+                    .collect();
+                let reason = if target != "megadrive" {
+                    Some("o compositor de eventos exige Mega Drive")
+                } else if !event_sequences.insert(id) {
+                    Some("dois compositores usam o mesmo identificador de nó")
+                } else if (0..=3).any(|index| {
+                    node.params
+                        .get(&format!("slot_{index}_delay"))
+                        .is_some_and(|value| {
+                            !value
+                                .as_i64()
+                                .is_some_and(|ticks| (-1..=3600).contains(&ticks))
+                        })
+                }) {
+                    Some("use de 0 a 3600 ticks por etapa, ou −1 para desativá-la")
+                } else {
+                    None
+                };
+                if let Some(reason) = reason {
+                    issues.push(LogicSupportIssue {
+                        platform: target.into(),
+                        entity_id: entity.entity_id.clone(),
+                        node_id: node.id,
+                        node_type: node.node_type,
+                        reason: reason.into(),
+                    });
+                }
+                continue;
+            }
+            if resolved_scene
+                .retrofx
+                .as_ref()
+                .is_some_and(|fx| fx.wave.is_some())
+                && matches!(
+                    node.node_type.as_str(),
+                    "effect_parallax"
+                        | "effect_raster"
+                        | "camera_follow"
+                        | "move_camera"
+                        | "scroll_tilemap"
+                )
+            {
+                issues.push(LogicSupportIssue {
+                    platform: target.to_string(),
+                    entity_id: entity.entity_id.clone(),
+                    node_id: node.id,
+                    node_type: node.node_type,
+                    reason: "com Ondular, a câmera visual controla o scroll".to_string(),
+                });
+                continue;
+            }
             if let Some((platform, node_type, reason)) =
                 UNSUPPORTED.iter().find(|(platform, node_type, _)| {
                     *platform == target && *node_type == node.node_type
@@ -711,6 +1007,25 @@ mod tests {
             collision_map: None,
             layers: None,
         }
+    }
+
+    #[test]
+    fn cyclic_pose_links_are_rejected_on_both_entities() {
+        let mut scene = scene_with("{}");
+        let link = |actor: &str| crate::ugdm::components::PoseAttachment {
+            actor: actor.into(),
+            socket: "mao".into(),
+            offset: crate::ugdm::components::Pivot { x: 0, y: 0 },
+        };
+        let mut other = scene.entities[0].clone();
+        other.entity_id = "lanterna".into();
+        other.components.pose_attachment = Some(link("fox"));
+        scene.entities[0].components.pose_attachment = Some(link("lanterna"));
+        scene.entities.push(other);
+
+        let issues = pose_attachment_issues("megadrive", &scene);
+        assert_eq!(issues.len(), 2);
+        assert!(issues.iter().all(|issue| issue.reason.contains("circular")));
     }
 
     #[test]

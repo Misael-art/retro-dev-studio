@@ -9,6 +9,7 @@ import {
   type SceneDataResult,
 } from "./ipc/sceneService";
 import { sceneGraphBaseline, sceneSourcesEqual, useEditorStore } from "./store/editorStore";
+import { serializeStudioContext } from "./studioContext";
 
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -78,6 +79,7 @@ export async function reloadSceneFromDisk(projectDir: string, scope: string): Pr
       return false;
     }
 
+    useEditorStore.setState({ projectFps: sceneData.project_fps || 60 });
     setActiveScenePath(sceneData.scene_path);
     setActiveScene(hydrated.resolvedScene, hydrated.sourceScene, hydrated.graphs);
     if (selectedEntityId) {
@@ -437,6 +439,7 @@ export async function persistActiveScene(projectDir: string, scope: string, succ
   if (!stillCurrent()) return false;
   const sourceJson = JSON.stringify(activeSceneSource, null, 2);
   const resolvedJson = JSON.stringify(activeScene, null, 2);
+  const context = activeScenePath ? serializeStudioContext(state.studio, activeScenePath) : undefined;
   let failure: string;
   let conflictDiskJson: string | undefined;
   try {
@@ -447,7 +450,7 @@ export async function persistActiveScene(projectDir: string, scope: string, succ
       const baseline = useEditorStore.getState().sceneDiskBaseline;
       const expectedJson = baseline?.projectDir === projectDir && baseline.scenePath === activeScenePath ? baseline.sourceSceneJson : undefined;
       const expectedGraphs = expectedJson ? baseline?.graphs : undefined;
-      const result = await saveSceneData(projectDir, sourceJson, activeScenePath || undefined, resolvedJson, expectedJson, expectedGraphs);
+      const result = await saveSceneData(projectDir, sourceJson, activeScenePath || undefined, resolvedJson, expectedJson, expectedGraphs, context);
       if (result.ok && sameContext()) {
         const savedJson = result.scene_json && draftScene(result.scene_json) ? result.scene_json : sourceJson;
         useEditorStore.setState({ sceneDiskBaseline: {

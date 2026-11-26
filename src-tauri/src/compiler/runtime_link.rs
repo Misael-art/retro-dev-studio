@@ -477,12 +477,8 @@ pub fn build_runtime_link(
     let hud = super::hud_runtime::collect_huds(ast)
         .into_iter()
         .map(|h| {
-            let chars = h.label.chars().count() as u32
-                + if h.binding.is_some() {
-                    h.digits as u32
-                } else {
-                    0
-                };
+            let chars =
+                h.label.chars().count() as u32 + super::hud_runtime::hud_value_columns(&h, ast);
             RuntimeLinkHud {
                 shown_symbol: symbols.get(&format!("rds_hud_{}_shown", h.id)).copied(),
                 entity_id: h.entity_id,

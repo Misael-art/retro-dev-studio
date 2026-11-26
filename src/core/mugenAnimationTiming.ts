@@ -77,8 +77,8 @@ export function withFrameDuration(def: AnimationDef, index: number, ticks: numbe
   };
 }
 
-export function describeTicks(ticks: number): string {
+export function describeTicks(ticks: number, ticksPerSecond = MUGEN_TICKS_PER_SECOND): string {
   if (ticks === -1) return "parado (fica na tela ate a animacao ser trocada)";
-  const seconds = ticks / MUGEN_TICKS_PER_SECOND;
+  const seconds = ticks / ticksPerSecond;
   return `${ticks} tick${ticks === 1 ? "" : "s"} = ${seconds.toFixed(3).replace(".", ",")} s`;
 }

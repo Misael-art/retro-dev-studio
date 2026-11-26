@@ -7,6 +7,13 @@ export interface Transform {
   y: number;
 }
 
+export interface PoseAlignment {
+  /** Ponto marcado na célula original do atlas, em pixels. */
+  anchor: Transform;
+  /** Translação da ocorrência inteira, incluindo as caixas vinculadas. */
+  offset: Transform;
+}
+
 export interface AnimationDef {
   frames: number[];
   fps: number;
@@ -20,6 +27,12 @@ export interface AnimationDef {
   hitboxes?: SpriteAnimationHitbox[];
   /** Identidade estável por ocorrência (paralelo a `frames`); ausente em projetos antigos. */
   occurrence_ids?: string[];
+  /** Pontos e deslocamentos por identidade de ocorrência. */
+  pose_alignment?: Record<string, PoseAlignment>;
+  /** Coordenada na célula original, por ocorrência e nome do encaixe. */
+  pose_sockets?: Record<string, Array<{ name: string; point: Pivot }>>;
+  /** Texto pendente do campo C por ocorrência. O compilador usa os ticks do modelo. */
+  pose_code_drafts?: Record<string, string | null>;
   /** Eventos autorais ancorados em ocorrência + tick local. */
   frame_events?: FrameEvent[];
 }
@@ -68,7 +81,9 @@ export interface SpriteAnimationOnionSkin {
 export type SpriteAnimationHitboxKind = "attack" | "hurt" | "push" | "collision";
 
 export interface SpriteAnimationHitbox {
+  /** Image index used by Atlas. A pose-specific box also carries its occurrence. */
   frame: number;
+  occurrence_id?: string;
   kind: SpriteAnimationHitboxKind;
   x: number;
   y: number;
@@ -272,6 +287,15 @@ export interface VisualCameraConfig {
   advanced?: CameraAdvancedConfig;
 }
 
+export interface TilePriorityRegion {
+  /** Coordenadas locais, em células de 8 px. A última região prevalece na sobreposição. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  high: boolean;
+}
+
 export interface TilemapComponent {
   tileset: string;
   map_width: number;
@@ -285,6 +309,7 @@ export interface TilemapComponent {
   plane?: "BG_A" | "BG_B" | null;
   /** Prioridade alta: o plano fica na frente de sprites de prioridade baixa. */
   priority?: boolean;
+  priority_regions?: TilePriorityRegion[];
 }
 
 export interface Components {
@@ -299,6 +324,13 @@ export interface Components {
   hud?: HudTextComponent | null;
   /** Trajeto autoral (Experimental, R5): retas entre pontos relativos ao início do objeto. */
   path?: PathComponent | null;
+  pose_attachment?: PoseAttachment | null;
+}
+
+export interface PoseAttachment {
+  actor: string;
+  socket: string;
+  offset: Pivot;
 }
 
 /** Texto de interface autoral (Experimental): grade de texto do destino, tiles de 8 px. */
@@ -326,6 +358,7 @@ export interface HudTextComponent {
   label: string;
   value?: { kind: "strike_hp" | "logic_var"; source: string } | null;
   digits?: number;
+  bar_tiles?: number;
 }
 
 export interface Entity {
@@ -377,9 +410,20 @@ export interface RetroFXRasterLine {
   enabled: boolean;
 }
 
+export interface RetroFXWaveBand {
+  entity_id: string;
+  first_line: number;
+  last_line: number;
+  amplitude: number;
+  wavelength: number;
+  speed: number;
+  phase: number;
+}
+
 export interface RetroFXConfig {
   parallax_layers: RetroFXParallaxLayer[];
   raster_lines: RetroFXRasterLine[];
+  wave?: RetroFXWaveBand | null;
 }
 
 /** Camada de editor (schema 1.5.0+). Agrupa entidades por visibilidade e lock. */
@@ -412,6 +456,14 @@ export interface CollisionMap {
   height: number;
   /** Dados: 0 = livre, 1 = sólido. Tamanho = width * height. */
   data: number[];
+  materials?: SurfaceMaterial[];
+}
+
+export interface SurfaceMaterial {
+  name: string;
+  friction: number;
+  step_sound?: string;
+  cells: number[];
 }
 
 export interface Scene {
@@ -451,7 +503,9 @@ export interface SceneDataResult {
   scene_json: string;
   project_name: string;
   target: string;
+  project_fps?: number | null;
   scene_path: string;
+  studio_context_json?: string | null;
   source_kind: string;
   legacy_sgdk_index?: LegacySgdkIndex | null;
 }
@@ -483,9 +537,10 @@ export function saveSceneData(
   scenePath?: string,
   resolvedSceneJson?: string,
   expectedSceneJson?: string,
-  expectedGraphs?: Record<string, string>
+  expectedGraphs?: Record<string, string>,
+  studioContextJson?: string,
 ): Promise<{ ok: boolean; message: string; scene_json?: string | null; conflict?: boolean; graphs?: Record<string, string> }> {
-  return invoke("save_scene_data", { projectDir, sceneJson, scenePath, resolvedSceneJson, expectedSceneJson, expectedGraphs });
+  return invoke("save_scene_data", { projectDir, sceneJson, scenePath, resolvedSceneJson, expectedSceneJson, expectedGraphs, studioContextJson });
 }
 
 export function listScenes(projectDir: string): Promise<SceneInfo[]> {

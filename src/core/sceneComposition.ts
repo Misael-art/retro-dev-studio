@@ -1,4 +1,59 @@
-import type { CollisionMap, Entity, Scene, SceneLayer } from "./ipc/sceneService";
+import type { CollisionMap, Entity, Scene, SceneLayer, TilemapComponent, TilePriorityRegion } from "./ipc/sceneService";
+
+type TilePriorityBands = { low: TilePriorityRegion[]; high: TilePriorityRegion[] };
+const priorityBandsByMap = new WeakMap<TilemapComponent, TilePriorityBands>();
+
+/** Build an inclusive cell rectangle inside the selected plane. */
+export function priorityRegionBetween(
+  entity: Entity,
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  high: boolean,
+): TilePriorityRegion | null {
+  const map = entity.components.tilemap;
+  if (!map) return null;
+  const cell = (point: typeof start) => ({
+    x: Math.floor((point.x - entity.transform.x) / 8),
+    y: Math.floor((point.y - entity.transform.y) / 8),
+  });
+  const first = cell(start);
+  if (first.x < 0 || first.y < 0 || first.x >= map.map_width || first.y >= map.map_height) return null;
+  const last = cell(end);
+  last.x = Math.max(0, Math.min(map.map_width - 1, last.x));
+  last.y = Math.max(0, Math.min(map.map_height - 1, last.y));
+  return { x: Math.min(first.x, last.x), y: Math.min(first.y, last.y),
+    width: Math.abs(first.x - last.x) + 1, height: Math.abs(first.y - last.y) + 1, high };
+}
+
+/** Build disjoint row runs so transparent tiles show only the pass underneath. */
+export function tilePriorityBands(map: TilemapComponent): TilePriorityBands | null {
+  if (!map.priority_regions?.length) return null;
+  const cached = priorityBandsByMap.get(map);
+  if (cached) return cached;
+  const { map_width: width, map_height: height } = map;
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1 || width * height > 262144) return null;
+  const palette = new Uint8Array(width * height).fill(map.priority ? 1 : 0);
+  for (const region of map.priority_regions) {
+    if (![region.x, region.y, region.width, region.height].every(Number.isSafeInteger)
+      || region.x < 0 || region.y < 0 || region.width <= 0 || region.height <= 0) continue;
+    const right = Math.min(width, region.x + region.width);
+    const bottom = Math.min(height, region.y + region.height);
+    for (let y = region.y; y < bottom; y++) palette.fill(region.high ? 1 : 0, y * width + region.x, y * width + right);
+  }
+  const bands: TilePriorityBands = { low: [], high: [] };
+  for (let row = 0; row < height; row++) {
+    const rowStart = row * width;
+    let start = 0;
+    for (let col = 1; col <= width; col++) {
+      if (col < width && palette[rowStart + col] === palette[rowStart + start]) continue;
+      const high = palette[rowStart + start] === 1;
+      bands[high ? "high" : "low"].push({ x: start, y: row, width: col - start, height: 1, high });
+      start = col;
+    }
+  }
+  priorityBandsByMap.set(map, bands);
+  return bands;
+}
 
 export interface TemplatePositionChange {
   id: string;
@@ -61,7 +116,10 @@ export function translateCollisionMap(map: CollisionMap, dx: number, dy: number)
     if (x < 0 || x >= width || y < 0 || y >= height) return null;
     data[y * width + x] = value;
   }
-  return { ...map, data };
+  const materials = map.materials?.map((material) => ({
+    ...material, cells: material.cells.map((index) => index + rows * width + columns),
+  }));
+  return { ...map, data, ...(materials ? { materials } : {}) };
 }
 
 export type EntityEditLock = { locked: false } | { locked: true; reason: "object" } | { locked: true; reason: "layer"; layerName: string };

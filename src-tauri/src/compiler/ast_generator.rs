@@ -7,7 +7,7 @@ use crate::compiler::build_provenance::graph_revision_hash;
 use crate::core::project_mgr::{resolve_prefabs, LoadError};
 use crate::ugdm::components::{
     AnimationDef, AudioComponent, CollisionComponent, InputComponent, PhysicsComponent,
-    SpriteComponent,
+    SpriteComponent, TilePriorityRegion,
 };
 use crate::ugdm::entities::{Project, Scene};
 
@@ -37,6 +37,16 @@ pub enum AstNode {
         y: i32,
         priority_high: bool,
     },
+    AuthoredPosePlayback {
+        entity_id: String,
+        var_name: String,
+        animations: Result<Vec<AuthoredPoseAnimation>, String>,
+    },
+    PoseAttachment(PoseAttachmentPlan),
+    SurfaceMaterials {
+        cells: Vec<u8>,
+        materials: Vec<crate::ugdm::entities::SurfaceMaterial>,
+    },
     DrawTilemap {
         resource_name: String,
         x: i32,
@@ -47,12 +57,17 @@ pub enum AstNode {
         plane: Option<String>,
         /// Prioridade alta dos tiles (na frente de sprites de prioridade baixa).
         priority_high: bool,
+        priority_regions: Vec<TilePriorityRegion>,
     },
     SetupParallax {
         layers: Vec<ParallaxLayerConfig>,
     },
     SetupRasterEffect {
         lines: Vec<RasterLineConfig>,
+    },
+    SetupWaveBand {
+        wave: crate::ugdm::entities::RetroFXWaveBand,
+        plane: &'static str,
     },
     InitAudio {
         sfx_resources: Vec<(String, String)>,
@@ -136,6 +151,7 @@ pub enum AstNode {
         label: String,
         binding: Option<(String, String)>,
         digits: u8,
+        bar_tiles: Option<u8>,
     },
     GameLoopBegin,
     GameLoopEnd,
@@ -174,6 +190,35 @@ pub struct SpriteAnimation {
     /// Tabela de runtime MUGEN (perfil `mugen.character.v1`), quando a animacao veio de
     /// um AIR. `Err` = dados do modelo fora do que o runtime representa: bloqueia o build.
     pub mugen: Option<Result<MugenAnimTable, String>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuthoredPoseAnimation {
+    pub name: String,
+    pub looping: bool,
+    pub cell: (u32, u32),
+    pub frames: Vec<AuthoredPoseFrame>,
+    pub events: Vec<MugenEventRuntime>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PoseAttachmentPlan {
+    pub parent: String,
+    pub child: String,
+    pub cell: (u32, u32),
+    pub child_cell: (u32, u32),
+    pub pivot: (i32, i32),
+    pub offset: (i32, i32),
+    pub points: Vec<Vec<Option<(i32, i32)>>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuthoredPoseFrame {
+    pub occurrence_id: String,
+    pub ticks: u8,
+    pub offset: (i16, i16),
+    pub attack_boxes: Vec<[i16; 4]>,
+    pub body_boxes: Vec<[i16; 4]>,
 }
 
 /// Animacao dirigida pelo runtime gerado (`compiler/mugen_runtime.rs`) em vez da
@@ -324,6 +369,8 @@ pub struct LogicScript {
 pub enum LogicOp {
     SourceMapped {
         graph_sha256: String,
+        /// Instancia (entidade) dona do grafo: distingue instancias com grafos identicos.
+        instance_id: String,
         node_id: String,
         semantic_stage: String,
         op: Box<LogicOp>,
@@ -369,13 +416,12 @@ pub enum LogicOp {
         damage: u16,
         health: u16,
     },
-    /// Troca de paleta por evento (Experimental): a cada acerto aplicado do golpe autoral
-    /// `strike_id`, os indices do recurso do alvo no banco dele recebem as cores de `palette_id`
-    /// por `frames` quadros e depois voltam. Banco, alcance e valores vem do plano de paletas
+    /// Troca de paleta temporária quando a execução chega ao nó ou a cada acerto do golpe.
+    /// Banco, alcance e valores vêm do plano de paletas
     /// (`compiler/palette_plan.rs`); `scope` = `instancia` (outro uso afetado bloqueia) ou `grupo`.
-    PaletteSwapOnHit {
+    PalettePulse {
         swap_id: String,
-        strike_id: String,
+        strike_id: Option<String>,
         target_entity: String,
         palette_id: String,
         frames: u16,
@@ -475,6 +521,7 @@ pub enum LogicOp {
     TimelineSequence {
         counter_var: String,
         slots: Vec<LogicTimelineSlot>,
+        triggered: bool,
     },
     HardwareBudgetCheck {
         vram_kb: i32,
@@ -495,6 +542,11 @@ pub enum LogicOp {
         gap: String,
         source_file: String,
         source_line: i32,
+    },
+    /// No de codigo vinculado (`code_block`, Experimental): C do autor sem equivalente
+    /// visual, emitido uma unica vez no lugar do no. So o alvo SGDK o aceita.
+    RawC {
+        code: String,
     },
 }
 
@@ -657,6 +709,8 @@ struct CompiledLogicOutput {
 struct StoredNodeGraph {
     #[serde(skip)]
     graph_sha256: String,
+    #[serde(skip)]
+    instance_id: String,
     #[serde(default)]
     nodes: Vec<StoredNodeGraphNode>,
     #[serde(default)]
@@ -714,6 +768,29 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
         std::collections::HashMap::new();
     let mut input_state_vars: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
+    let authored_pose_assets: std::collections::HashSet<_> = if project.target == "megadrive" {
+        scene
+            .entities
+            .iter()
+            .filter_map(|entity| {
+                let sprite = entity.components.sprite.as_ref()?;
+                sprite
+                    .animations
+                    .values()
+                    .any(|animation| {
+                        animation.mugen_frames.is_none()
+                            && (animation.frame_durations.is_some()
+                                || !animation.pose_alignment.is_empty()
+                                || !animation.pose_sockets.is_empty()
+                                || !animation.frame_events.is_empty()
+                                || !animation.hitboxes.is_empty())
+                    })
+                    .then_some(sprite.asset.as_str())
+            })
+            .collect()
+    } else {
+        Default::default()
+    };
 
     nodes.push(AstNode::SpriteSystemInit);
     nodes.push(AstNode::DrawText {
@@ -757,6 +834,7 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
                     .as_ref()
                     .map(|binding| (binding.kind.clone(), binding.source.clone())),
                 digits: hud.digits,
+                bar_tiles: hud.bar_tiles,
             });
         }
 
@@ -801,6 +879,11 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
                 scroll_y: tilemap.scroll_y,
                 plane: tilemap.plane.clone(),
                 priority_high: tilemap.priority,
+                priority_regions: tilemap
+                    .priority_regions
+                    .iter()
+                    .filter_map(|region| region.clipped(tilemap.map_width, tilemap.map_height))
+                    .collect(),
             });
         }
 
@@ -886,6 +969,30 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
             y: entity.transform.y,
             priority_high: sprite.priority == "foreground",
         });
+        if authored_pose_assets.contains(sprite.asset.as_str())
+            && !sprite.animations.is_empty()
+            && sprite
+                .animations
+                .values()
+                .all(|animation| animation.mugen_frames.is_none())
+        {
+            let asset = sprite_assets
+                .iter()
+                .find(|asset| asset.resource_name == resource_name);
+            let authored_animations = match asset {
+                Some(asset) if asset.frame_width == sprite.frame_width
+                    && asset.frame_height == sprite.frame_height
+                    && asset.animations.iter().map(|anim| (&anim.name, &anim.frames))
+                        .eq(animations.iter().map(|anim| (&anim.name, &anim.frames))) =>
+                    authored_pose_animations(project.fps, sprite, &animations),
+                _ => Err("os usos desse atlas precisam ter as mesmas células e sequência para editar poses por instância".into()),
+            };
+            nodes.push(AstNode::AuthoredPosePlayback {
+                entity_id: entity.entity_id.clone(),
+                var_name: var_name.clone(),
+                animations: authored_animations,
+            });
+        }
 
         if let Some(path) = &entity.components.path {
             if crate::ugdm::components::path_issue(path).is_none() {
@@ -954,6 +1061,12 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
     );
     let logic_output = collect_logic_output(scene, &logic_runtime_entities);
     nodes.extend(logic_output.setup_nodes.iter().cloned());
+    if let Ok(Some(compiled)) = super::platform_support::compile_wave_band(&project.target, scene) {
+        nodes.push(AstNode::SetupWaveBand {
+            wave: compiled.settings.clone(),
+            plane: compiled.plane,
+        });
+    }
     let mut parallax_layers = enabled_parallax_layers(scene);
     for layer in logic_output.parallax_layers.iter().cloned() {
         push_unique_parallax_layer(&mut parallax_layers, layer);
@@ -982,6 +1095,78 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
             resource_name,
             asset_path,
         });
+    }
+    if project.target == "megadrive" {
+        if let Some(map) = scene.collision_map.as_ref().filter(|map| {
+            map.materials
+                .iter()
+                .any(|material| !material.cells.is_empty())
+        }) {
+            let mut cells = vec![0; map.data.len()];
+            for (index, material) in map.materials.iter().enumerate() {
+                for &cell in &material.cells {
+                    if let Some(value) = cells.get_mut(cell as usize) {
+                        *value = (index + 1) as u8;
+                    }
+                }
+            }
+            nodes.push(AstNode::SurfaceMaterials {
+                cells,
+                materials: map.materials.clone(),
+            });
+        }
+        for entity in &scene.entities {
+            let Some(link) = &entity.components.pose_attachment else {
+                continue;
+            };
+            let Some(child) = entity.components.sprite.as_ref() else {
+                continue;
+            };
+            let Some(parent) = scene
+                .entities
+                .iter()
+                .find(|candidate| candidate.entity_id == link.actor)
+                .and_then(|actor| actor.components.sprite.as_ref())
+            else {
+                continue;
+            };
+            let (Some(parent_var), Some(child_var)) = (
+                sprite_var_names.get(&link.actor),
+                sprite_var_names.get(&entity.entity_id),
+            ) else {
+                continue;
+            };
+            let points = sprite_animations(project.fps, parent)
+                .iter()
+                .map(|animation| {
+                    let clip = &parent.animations[&animation.name];
+                    animation_occurrence_ids(clip)
+                        .unwrap_or_default()
+                        .iter()
+                        .map(|id| {
+                            clip.pose_sockets
+                                .get(id)
+                                .and_then(|points| {
+                                    points.iter().find(|point| point.name == link.socket)
+                                })
+                                .map(|socket| (socket.point.x, socket.point.y))
+                        })
+                        .collect()
+                })
+                .collect();
+            nodes.push(AstNode::PoseAttachment(PoseAttachmentPlan {
+                parent: parent_var.clone(),
+                child: child_var.clone(),
+                cell: (parent.frame_width, parent.frame_height),
+                child_cell: (child.frame_width, child.frame_height),
+                pivot: child
+                    .pivot
+                    .as_ref()
+                    .map_or((0, 0), |point| (point.x, point.y)),
+                offset: (link.offset.x, link.offset.y),
+                points,
+            }));
+        }
     }
     nodes.push(AstNode::GameLoopBegin);
     nodes.extend(
@@ -1177,6 +1362,82 @@ fn sprite_animations(project_fps: u32, sprite: &SpriteComponent) -> Vec<SpriteAn
         .collect::<Vec<_>>();
     animations.sort_by(|left, right| left.name.cmp(&right.name));
     animations
+}
+
+fn authored_pose_animations(
+    project_fps: u32,
+    sprite: &SpriteComponent,
+    ordered: &[SpriteAnimation],
+) -> Result<Vec<AuthoredPoseAnimation>, String> {
+    ordered.iter().map(|projected| {
+        let def = &sprite.animations[&projected.name];
+        let ids = animation_occurrence_ids(def)?;
+        if ids.len() > 255 || (ids.is_empty() && !def.pose_alignment.is_empty()) {
+            return Err(format!("animação '{}': limite de 255 ocorrências", projected.name));
+        }
+        if def.pose_alignment.keys().any(|id| !ids.contains(id)) {
+            return Err(format!("animação '{}': ponto associado a uma ocorrência inexistente", projected.name));
+        }
+        for (id, points) in &def.pose_sockets {
+            let mut names = std::collections::HashSet::new();
+            if !ids.contains(id) || points.len() > 16 || points.iter().any(|socket| {
+                let crate::ugdm::components::PoseSocket { name, point } = socket;
+                !names.insert(name) || name.is_empty() || name.len() > 32 || !name.bytes().next().is_some_and(|b| b.is_ascii_alphabetic())
+                    || !name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+                    || point.x < 0 || point.y < 0 || point.x.cast_unsigned() >= sprite.frame_width
+                    || point.y.cast_unsigned() >= sprite.frame_height
+            }) {
+                return Err(format!("animação '{}': encaixe inválido na ocorrência '{id}'", projected.name));
+            }
+        }
+        if def.hitboxes.iter().any(|hitbox| hitbox.occurrence_id.as_ref().is_some_and(|id| !ids.contains(id))) {
+            return Err(format!("animação '{}': caixa associada a uma ocorrência inexistente", projected.name));
+        }
+        let times = match &def.frame_durations {
+            Some(times) => {
+                if times.len() != ids.len() || times.iter().any(|ticks| !(1..=255).contains(ticks)) {
+                    return Err(format!("animação '{}': use 1 a 255 ticks por ocorrência", projected.name));
+                }
+                times.iter().map(|&ticks| ticks as u8).collect()
+            }
+            None => {
+                let fallback = u8::try_from(animation_frame_time(project_fps, def.fps))
+                    .map_err(|_| format!("animação '{}': duração excede 255 ticks", projected.name))?;
+                vec![fallback; ids.len()]
+            }
+        };
+        let events = resolve_frame_events(def, &times.iter().map(|&ticks| i32::from(ticks)).collect::<Vec<_>>())?;
+        let frames = ids.into_iter().zip(times).enumerate().map(|(index, (occurrence_id, ticks))| {
+            let offset = if let Some(pose) = def.pose_alignment.get(&occurrence_id) {
+                let in_cell = pose.anchor.x >= 0 && pose.anchor.y >= 0
+                    && pose.anchor.x.cast_unsigned() < sprite.frame_width
+                    && pose.anchor.y.cast_unsigned() < sprite.frame_height;
+                if !in_cell || !(-511..=511).contains(&pose.offset.x) || !(-511..=511).contains(&pose.offset.y) {
+                    return Err(format!("animação '{}', ocorrência '{occurrence_id}': ponto ou deslocamento fora dos limites", projected.name));
+                }
+                (pose.offset.x as i16, pose.offset.y as i16)
+            } else { (0, 0) };
+            let boxes = |kind| {
+                let boxes = def.hitboxes.iter().filter(|b| b.kind == kind && b.occurrence_id.as_ref()
+                    .map_or(b.frame == def.frames[index], |id| id == &occurrence_id));
+                let boxes = boxes.map(|b| {
+                    let corners = [b.x, b.y, b.x.saturating_add(b.width), b.y.saturating_add(b.height)];
+                    if b.width < 1 || b.height < 1 || corners.iter().any(|value| !(-511..=511).contains(value)) {
+                        return Err(format!("animação '{}', ocorrência '{occurrence_id}': caixa {kind} fora dos limites", projected.name));
+                    }
+                    Ok(corners.map(|value| value as i16))
+                }).collect::<Result<Vec<_>, String>>()?;
+                if boxes.len() > 8 {
+                    return Err(format!("animação '{}', ocorrência '{occurrence_id}': limite de oito caixas {kind}", projected.name));
+                }
+                Ok(boxes)
+            };
+            let attack_boxes = boxes("attack")?;
+            let body_boxes = boxes("hurt")?;
+            Ok(AuthoredPoseFrame { occurrence_id, ticks, offset, attack_boxes, body_boxes })
+        }).collect::<Result<_, String>>()?;
+        Ok(AuthoredPoseAnimation { name: projected.name.clone(), looping: def.looping, cell: (sprite.frame_width, sprite.frame_height), frames, events })
+    }).collect()
 }
 
 /// Tabela MUGEN a partir do modelo do produto (`frame_durations`, `mugen_frames`,
@@ -1760,6 +2021,7 @@ fn collect_logic_output(
             continue;
         };
         graph.graph_sha256 = graph_revision_hash(serialized_graph);
+        graph.instance_id = entity.entity_id.clone();
 
         let compiled = compile_logic_graph(&graph, &entity.entity_id, runtime_entities);
         output.setup_nodes.extend(compiled.setup_nodes);
@@ -2067,16 +2329,36 @@ fn compile_logic_chain(
     parallax_layers: &mut Vec<ParallaxLayerConfig>,
     raster_lines: &mut Vec<RasterLineConfig>,
 ) -> Vec<LogicOp> {
-    let mut ops = Vec::new();
-    let mut next_node_id = next_exec_target(graph, source_node_id, source_port);
+    compile_logic_path(
+        graph,
+        next_exec_target(graph, source_node_id, source_port),
+        runtime_entities,
+        visited.clone(),
+        setup_nodes,
+        runtime_nodes,
+        parallax_layers,
+        raster_lines,
+    )
+}
 
+#[allow(clippy::too_many_arguments)]
+fn compile_logic_path(
+    graph: &StoredNodeGraph,
+    mut next_node_id: Option<String>,
+    runtime_entities: &HashMap<String, LogicRuntimeEntity>,
+    mut visited: std::collections::HashSet<String>,
+    setup_nodes: &mut Vec<AstNode>,
+    runtime_nodes: &mut Vec<AstNode>,
+    parallax_layers: &mut Vec<ParallaxLayerConfig>,
+    raster_lines: &mut Vec<RasterLineConfig>,
+) -> Vec<LogicOp> {
+    let mut ops = Vec::new();
     while let Some(node_id) = next_node_id {
         if !visited.insert(node_id.clone()) {
             break;
         }
 
         let Some(node) = graph.nodes.iter().find(|node| node.id == node_id) else {
-            visited.remove(&node_id);
             break;
         };
 
@@ -2084,7 +2366,7 @@ fn compile_logic_chain(
             node,
             graph,
             runtime_entities,
-            visited,
+            &mut visited,
             setup_nodes,
             runtime_nodes,
             parallax_layers,
@@ -2113,8 +2395,6 @@ fn compile_logic_chain(
                 next_node_id = next_exec_target(graph, &node.id, "exec");
             }
         }
-
-        visited.remove(&node_id);
     }
 
     ops
@@ -2135,6 +2415,7 @@ fn source_mapped_logic_op(
 ) -> LogicOp {
     LogicOp::SourceMapped {
         graph_sha256: graph.graph_sha256.clone(),
+        instance_id: graph.instance_id.clone(),
         node_id: node.id.clone(),
         semantic_stage: node.node_type.clone(),
         op: Box::new(op),
@@ -2283,6 +2564,22 @@ fn compile_logic_node(
                 if_false,
             }))
         }
+        "code_block" => {
+            let code = param_string(node, "code").unwrap_or_default();
+            if code.trim().is_empty() {
+                Some(CompiledLogicNode::NoOp)
+            } else if let Some(call) =
+                crate::compiler::code_binding::forbidden_dynamic_memory(&code)
+            {
+                Some(CompiledLogicNode::Linear(LogicOp::SourceBridgeError {
+                    gap: format!("code_block usa {call}() (alocacao dinamica proibida)"),
+                    source_file: format!("no de codigo '{}'", node.id),
+                    source_line: 0,
+                }))
+            } else {
+                Some(CompiledLogicNode::Linear(LogicOp::RawC { code }))
+            }
+        }
         "bridge_unconverted_source" => {
             if param_bool(node, "blocking", false) && !param_bool(node, "allow_bridge_mode", false)
             {
@@ -2312,6 +2609,7 @@ fn compile_logic_node(
         ))),
         "palette_swap" => Some(CompiledLogicNode::Linear(palette_swap_op(
             node,
+            graph,
             runtime_entities,
         ))),
         "set_velocity" => {
@@ -2962,32 +3260,41 @@ fn compile_logic_node(
             }))
         }
         "timeline_sequence" => {
+            let triggered = param_string(node, "run_mode").as_deref() == Some("event");
             let counter_var = format!(
                 "timeline_{}",
-                sanitize_identifier(
-                    &param_string(node, "timeline_name").unwrap_or_else(|| node.id.clone())
-                )
+                sanitize_identifier(&if triggered {
+                    format!("event_{}", node.id)
+                } else {
+                    param_string(node, "timeline_name").unwrap_or_else(|| node.id.clone())
+                })
             );
             let mut slots = Vec::new();
 
-            for index in 0..=2 {
+            for index in 0..=3 {
                 let delay = param_i32(node, &format!("slot_{}_delay", index), -1);
                 if delay < 0 {
                     continue;
                 }
 
-                let mut slot_visited = visited.clone();
-                let actions = compile_logic_chain(
-                    graph,
-                    &node.id,
-                    &format!("slot_{}", index),
-                    runtime_entities,
-                    &mut slot_visited,
-                    setup_nodes,
-                    runtime_nodes,
-                    parallax_layers,
-                    raster_lines,
-                );
+                let port = format!("slot_{index}");
+                let mut actions = Vec::new();
+                for edge in graph
+                    .edges
+                    .iter()
+                    .filter(|edge| edge.from_node == node.id && edge.from_port == port)
+                {
+                    actions.extend(compile_logic_path(
+                        graph,
+                        Some(edge.to_node.clone()),
+                        runtime_entities,
+                        visited.clone(),
+                        setup_nodes,
+                        runtime_nodes,
+                        parallax_layers,
+                        raster_lines,
+                    ));
+                }
                 if actions.is_empty() {
                     continue;
                 }
@@ -3002,6 +3309,7 @@ fn compile_logic_node(
             Some(CompiledLogicNode::Terminal(LogicOp::TimelineSequence {
                 counter_var,
                 slots,
+                triggered,
             }))
         }
         _ => None,
@@ -3296,7 +3604,7 @@ fn collect_unsupported_from_ops(
             LogicOp::MugenSetVelocityX { .. }
             | LogicOp::MugenProgramStep { .. }
             | LogicOp::AuthoredStrike { .. }
-            | LogicOp::PaletteSwapOnHit { .. } => {}
+            | LogicOp::PalettePulse { .. } => {}
             LogicOp::SetTile { tile, x, y, .. } => {
                 collect_unsupported_from_math(tile, found);
                 collect_unsupported_from_math(x, found);
@@ -3368,6 +3676,7 @@ fn collect_unsupported_from_ops(
             | LogicOp::PathControl { .. }
             | LogicOp::PlaySound { .. }
             | LogicOp::PlayMusic { .. }
+            | LogicOp::RawC { .. }
             | LogicOp::SourceBridgeError { .. } => {}
         }
     }
@@ -3551,6 +3860,7 @@ fn compile_mugen_program(
 
 fn palette_swap_op(
     node: &StoredNodeGraphNode,
+    graph: &StoredNodeGraph,
     runtime_entities: &HashMap<String, LogicRuntimeEntity>,
 ) -> LogicOp {
     let bridge = |why: String| LogicOp::SourceBridgeError {
@@ -3563,7 +3873,8 @@ fn palette_swap_op(
     let palette = param_string(node, "palette").unwrap_or_default();
     let scope = param_string(node, "scope").unwrap_or_else(|| "instancia".to_string());
     let frames = param_i32(node, "frames", 0);
-    if strike.is_empty() {
+    let from_flow = param_string(node, "trigger_mode").as_deref() == Some("flow");
+    if !from_flow && strike.is_empty() {
         return bridge("sem golpe que dispare a troca".to_string());
     }
     if !runtime_entities.contains_key(&target) {
@@ -3578,9 +3889,21 @@ fn palette_swap_op(
     if scope != "instancia" && scope != "grupo" {
         return bridge(format!("alcance '{scope}' (use instancia ou grupo)"));
     }
-    LogicOp::PaletteSwapOnHit {
-        swap_id: sanitize_identifier(&node.id),
-        strike_id: sanitize_identifier(&strike),
+    let swap_id = if from_flow {
+        let hex = |value: &str| {
+            value
+                .as_bytes()
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect::<String>()
+        };
+        format!("flow_{}_{}", hex(&graph.instance_id), hex(&node.id))
+    } else {
+        sanitize_identifier(&node.id)
+    };
+    LogicOp::PalettePulse {
+        swap_id,
+        strike_id: (!from_flow).then(|| sanitize_identifier(&strike)),
         target_entity: target,
         palette_id: palette,
         frames: frames as u16,
@@ -3813,7 +4136,7 @@ fn collect_logic_sound_names_from_ops(
             | LogicOp::MugenSetVelocityX { .. }
             | LogicOp::MugenProgramStep { .. }
             | LogicOp::AuthoredStrike { .. }
-            | LogicOp::PaletteSwapOnHit { .. }
+            | LogicOp::PalettePulse { .. }
             | LogicOp::SetAnimationState { .. }
             | LogicOp::SetTile { .. }
             | LogicOp::CameraFollow { .. }
@@ -3860,6 +4183,7 @@ fn collect_logic_sound_names_from_ops(
             }
             LogicOp::MoveSprite { .. } => {}
             LogicOp::PlayMusic { .. } => {}
+            LogicOp::RawC { .. } => {}
             LogicOp::SourceBridgeError { .. } => {}
         }
     }
@@ -4046,6 +4370,9 @@ mod tests {
     ) -> (SpriteComponent, AnimationDef) {
         let animation = AnimationDef {
             occurrence_ids: None,
+            pose_alignment: Default::default(),
+            pose_sockets: Default::default(),
+            pose_code_drafts: Default::default(),
             frame_events: Vec::new(),
             frames: (0..frames as u32).collect(),
             fps: 4,
@@ -4225,6 +4552,9 @@ mod tests {
             "walk".to_string(),
             AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![1, 2, 3, 4],
                 fps: 10,
@@ -4362,6 +4692,7 @@ mod tests {
                         cells: Vec::new(),
                         plane: None,
                         priority: false,
+                        priority_regions: Vec::new(),
                     }),
                     ..Components::default()
                 },
@@ -4421,6 +4752,7 @@ mod tests {
                     cells,
                     plane: None,
                     priority: false,
+                    priority_regions: Vec::new(),
                 }),
                 ..Components::default()
             },
@@ -4842,6 +5174,7 @@ mod tests {
                 collides_with: Vec::new(),
             });
         scene.collision_map = Some(crate::ugdm::entities::CollisionMap {
+            materials: Vec::new(),
             tile_width: 8,
             tile_height: 8,
             width: 2,
@@ -5008,6 +5341,7 @@ mod tests {
                         enabled: true,
                     },
                 ],
+                wave: None,
             }),
             collision_map: None,
             layers: None,
@@ -5187,6 +5521,9 @@ mod tests {
             "idle".to_string(),
             AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![0],
                 fps: 6,
@@ -5202,6 +5539,9 @@ mod tests {
             "run".to_string(),
             AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![1, 2, 3],
                 fps: 12,
@@ -6527,6 +6867,9 @@ mod tests {
             "idle".to_string(),
             AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![0],
                 fps: 6,
@@ -6542,6 +6885,9 @@ mod tests {
             "run".to_string(),
             AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![1, 2, 3],
                 fps: 12,
@@ -6612,6 +6958,7 @@ mod tests {
                             cells: Vec::new(),
                             plane: None,
                             priority: false,
+                            priority_regions: Vec::new(),
                         }),
                         ..Components::default()
                     },
@@ -7130,7 +7477,9 @@ mod tests {
             .iter()
             .flat_map(|script| script.ops.iter())
             .find_map(|op| match semantic_op(op) {
-                LogicOp::TimelineSequence { counter_var, slots } => Some((counter_var, slots)),
+                LogicOp::TimelineSequence {
+                    counter_var, slots, ..
+                } => Some((counter_var, slots)),
                 _ => None,
             })
             .expect("timeline graph should compile into timeline op");
@@ -7257,6 +7606,9 @@ mod tests {
             "idle".to_string(),
             AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![0, 1],
                 fps: 8,
@@ -7272,6 +7624,9 @@ mod tests {
             "run".to_string(),
             AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![2, 3],
                 fps: 15,
@@ -7313,6 +7668,7 @@ mod tests {
                 components: Components {
                     hud: None,
                     path: None,
+                    pose_attachment: None,
                     sprite: Some(SpriteComponent {
                         asset: "assets/sprites/hero.png".to_string(),
                         frame_width: 16,

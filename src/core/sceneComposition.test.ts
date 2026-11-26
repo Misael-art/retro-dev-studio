@@ -1,11 +1,37 @@
 import { describe, expect, it } from "vitest";
-import { layerCompositionEntities, restoreTemplateEntityPositions, translateCollisionMap } from "./sceneComposition";
+import { layerCompositionEntities, priorityRegionBetween, restoreTemplateEntityPositions, tilePriorityBands, translateCollisionMap } from "./sceneComposition";
 import type { CollisionMap, Entity, Scene, SceneLayer } from "./ipc/sceneService";
 
 const map: CollisionMap = {
   width: 4, height: 3, tile_width: 8, tile_height: 8,
   data: [0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
 };
+
+describe("priority regions on Mega Drive planes", () => {
+  const tilemap = { tileset: "pilastra.png", map_width: 3, map_height: 4 };
+  const pillar: Entity = { entity_id: "pilastra", transform: { x: 64, y: 136 }, components: { tilemap } };
+
+  it("marks the same cells in either drag direction and clips the end at the plane edge", () => {
+    expect(priorityRegionBetween(pillar, { x: 86, y: 149 }, { x: 80, y: 159 }, true))
+      .toEqual({ x: 2, y: 1, width: 1, height: 2, high: true });
+    expect(priorityRegionBetween(pillar, { x: 80, y: 159 }, { x: 100, y: 146 }, true))
+      .toEqual({ x: 2, y: 1, width: 1, height: 2, high: true });
+    expect(priorityRegionBetween(pillar, { x: 63, y: 149 }, { x: 80, y: 155 }, true)).toBeNull();
+  });
+
+  it("lets a low band cut a hole in a high region without adding a second pass for that cell", () => {
+    expect(tilePriorityBands(tilemap)).toBeNull();
+    const bands = tilePriorityBands({ ...tilemap, priority_regions: [
+      { x: 0, y: 0, width: 3, height: 1, high: true },
+      { x: 1, y: 0, width: 1, height: 1, high: false },
+    ] });
+    expect(bands?.high).toEqual([
+      { x: 0, y: 0, width: 1, height: 1, high: true },
+      { x: 2, y: 0, width: 1, height: 1, high: true },
+    ]);
+    expect(bands?.low.find(({ y }) => y === 0)).toEqual({ x: 1, y: 0, width: 1, height: 1, high: false });
+  });
+});
 
 describe("scene composition movement", () => {
   it("moves the whole collision grid by tile units without losing source data", () => {

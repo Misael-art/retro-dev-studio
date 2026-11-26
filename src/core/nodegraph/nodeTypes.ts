@@ -62,6 +62,7 @@ export type NodeType =
   | "rom_external_call"
   | "rom_region_exit"
   | "bridge_unconverted_source"
+  | "code_block"
   | "mugen_state_program"
   | "event_vblank"
   | "event_hblank"
@@ -116,6 +117,23 @@ export interface NodeGraph {
   groups?: NodeGraphGroup[];
   /** Instancias de comportamentos parametrizados (ver `behaviorLibrary.ts`). */
   behaviors?: BehaviorInstance[];
+  /** Rascunhos de codigo recuperaveis (editor de codigo, Experimental); o compilador ignora. */
+  codeDrafts?: CodeRegionDraft[];
+}
+
+/**
+ * Texto C incompleto digitado na regiao de um node. Vive no grafo para acompanhar o
+ * historico, o rascunho de cena e o save canonico; nunca e emitido no build.
+ */
+export interface CodeRegionDraft {
+  nodeId: string;
+  text: string;
+  reason?: string;
+}
+
+export function isCodeRegionDraft(value: unknown): value is CodeRegionDraft {
+  return isRecord(value) && typeof value.nodeId === "string" && typeof value.text === "string"
+    && (value.reason === undefined || typeof value.reason === "string");
 }
 
 /**
@@ -222,6 +240,7 @@ export function isNodeType(value: unknown): value is NodeType {
     value === "rom_external_call" ||
     value === "rom_region_exit" ||
     value === "bridge_unconverted_source" ||
+    value === "code_block" ||
     value === "mugen_state_program" ||
     value === "event_vblank" ||
     value === "event_hblank" ||
@@ -263,6 +282,7 @@ export function serializeNodeGraph(graph: NodeGraph): string {
     edges: structuredClone(graph.edges),
     ...(graph.groups && graph.groups.length > 0 ? { groups: structuredClone(graph.groups) } : {}),
     ...(graph.behaviors && graph.behaviors.length > 0 ? { behaviors: structuredClone(graph.behaviors) } : {}),
+    ...(graph.codeDrafts && graph.codeDrafts.length > 0 ? { codeDrafts: structuredClone(graph.codeDrafts) } : {}),
   });
 }
 

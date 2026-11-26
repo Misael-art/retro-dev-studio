@@ -4,12 +4,15 @@ import { persistActiveScene, registerPendingEditFlusher } from "../../core/scene
 import { openProjectSourcePath } from "../../core/ipc/projectService";
 import { parseSceneJson, resolveScenePrefabs } from "../../core/ipc/sceneService";
 import { useEditorStore, type HwStatus } from "../../core/store/editorStore";
+import { logicSelectionKey, useCodeFocusStore } from "../../core/codeFocusStore";
 import { collectDeclaredTransitions, describeGraphScope, resolveGraphScope, searchTransitions } from "../../core/sceneComposition";
 import { listScenes } from "../../core/ipc/sceneService";
 import { getEntityDisplayName } from "../../core/entityDisplay";
 import { resolveEntitySourceRefs } from "../../core/entityAuthoring";
 import type { SgdkPatternTemplate } from "../../core/projectCapability";
 import SgdkPatternTemplateGallery from "./SgdkPatternTemplateGallery";
+import { actionTitle, idleExecutionOutput, sequenceSteps } from "../../core/nodegraph/eventSchedule";
+import EventSequencePanel from "./EventSequencePanel";
 import {
   collectGraphImportGaps,
   filterGraphImportGaps,
@@ -67,6 +70,8 @@ import {
   describeNodeAction,
   getNodeCatalogEntry,
   getNodeCategory,
+  graphRole,
+  GRAPH_ROLES,
   getNodeEntityRefs,
   getPortDisplayLabel,
   getPortVisualKind,
@@ -298,6 +303,20 @@ export function snapNodeGraphPoint(
   };
 }
 
+function fittedRuleView(bounds: GraphBounds, width: number, height: number): NodeGraphView {
+  const worldWidth = bounds.maxX - bounds.minX;
+  const worldHeight = bounds.maxY - bounds.minY;
+  const top = 56;
+  const bottom = 32;
+  const zoom = clampNodeGraphZoom(Math.min(1,
+    (width - 2 * FOCUS_PADDING) / worldWidth, (height - top - bottom) / worldHeight));
+  return {
+    zoom,
+    x: (width - worldWidth * zoom) / 2 - bounds.minX * zoom,
+    y: top + (height - top - bottom - worldHeight * zoom) / 2 - bounds.minY * zoom,
+  };
+}
+
 export function getNodeGraphWheelZoomState(input: NodeGraphWheelZoomInput): NodeGraphView {
   const localX = input.clientX - input.rect.left;
   const localY = input.clientY - input.rect.top;
@@ -319,7 +338,7 @@ export function getNodeGraphDotGridStyle(
 ): Pick<CSSProperties, "backgroundImage" | "backgroundSize" | "backgroundPosition"> {
   const scaledSize = Math.max(1, gridSize * clampNodeGraphZoom(view.zoom || 1));
   return {
-    backgroundImage: "radial-gradient(circle, #313244 1px, transparent 1px)",
+    backgroundImage: "radial-gradient(circle, color-mix(in srgb, var(--rds-text-muted) 35%, transparent) 1px, transparent 1px)",
     backgroundSize: `${scaledSize}px ${scaledSize}px`,
     backgroundPosition: `${view.x}px ${view.y}px`,
   };
@@ -1421,7 +1440,10 @@ interface NodeCardProps {
   /** Porta de entrada destacada pelo ima durante uma conexao (`in:<id>`). */
   snapPortKey: string | null;
   /** Portas de entrada compativeis com a conexao em andamento. */
-  compatiblePortIds: Set<string> | null;
+  portChecks: Map<string, ReturnType<typeof checkConnection>> | null;
+  title: string;
+  onActivate: () => void;
+  usedOutputs: ReadonlySet<string>;
   onMouseDown: (e: React.MouseEvent) => void;
   onPortMouseDown: (e: React.MouseEvent, portId: string, isOutput: boolean) => void;
   onPortMouseUp: (e: React.MouseEvent, portId: string, isOutput: boolean) => void;
@@ -1471,7 +1493,10 @@ function NodeCard({
   projectDir,
   detailsOpen,
   snapPortKey,
-  compatiblePortIds,
+  portChecks,
+  title,
+  onActivate,
+  usedOutputs,
   onMouseDown,
   onPortMouseDown,
   onPortMouseUp,
@@ -1483,6 +1508,11 @@ function NodeCard({
 }: NodeCardProps) {
   const catalog = getNodeCatalogEntry(node.type);
   const category = getNodeCategory(node.type);
+  const role = GRAPH_ROLES[graphRole(node)];
+  const overview = zoom < 0.8;
+  // Give the title the summary's space at small scales; ports keep their world coordinates.
+  const headerHeight = overview ? Math.min(CARD_HEADER_HEIGHT + CARD_ACTION_HEIGHT, 32 / zoom) : CARD_HEADER_HEIGHT;
+  const summaryHeight = CARD_HEADER_HEIGHT + CARD_ACTION_HEIGHT - headerHeight;
   const importBadges = getGraphNodeImportBadges(node);
   const editable = canEditGraphNode(node);
   const essential = (node.type==="camera_control"?["target","action",...(["shake","offset"].includes(String(node.params.action))?["frames","x","y"]:[])]:catalog?.essentialParams ?? []).filter((key) => key in node.params);
@@ -1516,8 +1546,14 @@ function NodeCard({
     const kind = getPortVisualKind(port);
     const key = `${output ? "out" : "in"}:${port.id}`;
     const snapped = snapPortKey === key;
-    const compatible = !output && compatiblePortIds?.has(port.id);
-    const label = getPortDisplayLabel(port);
+    const check = !output ? portChecks?.get(port.id) : undefined;
+    const compatible = check?.ok;
+    const rejection = check && !check.ok ? check.reason : undefined;
+    const branch = kind === "true" || kind === "false";
+    const scheduled = output && node.type === "timeline_sequence" && /^slot_[0-3]$/.test(port.id);
+    const tick = Number(node.params[port.id + "_delay"] ?? -1);
+    const label = scheduled ? (tick < 0 ? "Desativada" : "Tick " + tick)
+      : getPortDisplayLabel(port) + (output && branch && !usedOutputs.has(port.id) ? (idleExecutionOutput(node, port.id, usedOutputs) ? " · sem ação" : " · sem destino") : "");
     return (
       <div key={key} className={`flex h-5 items-center gap-1.5 ${output ? "justify-end" : ""}`}>
         {output && label ? <span className="text-[10px]" style={{ color: "var(--rds-text-secondary)" }}>{label}</span> : null}
@@ -1527,11 +1563,13 @@ function NodeCard({
           data-port-kind={kind}
           data-snapped={snapped ? "true" : undefined}
           data-compatible={compatible ? "true" : undefined}
-          title={`${kind === "exec" ? "Execucao" : kind === "data" ? `Dado${port.dataType ? ` (${port.dataType})` : ""}` : kind === "true" ? "Saida Sim" : "Saida Nao"}: ${port.id}`}
+          aria-label={rejection ?? label}
+          data-tool-hint={rejection}
+          title={rejection ?? `${kind === "exec" ? "Execucao" : kind === "data" ? `Dado${port.dataType ? ` (${port.dataType})` : ""}` : kind === "true" ? "Saida Sim" : "Saida Nao"}: ${port.id}`}
           className={`port-handle shrink-0 cursor-crosshair border-2 ${kind === "data" ? "h-3 w-3 rounded-full" : "h-3 w-3 rotate-45 rounded-[2px]"} ${
             snapped ? "scale-150 ring-2 ring-[#f9e2af]" : compatible ? "ring-2 ring-[#f9e2af]/50" : ""
           }`}
-          style={{ borderColor: PORT_VISUAL_COLORS[kind], backgroundColor: `${PORT_VISUAL_COLORS[kind]}${kind === "data" ? "66" : "cc"}` }}
+          style={{ borderColor: PORT_VISUAL_COLORS[kind], backgroundColor: `color-mix(in srgb, ${PORT_VISUAL_COLORS[kind]} ${kind === "data" ? "45%" : "85%"}, transparent)` }}
           onMouseDown={(e) => onPortMouseDown(e, port.id, output)}
           onMouseUp={(e) => onPortMouseUp(e, port.id, output)}
         />
@@ -1621,6 +1659,7 @@ function NodeCard({
       ref={cardRef}
       data-testid={`node-card-${node.id}`}
       data-selected={selected ? "true" : undefined}
+      data-role={role.label}
       data-editable={editable ? "true" : "false"}
       data-pinned={node.pinned ? "true" : undefined}
       data-x={node.x}
@@ -1633,7 +1672,7 @@ function NodeCard({
         left: screenX,
         top: screenY,
         width: NODE_CARD_WIDTH,
-        borderColor: `${category.color}66`,
+        borderColor: role.color,
         transform: `scale(${zoom})`,
         transformOrigin: "top left",
       }}
@@ -1641,18 +1680,24 @@ function NodeCard({
     >
       <div
         className="flex items-center gap-1.5 rounded-t-xl px-2 text-[11px] font-semibold text-[var(--rds-text-primary)] cursor-grab"
-        style={{ height: CARD_HEADER_HEIGHT, backgroundColor: `${category.color}33`, borderBottom: `1px solid ${category.color}55` }}
+        style={{ height: headerHeight, backgroundColor: role.color, color: "#fff" }}
         title={`${category.label} · ${catalog?.description ?? ""}`}
       >
-        <span style={{ color: category.color }}><Icon name={catalog?.icon ?? "chip"} size={14} /></span>
-        <span className="min-w-0 flex-1 truncate">{catalog?.title ?? node.type}</span>
+        <span title={role.label} className="flex shrink-0 items-center gap-1 text-[9px]">
+          <Icon name={overview ? role.icon : catalog?.icon ?? "chip"} size={overview ? Math.min(26, 12 / zoom) : 14} />
+          <span className={overview ? "sr-only" : undefined}>{role.label}</span>
+        </span>
+        <button type="button" data-node-heading data-testid={`node-heading-${node.id}`} title={title} aria-pressed={selected}
+          onClick={(event) => { if (event.detail === 0) onActivate(); }}
+          style={{ fontSize: Math.max(13, 11 / zoom) }}
+          className={`min-w-0 flex-1 text-left leading-[1.12] ${overview ? "line-clamp-2 break-words" : "truncate"}`}>{title}</button>
         {node.pinned ? <span data-testid={`node-pinned-${node.id}`} title="Posicao fixada: Organizar nao move este no"><Icon name="pin" size={12} /></span> : null}
       </div>
 
       <p
         data-testid={`node-action-${node.id}`}
         className="line-clamp-2 px-2 pt-1 text-[11px] leading-[15px] text-[#cdd6f4]"
-        style={{ height: CARD_ACTION_HEIGHT }}
+        style={{ height: summaryHeight, paddingTop: summaryHeight < 15 ? 0 : undefined, visibility: summaryHeight < 15 ? "hidden" : undefined }}
       >
         {describeNodeAction(node)}
       </p>
@@ -1683,7 +1728,7 @@ function NodeCard({
           {behaviorOrigin.edited ? "Personalizado nos nós · " : "Gerado por "}{behaviorOrigin.label}
         </p>
       ) : null}
-      {node.params.authoring_origin ? (
+      {(selected || detailsOpen) && node.params.authoring_origin ? (
         <p data-testid={`node-origin-${node.id}`} className="truncate px-2 pb-0.5 font-mono text-[9px] text-[#7f849c]" title="Origem autoral (rastreabilidade)">
           origem: {String(node.params.authoring_origin)}
         </p>
@@ -2189,35 +2234,36 @@ function importBadgeClass(tone: CapabilityTone): string {
 }
 
 interface EmptyStateOverlayProps {
+  onAddEvent: () => void;
   onApplyTemplate: (template: QuickActionTemplate) => void;
   selectedEntityLabel?: string | null;
   templates: QuickActionTemplate[];
   roleHint?: string | null;
+  contextOpen: boolean;
 }
 
 function EmptyStateOverlay({
+  onAddEvent,
   onApplyTemplate,
   selectedEntityLabel,
   templates,
   roleHint,
+  contextOpen,
 }: EmptyStateOverlayProps) {
   return (
     <div
       data-testid="nodegraph-empty-overlay"
-      className="absolute bottom-0 left-0 top-0 z-10 flex justify-center overflow-y-auto bg-[#11111b]/60 px-6 pb-8 pt-14"
-      style={{ right: 288 }}
+      className="absolute bottom-0 left-0 top-0 z-10 flex justify-center overflow-y-auto bg-[#11111b]/60 px-3 pb-6 pt-10"
+      style={{ right: contextOpen ? 288 : 0 }}
     >
-      <div className="h-fit w-full max-w-6xl rounded-2xl border border-dashed border-[#45475a] bg-[#181825]/95 p-6 shadow-2xl backdrop-blur-sm">
+      <div className="h-fit w-full max-w-6xl rounded-2xl border border-dashed border-[#45475a] bg-[#181825]/95 p-4 shadow-2xl backdrop-blur-sm">
         <div className="mb-5 flex flex-col gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#89b4fa]">
-            Guided Empty State
-          </p>
-          <h2 className="text-xl font-semibold text-[#cdd6f4]">
-            Comece o primeiro fluxo sem precisar descobrir a paleta inteira
+          <h2 className="text-base font-semibold text-[#cdd6f4]">
+            Crie um comportamento
           </h2>
-          <p className="max-w-3xl text-sm text-[#a6adc8]">
-            Escolha um atalho para gerar um grafo base com nos ja conectados. Depois voce pode ajustar os parametros,
-            trocar nos e expandir o fluxo pela paleta lateral.
+          <button type="button" className="w-fit rounded border px-3 py-1.5" onClick={onAddEvent}>Adicionar evento</button>
+          <p className="max-w-3xl text-xs text-[#a6adc8]">
+            Escolha um modelo com nós conectados ou abra a paleta para montar o fluxo.
           </p>
           {selectedEntityLabel && (
             <p className="max-w-3xl text-xs text-[#89b4fa]" data-testid="nodegraph-empty-target-hint">
@@ -2233,7 +2279,7 @@ function EmptyStateOverlay({
           ) : null}
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3">
           {templates.map((template) => (
             <button
               key={template.id}
@@ -2242,20 +2288,13 @@ function EmptyStateOverlay({
               onClick={() => onApplyTemplate(template)}
               className="flex h-full flex-col rounded-xl border border-[#313244] bg-[#11111b]/90 p-4 text-left transition-colors hover:border-[#89b4fa]/60 hover:bg-[#1e1e2e]"
             >
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#89b4fa]">
-                Quick Action
-              </span>
-              <span className="mt-2 text-sm font-semibold text-[#cdd6f4]">{template.actionLabel}</span>
+              <span className="text-sm font-semibold text-[#cdd6f4]">{template.actionLabel}</span>
               <span className="mt-2 text-xs leading-5 text-[#a6adc8]">{template.summary}</span>
               <span className="mt-3 text-[10px] leading-4 text-[#6c7086]">{template.hardwareNote}</span>
             </button>
           ))}
         </div>
 
-        <p className="mt-4 text-[11px] text-[#6c7086]">
-          Esses atalhos usam somente nos ja suportados no pipeline atual. O objetivo aqui e acelerar descoberta, nao
-          criar um fluxo paralelo.
-        </p>
       </div>
     </div>
   );
@@ -2266,6 +2305,7 @@ function EmptyStateOverlay({
 export default function NodeGraphEditor() {
   const activeProjectDir = useEditorStore((state) => state.activeProjectDir);
   const activeScene = useEditorStore((state) => state.activeScene);
+  const activeScenePath = useEditorStore((state) => state.activeScenePath);
   const activeTarget = useEditorStore((state) => state.activeTarget);
   const activeSceneSource = useEditorStore((state) => state.activeSceneSource);
   const selectedEntityId = useEditorStore((state) => state.selectedEntityId);
@@ -2313,6 +2353,7 @@ export default function NodeGraphEditor() {
     setGraphState(next);
   }, []);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectionKey = logicSelectionKey(activeProjectDir, activeScenePath, selectedEntityId);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [dragging, setDragging] = useState<{
     nodeIds: string[];
@@ -2342,9 +2383,12 @@ export default function NodeGraphEditor() {
   const [paletteSearch, setPaletteSearch] = useState("");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [view, setView] = useState<NodeGraphView>({ x: 0, y: 0, zoom: 1 });
+  const fittedRule = useRef<{ bounds: GraphBounds; view: NodeGraphView } | null>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const [legendOpen, setLegendOpen] = useState(true);
   const [paletteOpen, setPaletteOpen] = useState(() => window.innerWidth >= 1100);
   const [contextOpen, setContextOpen] = useState(() => window.innerWidth >= 1440);
+  const eventComposerRef = useRef<HTMLDetailsElement>(null);
   // PLAT07: explicit choice is remembered; without one, large graphs show the map.
   const [minimapPreference, setMinimapPreferenceState] = useState<boolean | null>(readMinimapPreference);
   // Auto-open only when the canvas has room; an explicit (remembered) choice always wins.
@@ -2495,7 +2539,11 @@ export default function NodeGraphEditor() {
       if (previous.width > 0 && previous.height > 0) {
         const dx = (next.width - previous.width) / 2;
         const dy = (next.height - previous.height) / 2;
-        setView((current) => ({ ...current, x: current.x + dx, y: current.y + dy }));
+        const fit = fittedRule.current;
+        const resized = fit && { bounds: fit.bounds, view: fittedRuleView(fit.bounds, next.width, next.height) };
+        fittedRule.current = resized;
+        setView(current => fit && resized && current === fit.view ? resized.view
+          : { ...current, x: current.x + dx, y: current.y + dy });
       }
       previous = next;
       setCanvasSize(next);
@@ -2631,13 +2679,44 @@ export default function NodeGraphEditor() {
     [cardMetrics]
   );
 
+  // ── Organizar visualmente (so posicoes) ─────────────────────────────────────
+  const fitViewTo = useCallback((nodes: GraphNode[]) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const width = rect?.width || canvasSize.width;
+    const height = rect?.height || canvasSize.height;
+    if (!nodes.length || !width || !height) return;
+    const minX = Math.min(...nodes.map((node) => node.x));
+    const minY = Math.min(...nodes.map((node) => node.y));
+    const maxX = Math.max(...nodes.map((node) => node.x + nodeSizeOf(node).width));
+    const maxY = Math.max(...nodes.map((node) => node.y + nodeSizeOf(node).height));
+    const bounds = { minX, minY, maxX, maxY };
+    const fitted = fittedRuleView(bounds, width, height);
+    fittedRule.current = { bounds, view: fitted };
+    setView(fitted);
+  }, [canvasSize.height, canvasSize.width, nodeSizeOf]);
+
+  const fitRule = useCallback((id: string, revealed: readonly string[] = []) => {
+    const component = new Set([id]);
+    const adjacent = new Map<string, string[]>();
+    for (const { fromNode, toNode } of graph.edges) {
+      if (!adjacent.has(fromNode)) adjacent.set(fromNode, []);
+      if (!adjacent.has(toNode)) adjacent.set(toNode, []);
+      adjacent.get(fromNode)!.push(toNode);
+      adjacent.get(toNode)!.push(fromNode);
+    }
+    for (const id of component) for (const other of adjacent.get(id) ?? []) component.add(other);
+    fitViewTo(graph.nodes.filter(node => component.has(node.id) && (!hiddenNodeIdsRef.current.has(node.id) || revealed.includes(node.id))));
+  }, [fitViewTo, graph]);
+
   useEffect(() => {
-    if (!initialFocusPendingRef.current || !graph.nodes.length || !canvasSize.width || !canvasSize.height) return;
-    const first = graph.nodes.find((node) => EVENT_NODE_TYPES.includes(node.type)) ?? graph.nodes[0];
+    if (!initialFocusPendingRef.current || graph !== currentGraphRef.current || !graph.nodes.length || !canvasSize.width || !canvasSize.height) return;
+    const remembered = useCodeFocusStore.getState().graphNode;
+    const previous = remembered?.key === selectionKey ? graph.nodes.find((node) => node.id === remembered.nodeId) : null;
+    const first = previous ?? graph.nodes.find((node) => EVENT_NODE_TYPES.includes(node.type)) ?? graph.nodes[0];
     initialFocusPendingRef.current = false;
     setSelectedId(first.id);
-    setView(getNodeEditingView({ ...nodeSizeOf(first), x: first.x, y: first.y }, canvasSize));
-  }, [canvasSize, graph.nodes, nodeSizeOf]);
+    fitRule(first.id);
+  }, [canvasSize, fitRule, graph, selectionKey]);
 
   const onCardMeasure = useCallback((nodeId: string, metrics: NodeCardMetrics) => {
     setCardMetrics((current) => {
@@ -2666,7 +2745,7 @@ export default function NodeGraphEditor() {
     }
     e.stopPropagation();
     const target = e.target as HTMLElement;
-    if (target.classList.contains("cursor-crosshair") || target.closest("input, select, button, textarea")) return;
+    if (target.classList.contains("cursor-crosshair") || target.closest("input, select, button:not([data-node-heading]), textarea")) return;
     let nextSelection: Set<string>;
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
       nextSelection = new Set(selectedIds);
@@ -2833,7 +2912,40 @@ export default function NodeGraphEditor() {
     setSnapTarget(null);
   }, [connectPorts, pendingEdge]);
 
+  const schedule = useMemo(() => sequenceSteps(graph), [graph]);
+  const selectedSteps = selectedId ? schedule.get(selectedId) ?? [] : [];
+  const names = useMemo(() => new Map(activeScene?.entities.map(entity => [entity.entity_id, getEntityDisplayName(entity)])), [activeScene?.entities]);
+  const usedPorts = useMemo(() => {
+    const ports = new Map<string, Set<string>>();
+    for (const edge of graph.edges) {
+      const used = ports.get(edge.fromNode) ?? new Set<string>();
+      used.add(edge.fromPort);
+      ports.set(edge.fromNode, used);
+    }
+    return ports;
+  }, [graph.edges]);
+  useEffect(() => {
+    if (selectedId && schedule.has(selectedId) && eventComposerRef.current) eventComposerRef.current.open = true;
+  }, [selectedId, schedule]);
+  const selectStep = (id: string) => {
+    setSelectedId(id);
+    setSelectedIds(new Set([id]));
+    const node = graph.nodes.find(item => item.id === id);
+    if (!node) return;
+    const group = graph.groups?.find(item => item.collapsed && item.nodeIds.includes(id));
+    if (group) setGraph(current => ({ ...current, groups: current.groups?.map(item => item.id === group.id ? { ...item, collapsed: false } : item) }), "Revelar grupo");
+    const size = nodeSizeOf(node);
+    const left = view.x + node.x * view.zoom;
+    const top = view.y + node.y * view.zoom;
+    if (left < 0 || top < 48 || left + size.width * view.zoom > canvasSize.width || top + size.height * view.zoom > canvasSize.height - 32) {
+      fitRule(id, group?.nodeIds);
+    }
+  };
   const selectedNode = graph.nodes.find((node) => node.id === selectedId) ?? null;
+  useEffect(() => {
+    if (!selectedId || !selectedEntityId || hydratedEntityIdRef.current !== selectedEntityId || graph !== currentGraphRef.current) return;
+    if (selectedNode?.id === selectedId) useCodeFocusStore.getState().setGraphNode(selectionKey, selectedId);
+  }, [graph, selectedEntityId, selectedId, selectionKey, selectedNode?.id]);
   const selectedEntitySourceRefs = useMemo(
     () => resolveEntitySourceRefs(selectedEntity),
     [selectedEntity]
@@ -3285,20 +3397,6 @@ export default function NodeGraphEditor() {
   }, [logMessage]);
   useEffect(() => registerGraphHistoryHandler({ undo: undoGraph, redo: redoGraph }), [redoGraph, undoGraph]);
 
-  // ── Organizar visualmente (so posicoes) ─────────────────────────────────────
-  const fitViewTo = useCallback((nodes: GraphNode[]) => {
-    const rect = canvasRef.current?.getBoundingClientRect();
-    const width = rect?.width || canvasSize.width;
-    const height = rect?.height || canvasSize.height;
-    if (!nodes.length || !width || !height) return;
-    const minX = Math.min(...nodes.map((node) => node.x));
-    const minY = Math.min(...nodes.map((node) => node.y));
-    const maxX = Math.max(...nodes.map((node) => node.x + nodeSizeOf(node).width));
-    const maxY = Math.max(...nodes.map((node) => node.y + nodeSizeOf(node).height));
-    const zoom = clampNodeGraphZoom(Math.min(1, (width - 2 * FOCUS_PADDING) / (maxX - minX), (height - 2 * FOCUS_PADDING - 48) / (maxY - minY)));
-    setView({ zoom, x: FOCUS_PADDING - minX * zoom, y: FOCUS_PADDING + 48 - minY * zoom });
-  }, [canvasSize.height, canvasSize.width, nodeSizeOf]);
-
   const organizeGraph = useCallback((scope: "all" | "selection") => {
     const current = currentGraphRef.current;
     const selection = selectedIds.size ? [...selectedIds] : selectedId ? [selectedId] : [];
@@ -3675,6 +3773,7 @@ export default function NodeGraphEditor() {
     logMessage("info", "No de entrada adicionado para orientar o fluxo atual.");
   }, [graph.nodes, graphSummary.entryNodeIds.length, logMessage, selectedNode]);
 
+  const visibleRoles = new Set(graph.nodes.filter(node => !hiddenNodeIds.has(node.id)).map(graphRole));
   const searchLower = paletteSearch.trim().toLowerCase();
   const filteredGroups = searchLower
     ? NODE_PALETTE_GROUPS.map((g) => ({
@@ -3782,10 +3881,11 @@ export default function NodeGraphEditor() {
       </div>
 
       {/* ── Canvas ── */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div
         data-testid="nodegraph-canvas-shell"
         data-zoom={view.zoom.toFixed(3)}
-        className={`relative flex-1 overflow-hidden ${panning ? "cursor-grabbing" : spacePressed ? "cursor-grab" : "cursor-default"}`}
+        className={`relative flex-1 overflow-clip ${panning ? "cursor-grabbing" : spacePressed ? "cursor-grab" : "cursor-default"}`}
         style={{
           ...dotGridStyle,
         }}
@@ -3815,15 +3915,28 @@ export default function NodeGraphEditor() {
             <GraphScopeChip entityId={selectedEntity.entity_id} hydrated={graph.nodes.length > 0 || !selectedEntity.components.logic?.graph_ref} />
             <button type="button" aria-expanded={paletteOpen} onClick={() => { setPaletteOpen((open) => !open); if (window.innerWidth < 1100) setContextOpen(false); }} className="rounded px-2 py-1 text-[#cdd6f4]">Nós</button>
             <button type="button" aria-expanded={contextOpen} data-testid="nodegraph-toggle-context" onClick={() => { setContextOpen((open) => !open); if (window.innerWidth < 1100) setPaletteOpen(false); }} className="rounded px-2 py-1 text-[#cdd6f4]">Comportamentos</button>
-            <button type="button" data-testid="nodegraph-undo" onClick={undoGraph} disabled={history.past.length === 0}
+            {activeTarget === "megadrive" && !isRecoveredRegionGraph(graph) && (
+              <button type="button" data-testid="nodegraph-open-composer" className="rounded px-2 py-1 text-[#cdd6f4]"
+                onClick={() => {
+                  if (window.innerWidth < 1100) setPaletteOpen(false);
+                  requestAnimationFrame(() => {
+                    const panel = eventComposerRef.current;
+                    if (!panel) return;
+                    panel.open = true;
+                    panel.querySelector("summary")?.focus();
+                    panel.scrollIntoView?.({ block: "nearest" });
+                  });
+                }}>Compositor</button>
+            )}
+            <button type="button" data-testid="nodegraph-undo" aria-label="Desfazer" data-tool-hint="Desfazer no grafo (Ctrl+Z)" onClick={undoGraph} disabled={history.past.length === 0}
               title={history.past.length ? `Desfazer: ${history.past[history.past.length - 1].label} (Ctrl+Z)` : "Nada para desfazer"}
               className="flex items-center gap-1 rounded px-2 py-1 text-[#cdd6f4] hover:bg-[#313244] disabled:opacity-40">
-              <Icon name="undo" size={14} /> Desfazer
+              <Icon name="undo" size={16} /><span className="sr-only">Desfazer</span>
             </button>
-            <button type="button" data-testid="nodegraph-redo" onClick={redoGraph} disabled={history.future.length === 0}
+            <button type="button" data-testid="nodegraph-redo" aria-label="Refazer" data-tool-hint="Refazer no grafo (Ctrl+Y)" onClick={redoGraph} disabled={history.future.length === 0}
               title={history.future.length ? `Refazer: ${history.future[0].label} (Ctrl+Y)` : "Nada para refazer"}
               className="flex items-center gap-1 rounded px-2 py-1 text-[#cdd6f4] hover:bg-[#313244] disabled:opacity-40">
-              <Icon name="redo" size={14} /> Refazer
+              <Icon name="redo" size={16} /><span className="sr-only">Refazer</span>
             </button>
             <button type="button" data-testid="nodegraph-fit-view" onClick={() => fitViewTo(graph.nodes.filter((node) => !hiddenNodeIds.has(node.id)))} disabled={graph.nodes.length === 0}
               title="Mostra o grafo inteiro. Escolha um nó para voltar à escala de edição."
@@ -3831,17 +3944,17 @@ export default function NodeGraphEditor() {
             <button type="button" aria-expanded={minimapOpen} aria-pressed={minimapOpen} data-testid="nodegraph-toggle-minimap" onClick={() => setMinimapOpen((open) => !open)}
               title={minimapOpen ? "Recolher o minimapa (preferência lembrada)" : "Mostrar o minimapa do grafo (preferência lembrada)"}
               className={`rounded px-2 py-1 hover:bg-[#313244] ${minimapOpen ? "bg-[#313244] text-[#89b4fa]" : "text-[#cdd6f4]"}`}>Minimapa</button>
+            <button type="button" data-testid="nodegraph-organize-all" onClick={() => organizeGraph("all")} disabled={graph.nodes.length === 0}
+              aria-label="Organizar tudo" data-tool-hint="Organizar o grafo pelas conexões" title="Organizar visualmente: so muda posicoes, segue as conexoes e nunca cria ou remove ligacoes. Nos fixados ficam parados."
+              className="flex items-center gap-1 rounded border border-[#89b4fa]/40 bg-[#89b4fa]/10 px-2 py-1 font-semibold text-[#89b4fa] hover:bg-[#89b4fa]/20 disabled:opacity-40">
+              <Icon name="organize" size={14} /> <span className="sr-only">Organizar tudo</span>
+            </button>
             <button type="button" data-testid="nodegraph-more-actions" popoverTarget="nodegraph-visual-tools" className="rounded border border-[#45475a] px-2 py-1 text-[#cdd6f4]">Mais ações</button>
             <div id="nodegraph-visual-tools" data-testid="nodegraph-visual-tools" popover="auto"
               className="fixed left-4 top-24 m-0 max-h-[calc(100vh-120px)] w-[min(480px,calc(100vw-32px))] overflow-y-auto rounded-lg border border-[#313244] bg-[var(--rds-surface-panel)] p-3 text-xs text-[var(--rds-text-primary)] shadow-xl"
               onClick={(event) => { if ((event.target as Element).closest("button")) event.currentTarget.hidePopover?.(); }}
               onWheel={(event) => event.stopPropagation()}>
             <div className="flex flex-wrap items-center gap-2 [&>button]:min-h-8">
-            <button type="button" data-testid="nodegraph-organize-all" onClick={() => organizeGraph("all")} disabled={graph.nodes.length === 0}
-              title="Organizar visualmente: so muda posicoes, segue as conexoes e nunca cria ou remove ligacoes. Nos fixados ficam parados."
-              className="flex items-center gap-1 rounded border border-[#89b4fa]/40 bg-[#89b4fa]/10 px-2 py-1 font-semibold text-[#89b4fa] hover:bg-[#89b4fa]/20 disabled:opacity-40">
-              <Icon name="organize" size={14} /> Organizar tudo
-            </button>
             <button type="button" data-testid="nodegraph-organize-selection" onClick={() => organizeGraph("selection")} disabled={selectionIds.length === 0}
               title="Organiza so os nos selecionados; o resto nao se move."
               className="rounded border border-[#89b4fa]/40 px-2 py-1 text-[#89b4fa] hover:bg-[#89b4fa]/20 disabled:opacity-40">
@@ -4678,7 +4791,9 @@ export default function NodeGraphEditor() {
               ) + 18 * view.zoom;
               const hovered = hoveredEdgeId === edge.id;
               const active = activeEdgeId === edge.id;
-              const color = active ? "#f9e2af" : PORT_VISUAL_COLORS[kind];
+              const selectedConnection = edge.fromNode === selectedId || edge.toNode === selectedId;
+              const color = active ? "var(--rds-status-warning)"
+                : selectedConnection && kind === "exec" ? "var(--rds-status-success)" : PORT_VISUAL_COLORS[kind];
               return (
                 <g key={edge.id}>
                   <path
@@ -4698,7 +4813,7 @@ export default function NodeGraphEditor() {
                     d={routeEdgePath(a, b, detour)}
                     fill="none"
                     stroke={color}
-                    strokeWidth={hovered || active ? 3 : kind === "data" ? 1.5 : 2}
+                    strokeWidth={hovered || active || selectedConnection ? 3 : kind === "data" ? 1.5 : 2}
                     strokeDasharray={kind === "data" ? "5 4" : undefined}
                     strokeOpacity={hovered || active ? 0.95 : 0.8}
                     style={{ pointerEvents: "stroke" }}
@@ -4825,11 +4940,10 @@ export default function NodeGraphEditor() {
               sfx={sceneSfx}
               detailsOpen={openDetails.has(node.id)}
               snapPortKey={snapTarget?.nodeId === node.id ? `in:${snapTarget.portId}` : null}
-              compatiblePortIds={
-                pendingEdge
-                  ? new Set(node.inputs.filter((port) => checkConnection(graph, pendingEdge.fromNode, pendingEdge.fromPort, node.id, port.id).ok).map((port) => port.id))
-                  : null
-              }
+              title={actionTitle(graph, node, names, schedule.get(node.id) ?? [])}
+              usedOutputs={usedPorts.get(node.id) ?? new Set()}
+              onActivate={() => selectStep(node.id)}
+              portChecks={pendingEdge ? new Map(node.inputs.map(port => [port.id, checkConnection(graph, pendingEdge.fromNode, pendingEdge.fromPort, node.id, port.id)])) : null}
               onMouseDown={(e) => onNodeMouseDown(e, node.id)}
               onPortMouseDown={(e, portId, isOutput) => onPortMouseDown(e, node.id, portId, isOutput)}
               onPortMouseUp={(e, portId, isOutput) => onPortMouseUp(e, node.id, portId, isOutput)}
@@ -4840,6 +4954,24 @@ export default function NodeGraphEditor() {
           )
         )}
 
+        {selectedEntity && visibleRoles.size > 0 && (
+          <aside aria-label="Legenda dos nós" data-testid="nodegraph-legend"
+            className="absolute bottom-2 left-2 z-10 flex items-center gap-2 overflow-x-auto whitespace-nowrap rounded-lg border border-[var(--rds-border-default)] bg-[var(--rds-surface-panel)] px-2 py-1 text-[11px] text-[var(--rds-text-primary)] shadow-sm"
+            style={{ maxWidth: `max(64px, calc(100% - ${(contextOpen ? 288 : 0) + (minimapOpen ? 200 : 0) + 16}px))` }}
+            onMouseDown={event => event.stopPropagation()} onWheel={event => event.stopPropagation()}>
+            <button type="button" aria-expanded={legendOpen} onClick={() => setLegendOpen(open => !open)} className="flex shrink-0 items-center gap-1 font-semibold">
+              <Icon name="layers" size={13} />Legenda
+            </button>
+            {legendOpen && Array.from(visibleRoles, key => {
+              const role = GRAPH_ROLES[key];
+              return <span key={key} className="flex items-center gap-1">
+                <span className="grid h-4 w-4 place-items-center rounded" style={{ backgroundColor: role.color, color: "white" }}>
+                  <Icon name={role.icon} size={12} />
+                </span>{role.label}
+              </span>;
+            })}
+          </aside>
+        )}
         {selectedEntity && graph.nodes.length > 0 && (
           <div
             data-testid="nodegraph-minimap"
@@ -4917,10 +5049,12 @@ export default function NodeGraphEditor() {
         {/* Empty state */}
         {selectedEntity && graph.nodes.length === 0 && (
           <EmptyStateOverlay
+            onAddEvent={() => addNode("event_update")}
             onApplyTemplate={applyQuickActionTemplate}
             selectedEntityLabel={quickActionContext.selectedEntityLabel}
             templates={orderedQuickActionTemplates}
             roleHint={importedSemantics?.entity_role?.trim() || null}
+            contextOpen={contextOpen}
           />
         )}
         {!selectedEntity && graph.nodes.length === 0 && (
@@ -4935,6 +5069,63 @@ export default function NodeGraphEditor() {
             Grafo sem conexoes: arraste de uma saida para uma entrada para ligar o fluxo.
           </div>
         )}
+      </div>
+            {selectedEntity && activeTarget === "megadrive" && !isRecoveredRegionGraph(graph) && (
+              <EventSequencePanel key={selectionKey} onOpen={sequence => fitRule(sequence.id)} panelRef={eventComposerRef} graph={graph} palettes={activeScene?.palettes ?? []} selected={selectedNode} selectedSteps={selectedSteps}
+                targets={(activeScene?.entities ?? []).filter((entity) => entity.components.sprite)
+                  .map((entity) => ({ id: entity.entity_id, name: getEntityDisplayName(entity),
+                    animations: Object.keys(entity.components.sprite?.animations ?? {}).sort() }))}
+                onSelectNode={selectStep}
+                onCreate={(trigger, port) => {
+                  if (!canEditGraphNode(trigger)) return;
+                  const node = makeNode("timeline_sequence", trigger.x + 270, trigger.y);
+                  node.id = "resposta_" + Date.now().toString(36) + "_" + node.id;
+                  node.params = { ...node.params, run_mode: "event", slot_0_delay: 0, slot_1_delay: 2, slot_2_delay: 4, slot_3_delay: 6 };
+                  setGraph((current) => current.edges.some((edge) => edge.fromNode === trigger.id && edge.fromPort === port)
+                    ? current : { ...current, nodes: [...current.nodes, node], edges: [...current.edges, makeEdge(trigger, port, node, "exec")] },
+                  "Criar resposta a eventos");
+                  setSelectedId(node.id);
+                  setSelectedIds(new Set([node.id]));
+                }}
+                onParam={(id, key, value) => setGraph((current) => {
+                  const node = current.nodes.find((item) => item.id === id);
+                  if (!node || !canEditGraphNode(node) || node.params[key] === value) return current;
+                  const outputs = node.type !== "timeline_sequence" || node.outputs.some((port) => port.id === "slot_3")
+                    ? node.outputs : clonePorts(NODE_DEFS.timeline_sequence.outputs);
+                  const params = { ...node.params, [key]: value };
+                  if (node.type === "set_animation_state" && key === "target") {
+                    const target = activeScene?.entities.find((entity) => entity.entity_id === value);
+                    const animations = Object.keys(target?.components.sprite?.animations ?? {}).sort();
+                    if (animations.length === 0) return current;
+                    if (!animations.includes(String(params.state))) params.state = animations[0];
+                  }
+                  return { ...current, nodes: current.nodes.map((item) => item.id === id
+                    ? { ...item, outputs, params } : item) };
+                }, "Editar resposta a eventos")}
+                onAddAction={(sequence, slot, type) => {
+                  if (!canEditGraphNode(sequence)) return;
+                  const node = makeNode(type, sequence.x + 265, sequence.y + 170 * slot);
+                  if (type === "palette_swap") {
+                    node.label = "Brilho por paleta";
+                    node.params = { ...node.params, trigger_mode: "flow", target: "self" };
+                  }
+                  if (type === "set_animation_state") {
+                    const state = Object.keys(selectedEntity.components.sprite?.animations ?? {}).sort()[0];
+                    node.label = "Trocar animação";
+                    node.params = { ...node.params, target: state ? selectedEntity.entity_id : "", state: state ?? "" };
+                  }
+                  const port = "slot_" + slot;
+                  node.id = sequence.id + "_" + port + "_" + Date.now().toString(36) + "_" + node.id;
+                  setGraph((current) => {
+                    if (current.edges.some((edge) => edge.fromNode === sequence.id && edge.fromPort === port)) return current;
+                    return { ...current,
+                      nodes: [...current.nodes.map((item) => item.id === sequence.id && !item.outputs.some((output) => output.id === port)
+                        ? { ...item, outputs: clonePorts(NODE_DEFS.timeline_sequence.outputs) } : item), node],
+                      edges: [...current.edges, { ...makeEdge(sequence, port, node, "exec"), id: node.id + "_link" }],
+                    };
+                  }, "Adicionar ação à resposta");
+                }} />
+            )}
       </div>
     </div>
   );

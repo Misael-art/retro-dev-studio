@@ -2,7 +2,7 @@ use crate::compiler::ast_generator::{
     collect_bgm_tracks, collect_collision_checks, collect_logic_sound_names,
     collect_parallax_layers, collect_physics_applications, collect_raster_lines,
     collect_sfx_resources, collect_tilemap_assets, AabbCollisionCheck, AstNode, AstOutput,
-    CompareOp, HardwareEventKind, LogicBoolExpr, LogicCollisionTarget, LogicFsmState,
+    CompareOp, GroundProbe, HardwareEventKind, LogicBoolExpr, LogicCollisionTarget, LogicFsmState,
     LogicFsmTransition, LogicMathExpr, LogicOp, LogicPositionSource, LogicScript,
     LogicTimelineSlot, ParallaxLayerConfig, PhysicsApplication, RasterLineConfig, SpriteAsset,
     TilemapAsset,
@@ -180,6 +180,14 @@ fn build_main_c_inner(
     let tilemap_assets = collect_tilemap_assets(ast);
     let parallax_layers = collect_parallax_layers(ast);
     let raster_lines = collect_raster_lines(ast);
+    let wave_band = ast.nodes.iter().find_map(|node| match node {
+        AstNode::SetupWaveBand { wave, plane } => Some((wave, *plane)),
+        _ => None,
+    });
+    let surface = ast.nodes.iter().find_map(|node| match node {
+        AstNode::SurfaceMaterials { cells, materials } => Some((cells, materials)),
+        _ => None,
+    });
     let scroll_tilemap_layers = collect_scroll_tilemap_layers(ast);
     let logic_vars = collect_logic_var_names(ast);
     let has_rom_addq_word = ast
@@ -238,11 +246,20 @@ fn build_main_c_inner(
         out.push_str("#include \"resources.h\"\n");
     }
     out.push('\n');
+    if super::pose_runtime::needs_screen_position(ast) {
+        out.push_str("static void rds_pose_screen_position(Sprite *sprite, s16 x, s16 y) { SPR_setPosition(sprite, x, y); }\n");
+    }
+    let pose_callbacks: std::collections::HashSet<_> = super::pose_runtime::distinct_actors(ast)
+        .map(|(_, sprite, _)| sprite)
+        .collect();
     let has_sprite_pages = render_sprite_page_definitions(&mut out, ast);
     render_sound_id_macros(&mut out, ast);
     let visual_camera = super::camera_runtime::find(ast).filter(|c| c.errors.is_empty());
     if visual_camera.is_some() {
         out.push_str("static s16 rds_camera_ratio_x[2] = {100,100}, rds_camera_ratio_y[2] = {100,100};\nstatic void rds_visual_camera_control(s16 index,s16 action,u16 frames,s16 x,s16 y);\n");
+    }
+    if let Some((wave, plane)) = wave_band {
+        render_wave_band_definitions(&mut out, wave, plane);
     }
     let camera_follow = visual_camera.is_some() || ast_has_camera_follow(ast);
     if camera_follow {
@@ -278,8 +295,15 @@ fn build_main_c_inner(
             } else {
                 (0, 0)
             };
+            let horizontal = if wave_band.is_some() {
+                "rds_wave_scroll"
+            } else {
+                "VDP_setHorizontalScrollVSync"
+            };
+            // The wave tables reach VRAM in VBlank. Commit ordinary camera
+            // scroll there as well so both modes present the same camera step.
             out.push_str(&format!(
-                " VDP_setHorizontalScroll({plane}, {x} - ((s32)rds_camera_x * rds_camera_ratio_x[{layer}]) / 100); VDP_setVerticalScroll({plane}, ((s32)rds_camera_y * rds_camera_ratio_y[{layer}]) / 100 - {y});", x=origin.0,y=origin.1
+                " {horizontal}({plane}, {x} - ((s32)rds_camera_x * rds_camera_ratio_x[{layer}]) / 100); VDP_setVerticalScrollVSync({plane}, ((s32)rds_camera_y * rds_camera_ratio_y[{layer}]) / 100 - {y});", x=origin.0,y=origin.1
             ));
         }
         out.push_str(" }\n#define RDS_CAMERA_SCREEN_X rds_camera_x\n#define RDS_CAMERA_SCREEN_Y rds_camera_y\n");
@@ -371,6 +395,11 @@ fn build_main_c_inner(
             var_name, initial_value
         ));
     }
+    for name in triggered_timelines(&ast.logic_scripts).keys() {
+        out.push_str(&format!(
+            "static u8 rds_{name}_request, rds_{name}_previous, rds_{name}_running;\n"
+        ));
+    }
     if !logic_vars.is_empty() {
         out.push('\n');
     }
@@ -386,6 +415,7 @@ fn build_main_c_inner(
     }
     // Resolved after the body is rendered: only declared when edge input / music guards are used.
     out.push_str(RUNTIME_STATE_DECL_MARKER);
+    super::pose_runtime::emit_declarations(&mut out, ast);
     // Perfil MUGEN (Experimental): tabelas e tick de animacao gerados a partir do modelo.
     out.push_str(&super::mugen_runtime::render_decls(ast));
     out.push_str(&render_palette_decls());
@@ -469,6 +499,9 @@ fn build_main_c_inner(
                 .into_iter()
                 .find_map(|physics| physics.ground)
             {
+                if let Some((cells, materials)) = surface {
+                    render_surface_materials(&mut out, &ground, cells, materials);
+                }
                 out.push_str(&format!(
                     "static u8 rds_solid_at(s16 x, s16 y)\n{{\n    if (x < 0 || y < 0) return 0;\n    u16 tx = (u16)x / {tw};\n    u16 ty = (u16)y / {th};\n    if (tx >= {mw} || ty >= {mh}) return 0;\n    return rds_collision_map[ty * {mw} + tx] != 0;\n}}\n\n\
 // Side walls: moving by dx, the body's leading edge (right if dx>0, left if dx<0) must not\n\
@@ -591,6 +624,11 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                 };
                 sprite_spawn_index += 1;
                 let priority = if *priority_high { "TRUE" } else { "FALSE" };
+                let callback = if pose_callbacks.contains(var_name.as_str()) {
+                    format!("rds_pose_{var_name}_change")
+                } else {
+                    "NULL".to_string()
+                };
 
                 out.push_str(&format!(
                     "    {var_name}_x = {x}; {var_name}_y = {y};\n",
@@ -599,12 +637,15 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     y = y
                 ));
                 if managed_sprites {
-                    out.push_str(&format!("    rds_register_sprite(&{var_name}, &{resource_name}, &{var_name}_x, &{var_name}_y, TILE_ATTR({palette}, {priority}, FALSE, FALSE));\n"));
+                    out.push_str(&format!("    rds_register_sprite(&{var_name}, &{resource_name}, &{var_name}_x, &{var_name}_y, TILE_ATTR({palette}, {priority}, FALSE, FALSE), {callback});\n"));
                 } else {
                     out.push_str(&format!(
                         "    {} = SPR_addSprite(&{}, {}_x, {}_y, TILE_ATTR({}, {}, FALSE, FALSE));\n",
                         var_name, resource_name, var_name, var_name, palette, priority
                     ));
+                    if callback != "NULL" {
+                        out.push_str(&format!("    if ({var_name}) SPR_setFrameChangeCallback({var_name}, {callback});\n"));
+                    }
                 }
                 out.push_str(&format!("    SPR_setVisibility({}, VISIBLE);\n", var_name));
             }
@@ -615,6 +656,7 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                 scroll_x,
                 scroll_y,
                 priority_high,
+                priority_regions,
                 ..
             } => {
                 let tile_priority = if *priority_high { "TRUE" } else { "FALSE" };
@@ -623,6 +665,8 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     .copied()
                     .unwrap_or("WINDOW");
                 let base_tile = tilemap_base_expression(resource_name, &tilemap_assets);
+                let origin_x = if visual_camera.is_some() { 0 } else { (*x).max(0) / 8 };
+                let origin_y = if visual_camera.is_some() { 0 } else { (*y).max(0) / 8 };
                 // Com plano: banco planejado e sem carregar a paleta da imagem (loadpal FALSE),
                 // que sobrescreveria o banco 0 de outros usos.
                 let (tile_palette, load_palette) = match planned_bank_for("tilemap", tilemap_draw_index) {
@@ -636,10 +680,29 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     tile_palette,
                     tile_priority,
                     base_tile,
-                    if visual_camera.is_some() { 0 } else { (*x).max(0) / 8 },
-                    if visual_camera.is_some() { 0 } else { (*y).max(0) / 8 },
+                    origin_x,
+                    origin_y,
                     load_palette
                 ));
+                // Reuse the loaded image tiles. Only the VDP name-table attributes change.
+                for region in priority_regions {
+                    let x = region.x;
+                    let y = region.y;
+                    let width = region.width;
+                    let height = region.height;
+                    let dest_x = origin_x as u32 + x;
+                    let dest_y = origin_y as u32 + y;
+                    let priority = if region.high { "TRUE" } else { "FALSE" };
+                    out.push_str(&format!(
+                        "    if ({x} < {resource_name}.tilemap->w && {y} < {resource_name}.tilemap->h) {{
+        const u16 remaining_w = {resource_name}.tilemap->w - {x};
+        const u16 region_w = remaining_w < {width} ? remaining_w : {width};
+        const u16 remaining_h = {resource_name}.tilemap->h - {y};
+        const u16 region_h = remaining_h < {height} ? remaining_h : {height};
+        VDP_setTileMapEx({plane}, {resource_name}.tilemap, TILE_ATTR_FULL({tile_palette}, {priority}, FALSE, FALSE, {base_tile}), {dest_x}, {dest_y}, {x}, {y}, region_w, region_h, CPU);
+    }}\n"
+                    ));
+                }
                 if let Some(asset) = tilemap_assets
                     .iter()
                     .find(|asset| asset.resource_name == *resource_name && !asset.cells.is_empty())
@@ -658,16 +721,18 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                             offset = (value - 1) * 8,
                         ));
                     }
-                    let origin_x = if visual_camera.is_some() { 0 } else { (*x).max(0) / 8 };
-                    let origin_y = if visual_camera.is_some() { 0 } else { (*y).max(0) / 8 };
                     let total =
                         (asset.map_width as usize).saturating_mul(asset.map_height as usize);
                     for (index, value) in asset.cells.iter().copied().enumerate().take(total) {
                         if value == TILEMAP_CELL_BASE {
                             continue;
                         }
-                        let cell_x = origin_x as usize + index % asset.map_width as usize;
-                        let cell_y = origin_y as usize + index / asset.map_width as usize;
+                        let col = index as u32 % asset.map_width;
+                        let row = index as u32 / asset.map_width;
+                        let cell_x = origin_x as u32 + col;
+                        let cell_y = origin_y as u32 + row;
+                        let cell_priority = priority_regions.iter().rev().find(|region| region.contains(col, row))
+                            .map_or(tile_priority, |region| if region.high { "TRUE" } else { "FALSE" });
                         let tile = if value == TILEMAP_CELL_EMPTY {
                             "0".to_string()
                         } else {
@@ -676,7 +741,7 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                         };
                         out.push_str(&format!(
                             "    VDP_setTileMapXY({}, TILE_ATTR_FULL({}, {}, FALSE, FALSE, {}), {}, {});\n",
-                            plane, tile_palette, tile_priority, tile, cell_x, cell_y
+                            plane, tile_palette, cell_priority, tile, cell_x, cell_y
                         ));
                     }
                 }
@@ -703,6 +768,9 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     "    // RetroFX parallax configured for {} layer(s)\n",
                     layers.len()
                 ));
+            }
+            AstNode::SetupWaveBand { .. } => {
+                out.push_str("    VDP_setScrollingMode(HSCROLL_LINE, VSCROLL_PLANE);\n");
             }
             AstNode::SetupRasterEffect { lines } => {
                 if !retrofx_initialized {
@@ -789,6 +857,7 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     floor_y: *floor_y,
                     ground: ground.clone(),
                 },
+                surface.is_some(),
             ),
             AstNode::SetAnimation {
                 var_name,
@@ -849,6 +918,7 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     "        for (rds_boot_frame = 0; rds_boot_frame < 8; rds_boot_frame++) {\n",
                 );
                 out.push_str("            SPR_update();\n");
+                super::pose_runtime::emit_events(&mut out, ast, 12);
                 out.push_str("            SYS_doVBlankProcess();\n");
                 out.push_str("        }\n");
                 out.push_str("    }\n");
@@ -891,6 +961,7 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     ));
                 }
                 render_logic_scripts(&mut out, &ast.logic_scripts, 8);
+                render_triggered_timelines(&mut out, &ast.logic_scripts);
                 if has_rom_branch_compare_word {
                     out.push_str(
                         "        *rds_branch_recovery_input = (u16)logic_var_branch_input;\n",
@@ -919,6 +990,21 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                 if visual_camera.is_some() {
                     out.push_str("        rds_visual_camera_tick();\n        rds_camera_apply_scroll();\n");
                 }
+                if let Some((wave, _)) = wave_band {
+                    if visual_camera.is_none() {
+                        let planes = resolved_tilemap_planes(ast);
+                        for (index, node) in ast.nodes.iter().filter(|node| matches!(node, AstNode::DrawTilemap { .. })).enumerate() {
+                            if let AstNode::DrawTilemap { scroll_x, .. } = node {
+                                let plane = planes[index];
+                                if plane != "WINDOW" {
+                                    out.push_str(&format!("        rds_wave_scroll({plane}, {scroll_x});\n"));
+                                }
+                            }
+                        }
+                    }
+                    out.push_str(&format!("        rds_wave_phase += ({});\n", wave.speed));
+                }
+                super::pose_runtime::emit_attachment_residency_positions(&mut out, ast);
                 if managed_sprites {
                     out.push_str("        rds_sync_sprite_residency();\n");
                 }
@@ -927,7 +1013,10 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                         out.push_str(&format!("        SPR_setPosition({var}, {var}_x, {var}_y);\n"));
                     }
                 }
+                super::pose_runtime::emit_positions(&mut out, ast);
                 out.push_str("        SPR_update();\n");
+                super::pose_runtime::emit_events(&mut out, ast, 8);
+                out.push_str(&super::mugen_runtime::render_native_strike_ticks(ast, 8));
             }
             AstNode::VSync => {
                 out.push_str(JOY_PREV_UPDATE_MARKER);
@@ -935,6 +1024,9 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
             }
             AstNode::GameLoopEnd => {
                 out.push_str("    }\n");
+            }
+            AstNode::AuthoredPosePlayback { .. } | AstNode::PoseAttachment(_) | AstNode::SurfaceMaterials { .. } => {
+                // Declarations and sprite callbacks consume this metadata.
             }
         }
     }
@@ -994,19 +1086,32 @@ fn render_palette_decls() -> String {
             ));
         }
         for swap in p.plan.swaps.iter().filter(|s| s.ok) {
-            let (Some(bank), Some(strike)) = (swap.bank, swap.trigger.strip_prefix("golpe:")) else { continue };
+            let Some(bank) = swap.bank else { continue };
             let id = &swap.id;
+            let (state, condition, consume) = if let Some(strike) = swap.trigger.strip_prefix("golpe:") {
+                (
+                    format!("static u16 rds_palswap_{id}_seen = 0;"),
+                    format!("rds_strike_{strike}_hits != rds_palswap_{id}_seen"),
+                    format!("rds_palswap_{id}_seen = rds_strike_{strike}_hits;"),
+                )
+            } else if swap.trigger == "fluxo" {
+                (
+                    format!("static bool rds_palswap_{id}_requested;"),
+                    format!("rds_palswap_{id}_requested"),
+                    format!("rds_palswap_{id}_requested = FALSE;"),
+                )
+            } else { continue };
             out.push_str(&format!(
                 "static const u16 rds_palswap_{id}_on[16] = {{{on}}};\n\
                  static const u16 rds_palswap_{id}_off[16] = {{{off}}};\n\
                  static volatile u16 rds_palswap_{id}_count = 0;\n\
                  static volatile u16 rds_palswap_{id}_restores = 0;\n\
                  static volatile u16 rds_palswap_{id}_left = 0;\n\
-                 static u16 rds_palswap_{id}_seen = 0;\n\
+                 {state}\n\
                  /* Troca '{id}': banco {bank}, indices {idx:?}, {frames} quadros; fila DMA aplicada no proximo VBlank. */\n\
                  static void rds_palswap_{id}_update(void) {{\n\
-                 \x20   if (rds_strike_{strike}_hits != rds_palswap_{id}_seen) {{\n\
-                 \x20       rds_palswap_{id}_seen = rds_strike_{strike}_hits;\n\
+                 \x20   if ({condition}) {{\n\
+                 \x20       {consume}\n\
                  \x20       rds_palswap_{id}_count++;\n\
                  \x20       rds_palswap_{id}_left = {frames};\n\
                  \x20       PAL_setColors({base}, rds_palswap_{id}_on, 16, DMA);\n\
@@ -1169,6 +1274,7 @@ typedef struct {
     u16 attributes;
     s16 animation, visibility;
     bool looping;
+    FrameChangeCallback *on_frame_change;
 } RdsSpriteSlot;
 static RdsSpriteSlot rds_sprite_slots[RDS_SPRITE_SLOTS];
 static u16 rds_sprite_slot_count;
@@ -1189,10 +1295,11 @@ static void rds_init_sprite_residency(u32 backgroundTiles) {
     rds_residency_ready = TRUE;
 }
 static void rds_register_sprite(Sprite **instance, const SpriteDefinition *definition,
-                               s16 *x, s16 *y, u16 attributes) {
+                               s16 *x, s16 *y, u16 attributes, FrameChangeCallback *on_frame_change) {
     RdsSpriteSlot *slot = &rds_sprite_slots[rds_sprite_slot_count++];
     slot->instance = instance; slot->definition = definition;
     slot->x = x; slot->y = y; slot->attributes = attributes;
+    slot->on_frame_change = on_frame_change;
     slot->animation = 0; slot->visibility = VISIBLE; slot->looping = TRUE;
     *instance = NULL;
 }
@@ -1220,6 +1327,7 @@ static void rds_sync_sprite_residency(void) {
             Sprite *sprite = SPR_addSprite(slot->definition, *slot->x, *slot->y, slot->attributes);
             *slot->instance = sprite;
             if (!sprite) { rds_residency_error = 1; continue; }
+            if (slot->on_frame_change) SPR_setFrameChangeCallback(sprite, slot->on_frame_change);
             SPR_setAnim(sprite, slot->animation);
             SPR_setAnimationLoop(sprite, slot->looping);
             SPR_setVisibility(sprite, slot->visibility);
@@ -1352,7 +1460,48 @@ fn render_aabb_helper() -> &'static str {
 }\n"
 }
 
-fn render_apply_physics(out: &mut String, physics: &PhysicsApplication) {
+fn render_surface_materials(
+    out: &mut String,
+    ground: &GroundProbe,
+    cells: &[u8],
+    materials: &[crate::ugdm::entities::SurfaceMaterial],
+) {
+    use std::fmt::Write as _;
+    out.push_str("static const u8 rds_material_map[] = {\n");
+    for row in cells.chunks(32) {
+        for cell in row {
+            write!(out, "{cell}, ").unwrap();
+        }
+        out.push('\n');
+    }
+    out.push_str("};\nstatic const u8 rds_material_friction[] __attribute__((unused)) = {0");
+    for material in materials {
+        write!(out, ", {}", material.friction).unwrap();
+    }
+    out.push_str("};\nstatic const u8 rds_material_sound[] __attribute__((unused)) = {0");
+    for material in materials {
+        if let Some(sound) = &material.step_sound {
+            write!(out, ", SFX_{}", sound.to_uppercase()).unwrap();
+        } else {
+            out.push_str(", 0");
+        }
+    }
+    writeln!(
+        out,
+        "}};\nstatic u8 __attribute__((unused)) rds_material_at(s16 x, s16 y) {{\n\
+         \x20   if (x < 0 || y < 0) return 0;\n\
+         \x20   const u16 col = (u16)x / {}, row = (u16)y / {};\n\
+         \x20   return col < {} && row < {} ? rds_material_map[row * {} + col] : 0;\n}}",
+        ground.tile_width,
+        ground.tile_height,
+        ground.map_width,
+        ground.map_height,
+        ground.map_width,
+    )
+    .unwrap();
+}
+
+fn render_apply_physics(out: &mut String, physics: &PhysicsApplication, surface: bool) {
     let next_x_var = format!("{}_next_x", physics.var_name);
     let next_y_var = format!("{}_next_y", physics.var_name);
     out.push_str(&format!("        {}_on_ground = 0;\n", physics.var_name));
@@ -1385,7 +1534,22 @@ fn render_apply_physics(out: &mut String, physics: &PhysicsApplication) {
         max_velocity_y = physics.max_velocity_y
     ));
 
-    if physics.friction > 0 {
+    let surface_ground = physics
+        .ground
+        .as_ref()
+        .filter(|_| surface && physics.gravity);
+    if let Some(ground) = surface_ground {
+        let name = &physics.var_name;
+        let half_width = ground.body_width / 2;
+        let height = ground.body_height;
+        out.push_str(&format!(
+            "        const u8 rds_material_{name} = rds_material_at({name}_x + {half_width}, {name}_y + {height});\n\
+             \x20       const s32 rds_friction_{name} = rds_material_{name} ? rds_material_friction[rds_material_{name}] : {};\n\
+             \x20       if ({name}_vel_x > 0) {{ {name}_vel_x -= rds_friction_{name}; if ({name}_vel_x < 0) {name}_vel_x = 0; }}\n\
+             \x20       if ({name}_vel_x < 0) {{ {name}_vel_x += rds_friction_{name}; if ({name}_vel_x > 0) {name}_vel_x = 0; }}\n",
+            physics.friction.max(0),
+        ));
+    } else if physics.friction > 0 {
         out.push_str(&format!(
             "        if ({var_name}_vel_x > 0) {{ {var_name}_vel_x -= {friction}; if ({var_name}_vel_x < 0) {var_name}_vel_x = 0; }}\n",
             var_name = physics.var_name,
@@ -1486,6 +1650,20 @@ fn render_apply_physics(out: &mut String, physics: &PhysicsApplication) {
         ));
     }
 
+    if let Some(ground) = surface_ground {
+        let name = &physics.var_name;
+        let half_width = ground.body_width / 2;
+        let height = ground.body_height;
+        out.push_str(&format!(
+            "        {{ static u8 step_wait, last_surface;\n\
+             \x20           const u8 surface = {name}_on_ground && {next_x_var} != {name}_x ? rds_material_at({next_x_var} + {half_width}, {next_y_var} + {height}) : 0;\n\
+             \x20           if (surface != last_surface) step_wait = 0;\n\
+             \x20           if (surface && rds_material_sound[surface] && !step_wait) {{ XGM_startPlayPCM(rds_material_sound[surface], 1, SOUND_PCM_CH3); step_wait = 12; }}\n\
+             \x20           if (step_wait) --step_wait;\n\
+             \x20           last_surface = surface;\n\
+             \x20       }}\n"
+        ));
+    }
     out.push_str(&format!(
         "        {var_name}_x = {next_x_var}; {var_name}_y = {next_y_var};\n",
         var_name = physics.var_name,
@@ -1833,20 +2011,27 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
         match op {
             LogicOp::SourceMapped {
                 graph_sha256,
+                instance_id,
                 node_id,
                 semantic_stage,
                 op,
             } => {
                 out.push_str(&format!(
                     "{indent}{}\n",
-                    begin_marker(graph_sha256, node_id, semantic_stage),
+                    begin_marker(graph_sha256, instance_id, node_id, semantic_stage),
                     indent = indent_str
                 ));
                 render_logic_ops(out, std::slice::from_ref(op.as_ref()), indent);
                 out.push_str(&format!(
                     "{indent}{}\n",
-                    end_marker(graph_sha256, node_id),
+                    end_marker(graph_sha256, instance_id, node_id),
                     indent = indent_str
+                ));
+            }
+            LogicOp::RawC { code } => {
+                out.push_str(&crate::compiler::code_binding::indent_code_block(
+                    code,
+                    &indent_str,
                 ));
             }
             LogicOp::MoveSprite {
@@ -1923,8 +2108,17 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
                     indent = indent_str
                 ));
             }
-            LogicOp::PaletteSwapOnHit { .. } => {
-                // A troca e atualizada uma vez por quadro depois dos golpes (rds_palswap_*_update).
+            LogicOp::PalettePulse {
+                swap_id,
+                strike_id: None,
+                ..
+            } => {
+                out.push_str(&format!(
+                    "{indent_str}rds_palswap_{swap_id}_requested = TRUE;\n"
+                ));
+            }
+            LogicOp::PalettePulse { .. } => {
+                // O plano de paletas emite a observação dos acertos do golpe.
             }
             LogicOp::SetVelocity {
                 target_name,
@@ -2200,8 +2394,16 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
                 out.push_str(&format!("{indent}}}\n", indent = indent_str));
                 render_logic_ops(out, done, indent);
             }
-            LogicOp::TimelineSequence { counter_var, slots } => {
-                render_timeline_sequence(out, counter_var, slots, indent);
+            LogicOp::TimelineSequence {
+                counter_var,
+                slots,
+                triggered,
+            } => {
+                if *triggered {
+                    out.push_str(&format!("{indent_str}rds_{counter_var}_request = 1;\n"));
+                } else {
+                    render_timeline_sequence(out, counter_var, slots, indent);
+                }
             }
             LogicOp::HardwareBudgetCheck {
                 vram_kb,
@@ -2286,7 +2488,7 @@ fn collect_logic_velocity_targets_from_ops(
             LogicOp::MugenSetVelocityX { .. }
             | LogicOp::MugenProgramStep { .. }
             | LogicOp::AuthoredStrike { .. }
-            | LogicOp::PaletteSwapOnHit { .. } => {}
+            | LogicOp::PalettePulse { .. } => {}
             LogicOp::SetVelocity {
                 target_name,
                 runtime_var,
@@ -2346,8 +2548,84 @@ fn collect_logic_velocity_targets_from_ops(
             | LogicOp::RomBranchCompareWord { .. }
             | LogicOp::PlaySound { .. }
             | LogicOp::PlayMusic { .. }
+            | LogicOp::RawC { .. }
             | LogicOp::SourceBridgeError { .. } => {}
         }
+    }
+}
+
+fn triggered_timelines(
+    scripts: &[LogicScript],
+) -> std::collections::BTreeMap<&str, &[LogicTimelineSlot]> {
+    fn walk<'a>(
+        ops: &'a [LogicOp],
+        found: &mut std::collections::BTreeMap<&'a str, &'a [LogicTimelineSlot]>,
+    ) {
+        for op in ops {
+            match op {
+                LogicOp::SourceMapped { op, .. } => walk(std::slice::from_ref(op.as_ref()), found),
+                LogicOp::TimelineSequence {
+                    counter_var,
+                    slots,
+                    triggered,
+                } => {
+                    if *triggered {
+                        found.entry(counter_var).or_insert(slots);
+                    }
+                    for slot in slots {
+                        walk(&slot.actions, found);
+                    }
+                }
+                LogicOp::ConditionOverlap {
+                    if_true, if_false, ..
+                }
+                | LogicOp::ConditionBool {
+                    if_true, if_false, ..
+                } => {
+                    walk(if_true, found);
+                    walk(if_false, found);
+                }
+                LogicOp::WhileLoop { body, done, .. } | LogicOp::ForLoop { body, done, .. } => {
+                    walk(body, found);
+                    walk(done, found);
+                }
+                LogicOp::HardwareBudgetCheck { if_ok, if_warn, .. } => {
+                    walk(if_ok, found);
+                    walk(if_warn, found);
+                }
+                LogicOp::HardwareEvent { ops, .. } => walk(ops, found),
+                LogicOp::StateMachine { states, .. } => {
+                    for state in states {
+                        walk(&state.body, found);
+                        for t in &state.transitions {
+                            walk(&t.if_matched, found);
+                            walk(&t.if_unmatched, found);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    let mut found = std::collections::BTreeMap::new();
+    for script in scripts {
+        walk(&script.ops, &mut found);
+    }
+    found
+}
+
+fn render_triggered_timelines(out: &mut String, scripts: &[LogicScript]) {
+    for (name, slots) in triggered_timelines(scripts) {
+        let last = slots.last().map_or(0, |slot| slot.delay_frames);
+        out.push_str(&format!(
+            "        if (rds_{name}_request && !rds_{name}_previous) {{ rds_{name}_running = 1; logic_var_{name} = 0; }}\n\
+             \x20       rds_{name}_previous = rds_{name}_request; rds_{name}_request = 0;\n\
+             \x20       if (rds_{name}_running) {{\n"
+        ));
+        render_timeline_slots(out, name, slots, 12);
+        out.push_str(&format!(
+            "            if (logic_var_{name}++ >= {last}) rds_{name}_running = 0;\n        }}\n"
+        ));
     }
 }
 
@@ -2363,18 +2641,30 @@ fn render_timeline_sequence(
         indent = indent_str,
         counter = counter_var
     ));
+    render_timeline_slots(out, counter_var, slots, indent);
+}
+
+fn render_timeline_slots(
+    out: &mut String,
+    counter_var: &str,
+    slots: &[LogicTimelineSlot],
+    indent: usize,
+) {
+    let indent_str = " ".repeat(indent);
     out.push_str(&format!(
         "{indent}switch (logic_var_{counter}) {{\n",
         indent = indent_str,
         counter = counter_var
     ));
-    for slot in slots {
+    for group in slots.chunk_by(|left, right| left.delay_frames == right.delay_frames) {
         out.push_str(&format!(
             "{indent}case {delay}:\n",
             indent = " ".repeat(indent + 4),
-            delay = slot.delay_frames
+            delay = group[0].delay_frames
         ));
-        render_logic_ops(out, &slot.actions, indent + 8);
+        for slot in group {
+            render_logic_ops(out, &slot.actions, indent + 8);
+        }
         out.push_str(&format!(
             "{indent}break;\n",
             indent = " ".repeat(indent + 8)
@@ -2563,6 +2853,52 @@ fn render_math_expr(expr: &LogicMathExpr) -> String {
         // entao este valor nunca chega a uma ROM.
         LogicMathExpr::Unsupported { .. } => "0".to_string(),
     }
+}
+
+fn render_wave_band_definitions(
+    out: &mut String,
+    wave: &crate::ugdm::entities::RetroFXWaveBand,
+    plane: &str,
+) {
+    use crate::ugdm::entities::{RETROFX_WAVE_DMA_BYTES, RETROFX_WAVE_LINES};
+    let first = wave.first_line;
+    let end = wave.last_line + 1;
+    let phase = wave.phase;
+    let offsets = (first..end)
+        .map(|line| {
+            let phase = u32::from(line - first) * 256 / u32::from(wave.wavelength);
+            (phase % 256).to_string()
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    let samples = (0..32)
+        .map(|index| {
+            let angle = f64::from(index) * std::f64::consts::TAU / 32.0;
+            (angle.sin() * f64::from(wave.amplitude))
+                .round()
+                .to_string()
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    out.push_str(&format!(
+        r#"// RetroFX wave: {RETROFX_WAVE_DMA_BYTES} B per frame for both line tables.
+static u8 rds_wave_phase = {phase};
+static const u8 rds_wave_offsets[] = {{{offsets}}};
+static const s8 rds_wave_samples[32] = {{{samples}}};
+static s16 rds_wave_a[{RETROFX_WAVE_LINES}], rds_wave_b[{RETROFX_WAVE_LINES}];
+static void rds_wave_scroll(VDPPlane plane, s16 base) {{
+    s16 *table = plane == BG_A ? rds_wave_a : rds_wave_b;
+    for (u16 y = 0; y < {RETROFX_WAVE_LINES}; y++) table[y] = base;
+    if (plane == {plane}) {{
+        for (u16 y = {first}; y < {end}; y++) {{
+            const u8 index = (u8)(rds_wave_phase + rds_wave_offsets[y - {first}]) >> 3;
+            table[y] += rds_wave_samples[index];
+        }}
+    }}
+    VDP_setHorizontalScrollLine(plane, 0, table, {RETROFX_WAVE_LINES}, DMA_QUEUE);
+}}
+"#
+    ));
 }
 
 fn render_retrofx_frame(
@@ -2846,7 +3182,9 @@ fn extract_vars_from_op(op: &LogicOp, vars: &mut std::collections::BTreeSet<Stri
                 extract_vars_from_op(sub_op, vars);
             }
         }
-        LogicOp::TimelineSequence { counter_var, slots } => {
+        LogicOp::TimelineSequence {
+            counter_var, slots, ..
+        } => {
             vars.insert(counter_var.clone());
             for slot in slots {
                 for sub_op in &slot.actions {
@@ -3460,6 +3798,26 @@ fn palette_const(slot: u8) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn wave_band_queues_complete_planes_and_offsets_only_the_selected_rows_and_plane() {
+        let config = crate::ugdm::entities::RetroFXWaveBand {
+            entity_id: "agua".to_string(),
+            first_line: 130,
+            last_line: 133,
+            amplitude: 4,
+            wavelength: 8,
+            speed: 3,
+            phase: 64,
+        };
+        let mut c = String::new();
+        render_wave_band_definitions(&mut c, &config, "BG_B");
+        assert!(c.contains("896 B per frame"));
+        assert!(c.contains("rds_wave_offsets[] = {0,32,64,96}"));
+        assert!(c.contains("if (plane == BG_B)"));
+        assert!(c.contains("for (u16 y = 130; y < 134; y++)"));
+        assert!(c.contains("table[y] = base"));
+        assert!(c.contains("VDP_setHorizontalScrollLine(plane, 0, table, 224, DMA_QUEUE)"));
+    }
 
     #[test]
     fn move_sprite_faces_its_direction_only_when_requested() {
@@ -3531,6 +3889,7 @@ mod tests {
         };
         let mapped = LogicOp::SourceMapped {
             graph_sha256: "g".to_string(),
+            instance_id: "e".to_string(),
             node_id: "n".to_string(),
             semantic_stage: "s".to_string(),
             op: Box::new(overlap.clone()),
@@ -4025,6 +4384,7 @@ mod tests {
                     scroll_y: 4,
                     plane: None,
                     priority_high: false,
+                    priority_regions: Vec::new(),
                 },
                 AstNode::GameLoopBegin,
                 AstNode::SpriteUpdate,
@@ -4046,6 +4406,68 @@ mod tests {
     }
 
     #[test]
+    fn tilemap_priority_regions_share_the_loaded_tiles_and_override_painted_cells() {
+        use crate::ugdm::components::TilePriorityRegion;
+
+        let ast = AstOutput {
+            nodes: vec![
+                AstNode::LoadTilemap {
+                    resource_name: "pillar".into(),
+                    asset_path: "assets/pillar.png".into(),
+                    map_width: 2,
+                    map_height: 2,
+                    cells: vec![2, 2, 0, u32::MAX],
+                },
+                AstNode::DrawTilemap {
+                    resource_name: "pillar".into(),
+                    x: 16,
+                    y: 24,
+                    scroll_x: 0,
+                    scroll_y: 0,
+                    plane: Some("BG_A".into()),
+                    priority_high: false,
+                    priority_regions: vec![
+                        TilePriorityRegion {
+                            x: 0,
+                            y: 0,
+                            width: 2,
+                            height: 1,
+                            high: true,
+                        },
+                        TilePriorityRegion {
+                            x: 1,
+                            y: 0,
+                            width: 1,
+                            height: 1,
+                            high: false,
+                        },
+                    ],
+                },
+                AstNode::GameLoopBegin,
+                AstNode::VSync,
+                AstNode::GameLoopEnd,
+            ],
+            sprite_assets: Vec::new(),
+            logic_scripts: Vec::new(),
+        };
+        let main = emit_sgdk(&ast, "Pilastra").main_c;
+        let draw = main.find("VDP_drawImageEx(BG_A, &pillar").unwrap();
+        let high = main
+            .find("VDP_setTileMapEx(BG_A, pillar.tilemap, TILE_ATTR_FULL(PAL0, TRUE")
+            .unwrap();
+        let low = main
+            .find("VDP_setTileMapEx(BG_A, pillar.tilemap, TILE_ATTR_FULL(PAL0, FALSE")
+            .unwrap();
+        let painted = main
+            .find("VDP_setTileMapXY(BG_A, TILE_ATTR_FULL(PAL0, TRUE")
+            .unwrap();
+        assert!(draw < high && high < low && low < painted);
+        assert!(main.contains("TILE_USER_INDEX), 2, 3, 0, 0, region_w, region_h, CPU);"));
+        assert!(main.contains("TILE_USER_INDEX), 3, 3, 1, 0, region_w, region_h, CPU);"));
+        assert!(main.contains("TILE_ATTR_FULL(PAL0, FALSE, FALSE, FALSE, TILE_USER_INDEX + pillar.tileset->numTile + 0), 3, 3);"));
+    }
+
+    #[test]
     fn main_c_applies_painted_tilemap_cells_as_sparse_overlay() {
         let ast = AstOutput {
             nodes: vec![
@@ -4064,6 +4486,7 @@ mod tests {
                     scroll_y: 0,
                     plane: None,
                     priority_high: false,
+                    priority_regions: Vec::new(),
                 },
             ],
             sprite_assets: Vec::new(),
@@ -4255,6 +4678,7 @@ mod tests {
                     scroll_y: 0,
                     plane: None,
                     priority_high: false,
+                    priority_regions: Vec::new(),
                 },
                 AstNode::GameLoopBegin,
                 AstNode::ScrollTilemap {
@@ -4342,6 +4766,7 @@ mod tests {
                     scroll_y: 0,
                     plane: None,
                     priority_high: false,
+                    priority_regions: Vec::new(),
                 },
                 AstNode::LoadTilemap {
                     resource_name: "foreground".to_string(),
@@ -4358,6 +4783,7 @@ mod tests {
                     scroll_y: 0,
                     plane: None,
                     priority_high: false,
+                    priority_regions: Vec::new(),
                 },
                 AstNode::GameLoopBegin,
                 AstNode::MoveCamera {
@@ -4492,6 +4918,7 @@ mod tests {
             logic_scripts: vec![LogicScript {
                 ops: vec![LogicOp::SourceMapped {
                     graph_sha256: "fixture-graph".to_string(),
+                    instance_id: "player".to_string(),
                     node_id: "velocity".to_string(),
                     semantic_stage: "set_velocity".to_string(),
                     op: Box::new(LogicOp::SetVelocity {
@@ -4672,6 +5099,7 @@ mod tests {
             sprite_assets: Vec::new(),
             logic_scripts: vec![LogicScript {
                 ops: vec![LogicOp::TimelineSequence {
+                    triggered: false,
                     counter_var: "timeline_intro".to_string(),
                     slots: vec![
                         crate::compiler::ast_generator::LogicTimelineSlot {
@@ -4776,6 +5204,7 @@ mod tilemap_plane_tests {
             scroll_y: 0,
             plane: plane.map(str::to_string),
             priority_high: false,
+            priority_regions: Vec::new(),
         }
     }
 

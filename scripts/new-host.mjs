@@ -6,7 +6,7 @@ import { closeSync, copyFileSync, existsSync, fsyncSync, linkSync, lstatSync, mk
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { acquireOperationLock, detectHost, diagnose, isSupportedHost, nativeCacheBase, readManifest, repoRoot } from "./host-manager.mjs";
+import { acquireOperationLock, detectHost, diagnose, isSupportedHost, nativeCacheBase, readManifest, repoRoot, spawnHostCommand } from "./host-manager.mjs";
 
 const GiB = 1024 ** 3;
 const hash = (file) => createHash("sha256").update(readFileSync(file)).digest("hex");
@@ -108,11 +108,9 @@ export function stagesFor(options, platform = process.platform) {
 }
 
 function execute(program, args, { env, root, log }) {
-  const windowsShim = process.platform === "win32" && /\.(cmd|bat)$/i.test(program);
-  if (windowsShim && args.some((arg) => /[\r\n"&|<>^%!]/.test(arg))) throw new Error("unsafe_windows_shell_argument");
   const fd = openSync(log, "a");
   try {
-    const result = spawnSync(program, args, { cwd: root, env, stdio: ["inherit", fd, fd], shell: windowsShim });
+    const result = spawnHostCommand(program, args, { cwd: root, env, stdio: ["inherit", fd, fd] });
     return { exit_code: result.status, signal: result.signal, error: result.error?.message ?? null };
   } finally { closeSync(fd); }
 }
@@ -238,7 +236,7 @@ export function main(args = process.argv.slice(2)) {
     const env = sessionEnvironment(plan, initialEnv, initial.context.pathEnv);
     const versions = [[process.execPath, ["--version"], `v${plan.pins.node}`], [plan.host.platform === "win32" ? "npm.cmd" : "npm", ["--version"], plan.pins.npm]];
     for (const [program, commandArgs, expected] of versions) {
-      const actual = spawnSync(program, commandArgs, { cwd: plan.repo, env, encoding: "utf8", shell: plan.host.platform === "win32" && program.endsWith(".cmd") });
+      const actual = spawnHostCommand(program, commandArgs, { cwd: plan.repo, env, encoding: "utf8" });
       if (actual.status !== 0 || actual.stdout.trim() !== expected) throw new Error(`version_mismatch:${program}:expected_${expected}`);
     }
     performStages(stagesFor(options), { receipt, persist, space, runner: (program, commandArgs, log) => execute(program, commandArgs, { env, root: plan.repo, log }) });

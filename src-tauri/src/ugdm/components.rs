@@ -56,6 +56,8 @@ pub struct SpriteAnimationOnionSkin {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SpriteAnimationHitbox {
     pub frame: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub occurrence_id: Option<String>,
     pub kind: String,
     #[serde(deserialize_with = "deserialize_f64_to_i32")]
     pub x: i32,
@@ -65,6 +67,12 @@ pub struct SpriteAnimationHitbox {
     pub width: i32,
     #[serde(deserialize_with = "deserialize_f64_to_i32")]
     pub height: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PoseAlignment {
+    pub anchor: Pivot,
+    pub offset: Pivot,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -94,10 +102,22 @@ pub struct AnimationDef {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub occurrence_ids: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub pose_alignment: BTreeMap<String, PoseAlignment>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub pose_sockets: BTreeMap<String, Vec<PoseSocket>>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub pose_code_drafts: BTreeMap<String, Option<String>>,
     /// Eventos autorais ancorados em ocorrencia + tick local (0 = primeiro tick do quadro).
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub frame_events: Vec<FrameEvent>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PoseSocket {
+    pub name: String,
+    pub point: Pivot,
 }
 
 /// Evento autoral de quadro (Experimental). `kind = "sound"` toca `sound` (acao do
@@ -213,6 +233,9 @@ mod sprite_command_tests {
     fn animation_def_round_trips_artstudio_frame_authoring_metadata() {
         let animation = AnimationDef {
             occurrence_ids: None,
+            pose_alignment: Default::default(),
+            pose_sockets: Default::default(),
+            pose_code_drafts: Default::default(),
             frame_events: Vec::new(),
             frames: vec![0, 1],
             fps: 12,
@@ -228,6 +251,7 @@ mod sprite_command_tests {
             }),
             hitboxes: vec![
                 SpriteAnimationHitbox {
+                    occurrence_id: None,
                     frame: 1,
                     kind: "attack".to_string(),
                     x: 20,
@@ -236,6 +260,7 @@ mod sprite_command_tests {
                     height: 10,
                 },
                 SpriteAnimationHitbox {
+                    occurrence_id: None,
                     frame: 1,
                     kind: "collision".to_string(),
                     x: 8,
@@ -578,6 +603,31 @@ pub struct SavedCameraPattern {
 
 // ── Tilemap ───────────────────────────────────────────────────────────────────
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TilePriorityRegion {
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
+    pub high: bool,
+}
+
+impl TilePriorityRegion {
+    pub fn contains(&self, x: u32, y: u32) -> bool {
+        x >= self.x && x - self.x < self.width && y >= self.y && y - self.y < self.height
+    }
+
+    pub fn clipped(&self, width: u32, height: u32) -> Option<Self> {
+        let width = self.width.min(width.saturating_sub(self.x));
+        let height = self.height.min(height.saturating_sub(self.y));
+        (width > 0 && height > 0).then_some(Self {
+            width,
+            height,
+            ..*self
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TilemapComponent {
     pub tileset: String,
@@ -600,6 +650,9 @@ pub struct TilemapComponent {
     /// Prioridade alta dos tiles: o plano passa NA FRENTE de sprites de prioridade baixa.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub priority: bool,
+    /// Coordenadas locais em tiles. A última região prevalece na sobreposição.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub priority_regions: Vec<TilePriorityRegion>,
 }
 
 #[cfg(test)]
@@ -617,6 +670,7 @@ mod tilemap_tests {
             cells: vec![],
             plane: None,
             priority: false,
+            priority_regions: Vec::new(),
         };
         let json = serde_json::to_string(&tm).unwrap();
         assert!(
@@ -638,6 +692,7 @@ mod tilemap_tests {
             cells: vec![0, 1, 2, 3, 0, 5],
             plane: None,
             priority: false,
+            priority_regions: Vec::new(),
         };
         let json = serde_json::to_string(&tm).unwrap();
         assert!(json.contains("\"cells\":[0,1,2,3,0,5]"));
@@ -673,6 +728,15 @@ pub struct Components {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<PathComponent>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pose_attachment: Option<PoseAttachment>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PoseAttachment {
+    pub actor: String,
+    pub socket: String,
+    pub offset: Pivot,
 }
 
 /// Trajeto em retas entre pontos relativos a posicao inicial do objeto (Experimental, R5).
@@ -774,6 +838,8 @@ pub struct HudTextComponent {
     pub value: Option<HudValueBinding>,
     #[serde(default = "default_hud_digits")]
     pub digits: u8,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bar_tiles: Option<u8>,
 }
 
 /// Vinculo autoral do valor exibido: `strike_hp` (vida do alvo de um golpe autoral, `source` = id

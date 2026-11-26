@@ -22,6 +22,8 @@ export interface PixelLayerMeta {
 export interface PixelFrame {
   id: string;
   durationMs: number;
+  /** Origem de uma variante criada para ocorrências que compartilham a célula. */
+  variant?: { sourceId: string; animation: string; occurrences: string[] };
   /** Um cel por layer, na mesma ordem de `layers` (0 = fundo). */
   cels: Uint8Array[];
 }
@@ -923,7 +925,7 @@ export async function exportSheetPng(doc: PixelDoc): Promise<{ png: Uint8Array; 
 
 interface SerializedDoc extends Omit<PixelDoc, "frames"> {
   schema: "retrodev.pixel/v1";
-  frames: { id: string; durationMs: number; cels: string[] }[];
+  frames: (Omit<PixelFrame, "cels"> & { cels: string[] })[];
 }
 
 function toBase64(bytes: Uint8Array): string {
@@ -944,7 +946,7 @@ export function serializePixelDoc(doc: PixelDoc): string {
   const data: SerializedDoc = {
     ...doc,
     schema: "retrodev.pixel/v1",
-    frames: doc.frames.map((f) => ({ id: f.id, durationMs: f.durationMs, cels: f.cels.map(toBase64) })),
+    frames: doc.frames.map((f) => ({ id: f.id, durationMs: f.durationMs, ...(f.variant ? { variant: f.variant } : {}), cels: f.cels.map(toBase64) })),
   };
   return JSON.stringify(data);
 }
@@ -956,6 +958,11 @@ export function deserializePixelDoc(json: string): PixelDoc {
   if (!Number.isSafeInteger(data.width) || !Number.isSafeInteger(data.height) || data.width < 8 || data.height < 8 || data.width % 8 || data.height % 8 || !Array.isArray(data.frames) || !data.frames.length || !Array.isArray(data.layers) || !data.layers.length || size * data.frames.length * data.layers.length > 64 * 1024 * 1024) throw new Error("O documento de pixels possui medidas inválidas ou excede 64 MP somados.");
   if (typeof data.name !== "string" || !["sprite","plane"].includes(data.target) || !Array.isArray(data.palettes) || data.palettes.length !== 4 || data.palettes.some(p => !Array.isArray(p) || p.length !== 16 || p.some(c => !Array.isArray(c) || c.length !== 3 || c.some(v => !Number.isInteger(v) || v < 0 || v > 7)))) throw new Error("O documento possui uma paleta ou um tipo de imagem inválido.");
   if (data.frames.some(f => !Number.isFinite(f.durationMs) || f.durationMs < 1 || f.durationMs > 600000 || !Array.isArray(f.cels) || f.cels.length !== data.layers.length || f.cels.some(c => typeof c !== "string"))) throw new Error("O documento possui quadros incompletos ou durações inválidas.");
+  if (data.frames.some(({ variant }) => variant !== undefined && (!variant || typeof variant.sourceId !== "string"
+      || typeof variant.animation !== "string" || !Array.isArray(variant.occurrences)
+      || !variant.occurrences.length || variant.occurrences.some(id => typeof id !== "string")))) {
+    throw new Error("O vínculo de ocorrência da variante de pixels é inválido.");
+  }
   return {
     name: data.name,
     originalSource: data.originalSource,
@@ -966,6 +973,6 @@ export function deserializePixelDoc(json: string): PixelDoc {
     palettes: data.palettes,
     paletteLines: Array.isArray(data.paletteLines) ? [...new Set(data.paletteLines.filter(line => Number.isInteger(line) && line >= 0 && line < 4))] : undefined,
     layers: data.layers,
-    frames: data.frames.map((f) => ({ id: f.id, durationMs: f.durationMs, cels: f.cels.map((c) => fromBase64(c, size)) })),
+    frames: data.frames.map((f) => ({ id: f.id, durationMs: f.durationMs, ...(f.variant ? { variant: f.variant } : {}), cels: f.cels.map((c) => fromBase64(c, size)) })),
   };
 }

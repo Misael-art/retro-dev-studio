@@ -49,13 +49,17 @@ export type ViewportPan = {
 };
 
 /** Resident planes: SNES BG0 is in front of BG1; MD draws BG_B then BG_A. */
+export function megadriveArtworkRank(kind: "sprite" | "tilemap", high: boolean, plane?: string): number {
+  return kind === "sprite" ? (high ? 5 : 2) : (high ? 3 : 0) + (plane === "BG_B" ? 0 : 1);
+}
+
 export function sceneArtworkEntities(scene: Scene, target: "megadrive" | "snes"): Entity[] {
   const maps = scene.entities.filter(e => e.components.tilemap);
   if (target === "snes") return [...maps.reverse(), ...scene.entities.filter(e => !e.components.tilemap)];
   const planes = new Map(resolvedTilemapPlanes(scene.entities).map((item) => [item.entityId, item.plane]));
   const rank = (entity: Entity) => {
-    if (entity.components.tilemap) return (entity.components.tilemap.priority ? 3 : 0) + (planes.get(entity.entity_id) === "BG_B" ? 0 : 1);
-    if (entity.components.sprite) return entity.components.sprite.priority === "background" ? 2 : 5;
+    if (entity.components.tilemap) return megadriveArtworkRank("tilemap", Boolean(entity.components.tilemap.priority), planes.get(entity.entity_id));
+    if (entity.components.sprite) return megadriveArtworkRank("sprite", entity.components.sprite.priority !== "background");
     return 6;
   };
   // SGDK allocates sprites in scene order: earlier sprites win ties in the SAT.

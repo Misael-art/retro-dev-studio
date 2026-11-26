@@ -1,3 +1,313 @@
+### Compositor, legenda dos nós e relógio de Ondular · 26/11/2026
+
+Na [execução do Tauri Windows em `606f1b4`](https://github.com/Misael-art/retro-dev-studio/actions/runs/45885095588), a mesma ação de som foi selecionada nas respostas A e B. B passou de 13 para 7 ticks, com Undo/Redo e reabertura, e A conservou 4. A ROM `1a9c04911d9fd5bd5ffff6931d38b11bb37a8d6294aae6743c9bb3b51a748b16` executou som e marca na mesma saída. Na coleta simples, o despacho mudou de 4 para 6; a primeira amostra audível deslocou-se 2,220 quadros. Os sete cartões do percurso ficaram enquadrados e a coleta válida ficou sem avisos de saída. Ondular usa o relógio do projeto; o ensaio de um segundo a 60 Hz registrou 60 avanços. As cores e os nomes dos papéis são compartilhados entre grafo, régua e legenda.
+
+O ajuste visual seguinte amplia os títulos em zoom reduzido, dá ênfase à ligação selecionada e conserva as posições das portas. O condutor `advanced-authoring` mede o tamanho apresentado dos títulos junto da visibilidade do percurso. Receita, destino das provas e limites no [handoff local](handoffs/NOVO_HOST_INICIO.md#conferir-respostas-compartilhadas).
+
+### Recertificação Full no Deck e transformação de sprites · 26/11/2026
+
+O Deck concluiu os sete gates locais em `a1087af`, incluindo 1.497 testes de frontend, 1.221 testes Rust e as provas upstream de Mega Drive e SNES. No executável exato de `1b3f4b4`, o arraste em Cena levou a Raposa de X=64 a 80. A entrada numérica levou a 81 e Desfazer recuperou 80, com Y=136 e a mesma seleção.
+
+No editor indexado de `881a7cf`, espelhos horizontal e vertical, escala, deformação por alças e giro de 90° têm botões próprios. Editar somente o2 alterou 52 pixels nessa ocorrência. Editar a animação inteira alterou 38 pixels em cada uma das três ocorrências com conteúdo na seleção. Deck e Windows reproduziram esses resultados na ROM. A galeria e o PDF incluem o custo em tiles e cores, a conferência das 12 mesas e o suplemento de sprites. [Provas, hashes e reprodução](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#transformar-sprites-e-recertificar-o-deck)
+
+### Lapidação de autoria · 26/11/2026
+
+O Tauri do Steam Deck em `fa89261` compilou e executou a coleta única do anel por contato. Ao editar pelo teclado, desfazer, refazer e reabrir o som de 4 para 6 ticks, o primeiro PCM passou de 7 para 9 quadros relativos ao contato. Brilho, contador e fundo de controle foram medidos nas duas ROMs. A [jornada](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#coleta-de-um-anel-por-contato--26112026) identifica o executável, as ROMs e a receita. A revisão integrada `19f1cfe` acrescenta retornos à pose, comparação de arte e planos, emenda com pixel de origem, prévia de HUD na fase e traços de RAM sobre o quadro pausado.
+
+O produto em `1b3f4b4` integra a pose na cena, o retorno do C a o2, água indexada, prévia de atlas, linha de onda sobre a fase, HUD junto à ROM, trajetos medidos no cenário, retorno do painel ao dock e comparação de sprites. A prova de Gelo no Deck mediu inércia até X=117 e plataforma entre 152 e 176. No Windows, gravidade 6 produziu marcadores 3/11/24 em dois saltos iguais, e gravidade 9 produziu 3/8/16. O ensaio de anel em `eaaf1e6` verificou despacho exatamente dois ticks mais tarde com entrada no mesmo quadro, e deslocamento de 2,220 quadros na primeira amostra PCM. No binário final do Deck, o contato ocorreu no quadro 273, o despacho mudou de 277 para 279 e a primeira amostra PCM apareceu 2,201 quadros mais tarde. A conferência reúne 48 grupos anotados em 1920 × 1080 e as doze vistas a 1366 × 768. Ver a [matriz das doze mesas](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#revisão-das-doze-mesas-de-autoria--experimental), o [alvo avançado](https://github.com/Misael-art/retro-dev-studio/actions/runs/45797558184) e os [ensaios de autoria](https://github.com/Misael-art/retro-dev-studio/actions/runs/45793268665).
+
+### Workspace por propósito de uso · 25/11/2026
+
+A revisão `4ebd242` conserva navegação global, faixa contextual e acesso a Camadas. Agrupa autoria, visualização e transporte, abre o guia sob demanda e oferece dicas no foco e no ponteiro. No Deck o canvas da mesma cena subiu 94 px. O Tauri Windows passou nas 12 vistas a 1920 × 1080, no encaixe e retorno das janelas e no fluxo SGDK → ROM → Genesis Plus GX. A volta à fase pausada reproduziu no canvas o hash dos pixels do core e manteve o quadro 258. A mesma revisão no Deck percorreu as 12 vistas, compilou a sala simples e confirmou pausa, passo 33→34 e retorno ao mesmo framebuffer. A regressão desktop Windows passou também em SNES e nos dois cenários do editor C. O [registro por tela](studio_grafico/PLANO_AUTO_ORGANIZACAO_LOGICA_ENGINE_2026-11-08.md#conferência-do-reagrupamento-por-propósito-de-uso) identifica a galeria, a ROM, o executável e os limites de validação.
+
+### Autoria Mega Drive · 25/11/2026
+
+O candidato congelado `1f0f0996ef74907c6ae6f3e5ac51662b0a861c7a` passou nos 17 cenários de Mega Drive e oito de SNES no Tauri Windows. O executável exato e seu SHA-256 constam na [jornada e matriz por item](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#executáveis-de-1f0f099). Em Linux, no executável da mesma revisão, Fantasma e Girar mudaram exatamente 32 pixels cada no Genesis Plus GX e preservaram as outras poses e a testemunha. Cor transparente confirmou a máscara na cena reaberta e falhou no build ao reordenar as cores do banco compartilhado. A leitura SGDK passou a reconhecer `tRNS` do índice 0 e conservar a ordem da paleta. A regressão dirigida do conversor passou isoladamente com o `image` do cache do projeto. Restam a nova ROM, as versões com câmera em movimento e a repetição da suíte canônica. Evidência em `sessions/effects-replay-uuMqHvQD/` e `sessions/hud-gates-2TSppYjm/`.
+
+A prévia de emenda liga as repetições à célula da malha oficial. A leitura do traço usa `runtimeLink`, RAM, entrada consumida e quadro do core. Ambas permanecem experimentais até os ensaios do alvo `authoring` e a conferência física. A avaliação humana está aberta porque o operador ainda não tem participantes.
+
+Ondular foi ligado a RetroFX, à persistência da cena e ao emissor SGDK. A faixa ocupa linhas inteiras do plano escolhido e é somada à posição da câmera visual. O perfil Mega Drive inclui até 896 B por quadro para as duas tabelas. A prova isolada do C emitido conferiu a fase, os limites da faixa, o plano vizinho e dois deslocamentos independentes. A fixture `--wave` combina pilastra prioritária, Plano B com paralaxe e câmera em movimento. A prova dessa fixture no aplicativo e no Genesis Plus GX continua aberta.
+
+`a8568b1fb139de45aa8b77d03e60c6b13d501584` passou na CI dos dois hosts e no Tauri Windows em todos os cenários da regressão `all` (17 Mega Drive e oito SNES). A suíte `authoring` confirmou 32 pixels para Cor transparente, Fantasma e Girar fixos, além de Iluminar, substituição vinculada e Terreno. Ondular conservou a pilastra e as duas linhas externas. A medida da água falhou. A emenda recebeu clique e ficou sem a seleção esperada. O traço leu o quadro inicial e manteve esse quadro após Enter. `f81e28d` devolveu o teclado aos controles focados, refinou a seleção da borda e passou a comparar os efeitos móveis por pose e por quadro, com uma região de fundo equivalente. Resultados e executáveis constam na [matriz da jornada](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#windows-em-a8568b1-e-repetição-das-divergências). A nova qualificação Linux continua atrás da fila Fôlego. O diagnóstico retorna READY com Node e Bison do ambiente gerenciado no PATH.
+
+Na rodada seguinte, `f81e28d` e `b677c61` confirmaram no Windows os três efeitos indexados nas duas configurações de câmera, Iluminar, atlas, Terreno e emenda. O Steam Deck compilou `b677c61` pelo launcher sob Fôlego. Passaram os três efeitos móveis, Iluminar, substituição, Terreno, as duas mesas estreitas e o traço com repetição de salto e gravidade 6→9. A [jornada](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#repetição-windows-e-linux-em-b677c61) registra os binários, hashes e falhas encontradas. A repetição `562fb34` inclui arraste com captura de ponteiro, sincronização da câmera com VBlank, altura e zoom do editor de pixels, golpes em slots da timeline e o acesso à emenda por Enter. O HUD, a onda e as mesas largas continuam experimentais. A observação humana ainda aguarda participantes.
+
+`2eb7054` passou nos gates CI dos dois hosts e em todos os cenários da regressão Windows. A suíte dedicada confirmou as provas de efeitos, atlas, terreno, emenda, traço e Ondular. No Tauri Linux da mesma fonte passaram as quatro mesas, os seis efeitos indexados, emenda, traço e Ondular. O ensaio completo de HUD passou nos dois sistemas, com o driver de `9b55160` no executável Linux `2eb7054` e no executável Windows `9b55160`. Os dois cores registraram 0/1/9/99 e a barra 99→0 nos ticks do grafo, com regiões de controle preservadas após editar, desfazer, refazer e reabrir. A avaliação humana continua em aberto por ausência de participantes. Os binários, revisão e limites estão na [matriz da jornada](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#candidato-2eb7054).
+
+Em `239524a`, a Hierarquia passou a mostrar os IDs quando há nomes iguais e a aceitar busca por ID. Editar guias usa a mesma preferência das réguas do Canvas, por projeto e cena. A CI e os 26 cenários do Tauri Windows passaram. Os ensaios dirigidos confirmaram os IDs, foco, histórico, reabertura, ROM idêntica e ajuste da raposa X64→113→114 com a testemunha em X208 no Windows e nas duas salas Linux. A [rodada de guias](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#guias-e-hierarquia-em-239524a) registra os binários e relatórios. A demonstração inclui as duas salas, o exercício de Fantasma com câmera, o de golpe/HUD e o roteiro de exportação.
+
+Na mesma fonte, o Linux repetiu a jornada de pose das duas salas com reinício inteiro do Tauri, preservando `o2`, 4 ticks e os ciclos de 18 e 17 no Genesis Plus GX. A suíte Windows de autoria repetiu os seis grupos completos. O [registro da repetição](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#repetição-de-pose-e-efeitos-em-239524a) guarda os hashes das ROMs e os relatórios por sistema. O pacote `sessions/demo-239524a-4x0RxlbT/` contém as ROMs com os mesmos hashes das provas aprovadas.
+
+O lote seguinte implementou pontos por ocorrência, regras sobre a malha de colisão, uma resposta temporizada no grafo e janelas nativas para Timeline e Propriedades. O primeiro Tauri Linux abriu uma janela auxiliar em branco e carregou a ROM de controle. A captura do PCM parou no driver. `bdf85ac` passa a abrir uma página de painel do próprio aplicativo e permite que uma etapa aplique a paleta temporária pelo plano de paletas. As provas, os limites e os comandos estão no [lote de autoria avançada](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#encaixes-materiais-respostas-e-janelas-nativas). A observação humana permanece aberta e segue independente das provas técnicas.
+
+O Windows de `ed2c32d` repetiu as nove etapas de autoria até a ROM. Encaixe, pincel, sequência e brilho preservaram as regiões de controle. No Linux `66bd8d7`, o Tauri compilou as duas ROMs e confirmou as mesmas comparações, com a coleta da edição repetida em uma nova sessão após expirar na primeira. Timeline e Propriedades aceitaram o teclado e voltaram ao dock no Linux. A reabertura imediata encontrou a janela anterior registrada. No Windows `ed2c32d`, a Timeline abriu, registrou 3→6 e voltou ao dock. A conferência conjunta de dimensões, seleção e histórico falhou. `bc6cbae` mede os três valores após reencaixar. A etapa de troca de animação do compositor usa o nó de runtime `set_animation_state`. A prova do clique e do quadro no tick 8 continua aberta. [Resultados por item, hashes e roteiro](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#encaixes-materiais-respostas-e-janelas-nativas)
+
+Na repetição Windows `bc6cbae`, Timeline e Propriedades passaram nos quatro passos de destaque, teclado, histórico, salvamento e retorno, com a mesma sessão do core. No Linux de `66bd8d7`, as ROMs de câmera e direção comprovaram o encaixe e as regiões de controle enquanto a câmera se movia. A qualificação do binário Linux atualizado usa a construção dedicada `linux-candidate` do workflow desktop quando o build local aguarda RAM. Esse alvo preserva o executável e seu SHA para a prova posterior no Deck. [Recibos e limites](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#encaixes-materiais-respostas-e-janelas-nativas)
+
+O candidato Windows `fef53db` e o Linux `1d89024` passaram as dez etapas da sala avançada e as quatro das janelas, com a mesma fonte de produto e o driver `fef53db`. As duas ROMs editadas mostraram a pose programada no tick 8 a partir do quadro 9, o som em 6, o brilho por 12 quadros e a diferença de movimento restrita à faixa. O Deck também passou nas duas salas da jornada 3→6→4 e no smoke SNES no binário atual. O diagnóstico Full retornou `READY`. Naquela rodada, a margem de RAM adiou a recertificação completa. O resultado de 26/11 consta no início deste registro. Permanecem em aberto a avaliação com pessoas e a prova física de duas telas. [Executáveis, revisões e prova por item](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#encaixes-materiais-respostas-e-janelas-nativas)
+
+### Retomada da implementação e auditoria do candidato · 24/11/2026
+
+O operador autorizou executar o [prompt integral](handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#prompt-entrega-integral-workspace). Os 12 mockups, a prancha, a galeria e o ZIP passaram na conferência do manifesto no NVMe. O primeiro aceite é reproduzir o rascunho e o alcance por instância no editor C, no mesmo candidato Linux/Windows. O commit `1283ff196ac7` inclui os dois cenários no workflow Windows para Mega Drive e para a matriz completa. O PR #113 recebeu o workflow e o lock no SHA `365e74fbbb30ed61c397b5b61cf41157231c10f5`. Conferir os dois resultados individuais e os artefatos no [Desktop E2E deste SHA](https://github.com/Misael-art/retro-dev-studio/actions/runs/45520785712).
+
+Na [CI de b434ede](https://github.com/Misael-art/retro-dev-studio/actions/runs/45515665370), RustSec reprovou duas dependências transitivas do desktop. O Cargo resolveu `cookie` 0.18.3, `url` 2.5.9 e `form_urlencoded` 1.2.3. Com cargo-audit 0.22.2 e base RustSec `10db6998b5d74ec438bcf0763125bd425a068a8f`, o lock anterior reproduziu RUSTSEC-2026-0594 e RUSTSEC-2026-0592. O novo lock, SHA-256 `56f4f530360d894536ceb17d953c287ec587afdc8e93c018629f8303890c764b`, registrou zero vulnerabilidades e 15 avisos. `npm run security:audit` reportou nove ocorrências moderadas na cadeia de minimatch das ferramentas de desenvolvimento. Recibos locais em `sessions/dependencies-20261124-7Kilb7/`.
+
+O plano inicial encontrou `DRIFTED`. Durante o provisionamento do BigLinux, o recibo full de 21h33 registrou `BLOCKED`. Obter o novo `READY`, certificar e repetir no aplicativo as duas jornadas e a identidade da ROM carregada. A [ferramenta de conferência](../scripts/qa/review-workspace.mjs) organiza os pares de imagens e os hashes por rodada. A mesa inicial está em `sessions/conferencia-workspace-LvfmHo/index.html`, com 12 referências e zero capturas do candidato. A [corrida Windows anterior](https://github.com/Misael-art/retro-dev-studio/actions/runs/45515665354) forneceu quatro capturas de 1024×768, comparadas em `sessions/conferencia-workspace-nRCgef/index.html` para Cena, Lógica, Teste e Terreno. O rodapé da captura e o recibo identificam a compilação `f566892f`. A área lógica e a escala do sistema ficaram sem registro. As observações dessa linha de base usam a fase de referência e permanecem separadas do aceite do novo candidato. O aceite do editor permanece aberto.
+
+**Preservação da interface existente.** O [prompt de execução](handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#preservar-o-que-já-funciona-em-cada-revisão) vincula cada alteração de acesso à matriz J00–J15, à tarefa anterior no Tauri e à repetição no candidato. Comparação do workflow com `b434ede`: os 17 cenários de desktop anteriores conservaram comandos e condições. O aceite por alvo passou a exigir sucesso individual de cada cenário aplicável, incluindo os três novos. A corrida Windows 45515665354 forneceu 17 resultados anteriores reais. Os 166 casos do verificador (positivos e negativos, com os novos resultados simulados apenas nesse ensaio) estão em `sessions/preservacao-desktop-0kd97lu2/`. O resultado do novo binário continua dependendo dos cenários nativos e das jornadas afetadas.
+
+### Qualificação da autoria — 24/11/2026
+
+A retomada foi feita sobre `b434ede` na raiz registrada. As referências de
+`a37a0b1` foram incorporadas à conferência. O [handoff do host](handoffs/NOVO_HOST_INICIO.md#qualificacao-autoria-20261124)
+registra o cache verificado, o ambiente do launcher e a telemetria. A
+[corrida Windows da revisão inicial](https://github.com/Misael-art/retro-dev-studio/actions/runs/45515665354)
+passou no smoke MD/SNES. A fase de referência e a qualificação específica do
+editor C têm provas distintas.
+
+As [salas de prova](../scripts/qa/create-pose-authoring-demo.mjs) partem da
+fixture Mega Drive e da arte autoral do repositório. As duas raposas usam o
+mesmo atlas com ocorrências de 5, 3, 7 e 2 ticks. A segunda e a quarta
+referenciam a mesma imagem. A sala densa acrescenta 24 objetos, incluindo
+um elevador com trajeto de ida e volta. O
+[roteiro para participantes](studio_grafico/ROTEIRO_VALIDACAO_HUMANA.md#autoria-de-uma-fase-mega-drive)
+fixa a região de controle, o ponto de apoio e os resultados de Undo/Redo.
+A [matriz por sistema e alvo](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#conferência-por-item-da-autoria-de-fase)
+congela os controles para as 24 capacidades, cinco tratamentos e nove
+ferramentas. Em `74672bf`, o cenário de cadência registra o acesso pelo
+Canvas e compara o pé de cada ator com o atlas. A sonda encontrou os oito
+deslocamentos ensaiados com a imagem de referência e recusou a pose trocada
+e o recorte vazio. O Windows em `8f57b4d` passou no rascunho C, na edição
+individual e compartilhada, e na cadência e apoio iniciais de ambas as salas.
+No BigLinux, o binário de linha de base passou nas duas salas e no escopo C.
+O rascunho foi salvo e reaberto. A confirmação do descarte atingiu o tempo
+limite em duas tentativas. O [handoff do host](handoffs/NOVO_HOST_INICIO.md#qualificacao-autoria-20261124)
+registra as identidades e onde repetir. Na sala simples, a primeira edição
+3→6→4 passou no Tauri Linux e no core. Duração, apoio das poses, controle e
+retorno ao ator estão registrados na [matriz da jornada](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#conferência-por-item-da-autoria-de-fase).
+Na revisão Linux limpa `66c7944`, o rascunho C e os dois alcances por instância
+passaram. As duas salas confirmaram a edição vinculada até a ROM e a volta
+à mesma ocorrência, incluindo a entrada numérica em Nós. A matriz registra
+o aplicativo, os hashes e as duas cenas. A repetição Windows desta revisão,
+os demais itens da timeline e a avaliação com participantes seguem abertos.
+
+Em `fc7033a`, o Tauri Linux confirmou evento com PCM no core, caixas de ataque
+e corpo com um acerto por ciclo e reprodução sem repetição na sala simples.
+Na nova execução Windows, o contexto local existia antes de fechar e estava
+ausente após iniciar. O contexto passou a acompanhar o salvamento transacional
+da cena, com recuperação independente do navegador. As evidências e as provas
+pendentes por alvo ficam na [matriz da jornada](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#conferência-por-item-da-autoria-de-fase).
+
+Em `62178c9`, o contexto persistido com a cena recuperou `raposa/passo/o2`
+nas duas salas do Windows e na sala simples do BigLinux. Os ciclos do ator
+editado e do controle foram de 18 e 17 ticks. O Windows passou também em PCM,
+caixas e reprodução na sala simples. Os oito casos SNES do mesmo SHA passaram
+em uma execução dedicada. A fase de referência ainda falhou no hit-test do
+Canvas ao apagar o tile (10,26). No Linux a janela de 949×593 reabriu a pose,
+mas a tentativa de acionar Testar projeto parou na verificação de clique.
+Os recibos são `sessions/win-62178c9-S4jnsyGN/` e
+`sessions/pose-candidate-B1LXMXt2/`. O ensaio humano segue aberto.
+
+A mesa de autoria passou na sala simples em 1366×768 (`8d2bd0e`) e na
+sala densa em 949×593 (`555ca74`). A segunda execução repetiu o teste após
+compactar a barra de ferramentas, que ocupava quase toda a altura do Canvas.
+As duas conservaram a ocorrência, o zoom, a revisão, o histórico e o texto C
+pendente em dez trocas. Recibos em `sessions/pose-candidate-lZGDJiys/` e
+`sessions/pose-candidate-OGnhtbZT/`. A conferência Windows e o restante do
+aceite da mesa permanecem na [matriz da jornada](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#conferência-por-item-da-autoria-de-fase).
+
+Em `8432c16`, o Tauri BigLinux repetiu o rascunho e os escopos C, compilou as
+duas salas a 949×593 e retornou a `raposa/passo/o2` após fechar e reabrir
+com o contexto local removido. O core observou 18 ticks no ator editado e 17
+na testemunha. A mesa simples estreita passou. A mesa densa estreita falhou
+na restauração da disposição nomeada e as mesas largas apresentaram falhas
+de tamanho e seleção. O cálculo de proporções pela largura efetiva do grupo
+e a barra compacta em divisão estão em `b70431d`. A revisão de Windows
+`21924ef8`, merge de teste com `9bf900f`, passou na composição por plano e
+nas mesas estreitas. As mesas largas e o retorno à árvore da fase de
+referência seguem abertos. A execução dedicada de `9bf900f` passou nos oito
+cenários SNES. A [matriz da jornada](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#conferência-por-item-da-autoria-de-fase)
+vincula capturas, ROMs e binários. O operador ainda está sem participantes.
+
+Em `924cf2d`, as quatro combinações de sala e largura passaram no Tauri
+Linux e Windows. Em ambos, a região alta da pilastra foi marcada no Canvas,
+ajustada numericamente, desfeita, refeita, gravada e reaberta. O core exibiu
+o novo pixel na sobreposição e conservou o vão, o tile vizinho e a testemunha.
+A execução Windows de referência avançou da árvore ao arraste de camada e
+parou no hit-test do palco. As provas e a fase regional estão na
+[matriz da jornada](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#conferência-por-item-da-autoria-de-fase).
+O frontend focal do lote de atlas e densidade passou em árvore, lint, tipos
+e 95 testes. No Tauri Linux de `81279f6`, a reordenação e a recusa de
+exclusão passaram, com os recortes dos dois atores idênticos antes e depois
+no core. O mesmo candidato refez a mesa densa estreita. Na pilastra, o
+ensaio com câmera avançou 24 px e confirmou o ponto projetado, o vão e os
+controles. A prova regional Windows e os oito cenários SNES passaram em
+`924cf2d`. O arraste de camada na fase de referência e a substituição
+direta em Arquivos continuam abertos.
+
+Em `faec882`, o Tauri Windows repetiu a jornada de edição nas duas salas,
+as quatro mesas e a pilastra com câmera. Os oito casos SNES passaram no
+mesmo job. O teste de referência avançou pelo portão e parou ao procurar
+Editar tilemap com Camadas selecionada. O atlas parou ao vincular o caminho
+absoluto retornado pelo Windows. `03f2b18` usa os caminhos relativos do
+gravador, aponta o documento da variante e acrescenta Iluminar, terreno
+automático e substituição de atlas no navegador para os usos da fase ativa.
+Árvore, lint focal, tipos e 140 testes focados passaram. A fase de referência
+passou no job Windows manual de `1f0f099`, com a retomada na aba Projeto.
+As provas do atlas e da nova autoria continuam em andamento.
+
+O executável Linux de `1f0f0996ef74907c6ae6f3e5ac51662b0a861c7a` está em
+`sessions/authoring-candidate-ce1CuVmy/retro-dev-studio`, SHA-256
+`abd153352e675ad386df27cb35161ad4b23ce89d714f024bdb98dc4a028ed73c`.
+A certificação iniciada em `5951336` passou em árvore, lint, TypeScript,
+1.474 testes frontend, Clippy `--lib` e 1.217 testes Rust. Uma recompilação
+dos testes no upstream excedeu a margem reservada e a sessão foi encerrada
+para liberar o host. O executável de testes já compilado foi preservado.
+Com ele passaram as provas oficiais de PVSnesLib e SGDK pelos respectivos
+cores, com X11 ativo no SGDK. A certificação Full como uma única execução
+continua pendente. Os recibos estão em `sessions/host-certify-sAyihtyp/`,
+`sessions/indexed-effect-qa-8LcAMyeo/` e `sessions/authoring-candidate-ce1CuVmy/`.
+As provas humanas e itens abertos seguem na [matriz da jornada](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#conferência-por-item-da-autoria-de-fase).
+
+### Continuidade antes da formatação — 2026-11-22
+
+Retomar na branch `codex/new-host-cohesion-20261024`, pelo
+[PR #113](https://github.com/Misael-art/retro-dev-studio/pull/113) em rascunho.
+O ponto de partida desta recuperação foi `f74e5026`. O checkpoint inclui as
+alterações locais do descarte de rascunho C/SGDK, os dois cenários do Tauri e
+as mudanças de launcher, diagnóstico Windows e monitoramento de recursos.
+As provas Linux de 12/11 e os bloqueios Windows de 18/11 abaixo são históricos.
+O código preservado é o de `422c5c7370b36f509d85854f36113733aa8194c9`.
+
+O [roteiro para o novo host](handoffs/NOVO_HOST_INICIO.md#retomada-após-formatação--2026-11-22)
+registra o clone, o provisionamento pelo lock e a restauração de projetos.
+O pacote privado `RetroDevStudio-Recovery-20261122` contém o bundle das refs
+locais, o snapshot inicial do trabalho, os projetos e os comprovantes
+especificados no seu manifesto. Foi gravado em um dispositivo físico distinto
+do NVMe. Leia o estado e os hashes na raiz do pacote. A proteção depende de
+preservar esse dispositivo. O acervo BYOR externo continua sob guarda do
+operador.
+
+No BigLinux de origem, o diagnóstico Full retornou `READY`. Esse recibo
+acompanha o pacote como evidência histórica. O launcher manteve o mínimo de
+35 GiB para operações de instalação, certificação e build. O NVMe tinha
+aproximadamente 18 GiB livres antes da formatação. A certificação e as jornadas
+no novo sistema permanecem pendentes. Obtenha `READY` próprio, construa o
+debug e repita `code-draft-roundtrip` e `code-instance-scope` no Windows.
+Mantenha o incremento 1 Experimental enquanto os casos de aceite estiverem
+abertos.
+
+**Plano de interface de 24/11/2026.** A [revisão do workspace modular](studio_grafico/PLANO_AUTO_ORGANIZACAO_LOGICA_ENGINE_2026-11-08.md#workspace-modular) cruza 24 propostas com os componentes de `4840956f0151`. Especifica camadas, animação, efeitos por técnica, edição vinculada ao C e critérios de produtividade. Depois da qualificação acima, o primeiro percurso proposto é ajustar uma pose no contexto da fase e conferi-la na ROM. Análise de código e documentação. O launcher deste checkout informou ausência de Node. Captura atual do Tauri, testes de produto e estudo humano permanecem pendentes.
+
+**Continuidade do plano.** O [prompt de implementação integral](handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#prompt-entrega-integral-workspace) parte de `7814c9f` e reúne os 24 itens, cinco tratamentos visuais e nove ferramentas de produção com aceite individual. A entrega deste checkpoint é o texto para o agente executor. Permanecem vigentes a qualificação do host e do incremento C antes do primeiro lote de interface.
+
+**Referência visual preservada em 24/11/2026.** O [índice de Porto das Lanternas](studio_grafico/PLANO_AUTO_ORGANIZACAO_LOGICA_ENGINE_2026-11-08.md#referencia-visual-20261124) registra 12 mockups, a prancha e a galeria. O pacote foi verificado no runtime do NVMe e no cartão WindowsSD contra o [manifesto de SHA-256](../data/studio_grafico/mockups-workspace-20261124.sha256). Usar as imagens na comparação futura com o candidato Tauri. A situação das funcionalidades e os aceites de jogo continuam os registrados no roadmap.
+
+Verificações do checkpoint Linux com Node 24.18.0, npm 11.16.0 e Rust 1.97.0:
+estrutura, lint, TypeScript, sintaxe dos launchers, formatação Rust e
+Vitest completo passaram. O Vitest registrou 1453 testes aprovados e 16
+ignorados. A primeira rodada focada encontrou seis falhas do launcher porque
+o `TMPDIR` herdado passava por um diretório oculto. A suíte completa passou
+com o diretório temporário gerenciado, e ambas as saídas foram preservadas.
+Clippy, suíte Rust completa, certificação e nova prova desktop ficam para o
+host com margem e dependências instaladas.
+
+**Bloqueio da certificação observado no GitHub.** No SHA `46f0be23`,
+o check desktop-smoke passou. A auditoria Rust da matriz Windows/Linux
+falhou para `url` 2.5.8 por `RUSTSEC-2026-0592`, publicado em 20/11.
+O Cargo.lock do checkpoint é idêntico ao de `f74e5026`. Tauri, Wry e
+Reqwest estão entre os consumidores registrados. A versão corrigida 2.5.9
+exige `form_urlencoded` 1.2.3 ou compatível, conforme os índices de publicação.
+Na retomada, atualize as resoluções transitivas no lock e repita os gates
+oficiais antes de certificar ou promover o PR. A preservação deste lote mantém
+o lock original e a auditoria obrigatória. [CI Windows/Linux](https://github.com/Misael-art/retro-dev-studio/actions/runs/45009997530).
+
+### Telemetria operacional local do host — 2026-11-18 (parcial)
+
+Foi acrescentado scripts/host-resource-monitor.mjs / npm run host:monitor para amostras JSONL locais: CPU, memória disponível, paginação, I/O, discos persistente/temporário, temperatura/trip points e processos por RSS. As estimativas de pico/saída/staging/verificação são explícitas; ausência de sensores/estimativas produz INCOMPLETE. O monitor não altera processos e declara hostReadiness=NOT_EVALUATED_USE_HOST_MANAGER. Persistir fora do checkout com RDS_WORK_ROOT ou --out; como RDS_WORK_ROOT estava ausente nesta sessão, a amostra de inspeção foi stdout, sem recibo durável. --include-command-lines é explícito, com redatores comuns de segredo.
+
+Uma amostra Windows (21:35:43Z) identificou Jupiter, CPU 75%, memória disponível 4.66 GiB, 154 páginas de entrada/s, 0 de saída/s, fila de disco 3 e 15.44 MB/s. E: tinha 50.8 GiB livres e o volume temporário C: 46.4 GiB. São leituras pontuais; páginas de entrada não equivalem a swap exclusivo e não demonstram pressão sustentada. O monitor agora também registra uso e pico do pagefile por contador Windows dedicado, quando disponível. A reserva fixa de 4 GiB deixava menos de 0.7 GiB para pico estimado; como faltam as estimativas do próximo job, nenhum gate de capacidade passou. A sonda térmica root/wmi devolveu acesso negado e timeout em amostras distintas; temperatura atual e distância até o trip continuam desconhecidas. Não inferir condição segura pela guarda Jupiter de 90 °C sem a leitura.
+
+Após acrescentar os contadores de pagefile, uma segunda leitura (21:50:47Z, somente stdout) mediu CPU 89%, memória disponível 4.92 GiB, uso de pagefile 5% (pico 7%), 61 páginas de entrada/s, fila de disco 2 e 0.097 MB/s. Novamente foi uma única amostra, sem evidência de pressão sustentada; a temperatura continuou indisponível. O erro de timeout agora é associado ao probe em vez de aparecer como falha sem origem. Como `RDS_WORK_ROOT` segue ausente, nenhum recibo durável foi criado.
+
+A leitura de confirmação (21:52:26Z) mediu CPU 43%, memória disponível 5.11 GiB, pagefile 5% (pico 7%), 11 páginas de entrada/s, fila 1 e 1.36 MB/s. O timeout foi localizado como `thermal_sensors: wmi_access_denied`; temperatura/trip continuam desconhecidos. Coleta levou 15.7 s; ainda é amostra única e sem recibo durável. `node --check`, `npm run check:tree` e `git diff --check` passaram depois das mudanças; nenhuma suíte ou build foi executado.
+
+Curadoria da telemetria de produto: Deep Profiler (src-tauri/src/tools/deep_profiler.rs) é análise estática da ROM e estima sprite/DMA, não captura runtime. ProjectDiagnostics observa quadros entregues pelo Libretro à interface e leitura pontual da RAM pausada; seu próprio rótulo esclarece que quadros apresentados/s não medem clock nem FPS de simulação. A lacuna de trace/custo CPU real continua no aceite EC05/EC06 do roadmap; nenhuma coleta externa/passiva foi ativada.
+
+node --check scripts/host-resource-monitor.mjs passou e host:monitor --samples 1 gerou a amostra; nenhuma suíte, build ou jornada foi executada. O primeiro `host:diagnose`, sem `RDS_EDGE_DRIVER_PATH`, também marcou WebDriver como ausente apesar do EXE verificado; repetido no processo com `toolchains/webdriver/msedgedriver.exe`, esse gate passou. O estado ainda é `BLOCKED`: `rustc`, `cargo`, `jdk21`, `ghidra`, `sgdk`, `pvsneslib`, `libretro_md`, `libretro_snes` e `tauri_driver` faltam. Portanto não houve build nem mudança de produto. A conexão ai-memory expirou após 300 s e o PhaseZero MCP respondeu 429; este registro usa os documentos canônicos locais. O validador da skill não concluiu porque o Python disponível não tem PyYAML; nenhuma dependência foi instalada.
+
+Criada a skill global reutilizável C:\Users\Deck\.codex\skills\retrodevstudio-delivery, com guias separados de observabilidade e evidência Build → ROM → Emulação. O diretório versionado do projeto não prevê skills; os arquivos foram colocados no local pessoal de skills pedido pelo operador, sem alterar fontes do produto.
+
+Próximo passo: restaurar acesso confiável aos sensores/counters e configurar o runtime externo; executar amostras seriadas de 15–30 s com estimativas reais; só depois de host:diagnose READY retomar a qualificação Windows/Linux do incremento 1 com o Tauri real. Permanecem pendentes as jornadas Windows e os gates de host.
+
+### Qualificação Windows do editor C/SGDK — 2026-11-18 (aberta)
+
+**Retomada após a instalação do MSVC.** O `vswhere` confirmou a instância `17.14.37906.3` completa e sem reinício pendente. O novo `host:diagnose`, com o driver Windows selecionado, marcou MSVC, Node/npm e WebView2/WebDriver como `ready`. O perfil Full ainda ficou `BLOCKED` por Rust/Cargo, JDK, Ghidra, SGDK, PVSnesLib, os dois cores Libretro e tauri-driver ausentes no ambiente ativo. As seis entradas de instalação Windows esperadas estão no cache, com tamanhos do lock.
+
+O primeiro preflight do Rust após o MSVC mediu CPU em 100% nas três amostras, 4093–4290 MiB disponíveis e um pico de 1007 páginas de saída/s. A zona ACPI `TZ01` ficou em 63,1 °C, com limite passivo de 99,85 °C e sem throttling. A guarda protegeu a reserva de 4096 MiB e adiou a instalação. Evidência em `rust-toolchain-preflight.json`, no recibo `sessions/windows-qualification-20261118T170935Z-16900/`. A reprodução Windows das duas jornadas e Build → ROM → Emulação ainda depende de `READY`.
+
+Uma janela posterior permitiu instalar Rustup 1.29.3 no perfil Windows com o instalador verificado, sem alteração persistente do PATH. A extração de Rust 1.97.0 foi adiada nas duas janelas de rechecagem. Entre as amostras houve fila de disco de até 40 e CPU em 100%. Ao fim da segunda janela, havia 4158 MiB disponíveis e 0 páginas de saída/s, após uma amostra de 15 páginas de saída/s. O checksum do manifesto oficial de Rust 1.97.0 respondeu por HTTPS. Recibos `rustup-version.txt`, `rust-resume-result.json` e `host-resource-samples.jsonl`. Retomar com o Rustup já instalado, um job, uma thread de I/O e downloads serializados. Com os perfis de cache e driver do handoff, concluir o host Full e exigir `READY` antes do build e das jornadas.
+
+**Retomada no mesmo checkout.** O host passou de `DRIFTED` a `BLOCKED` após provisionar Node 24.18.0/npm 11.16.0 e Edge WebDriver x64 157.0.4341.60. WebView2 e driver foram sondados como `ready` no mesmo build. Com autorização do operador, os arquivos Windows de Temurin 21.0.11+10 e Libretro 1.22.2 ausentes foram baixados em série e verificados contra tamanho e SHA-256 do lock. Os arquivos Linux têm outros hashes. Recibo `sessions/windows-qualification-20261118T170935Z-16900/`, no runtime Windows.
+
+O bootstrap agora respeita `-Offline` antes dos instaladores de sistema e tanto ele como o host-manager leem ZIPs do cache sem extensão pela API nativa de compressão. A chamada anterior falhou com `NotSupportedArchiveFileExtension`. O reteste provisionou Node offline e parou no Rustup ausente. Com Node fixado, uma sonda do instalador Node extraiu o ZIP de fixture guardado por SHA-256. A telemetria usou o contador térmico nativo da zona ACPI `TZ01` e o limite passivo de 99,85 °C do evento Kernel-Power 125. As leituras estão nos recibos.
+
+O launcher Full parou em erro `0x8A150001` do Winget, reproduzido também em `winget --info`. A instalação passou para o bootstrapper oficial e assinado do Visual Studio Build Tools 17.14.45, com VCTools e `--norestart`. O log do Windows SDK 10.0.26100 terminou com código 0 e sem pedido de reinício. A instância `17.14.37906.3` registra o `cl.exe` x64 em MSVC 14.44.35207. A última confirmação da instalação principal ainda encontrou `isComplete=false` e os processos nativos de instalação ativos. O pacote VS 199 foi registrado com sucesso.
+
+O acompanhamento mediu 4095 MiB e, depois, 4066 MiB disponíveis, abaixo da reserva de 4096 MiB, com 52,1 °C e zero páginas de saída nas amostras. Em ambas as passagens o controle de recursos encerrou a sequência que iniciaria o Rust depois do MSVC. A operação do instalador oficial permaneceu ativa. O estado mais recente e os arquivos `host-resource-samples.jsonl`, `post-msvc-gate.json` e `checkout-wip.patch` estão no recibo Windows. Antes de avançar, revalidar `vswhere`, margem de memória e I/O. O Rustup 1.29.3 foi preparado com SHA-256 oficial verificado. Rust 1.97.0, provisionamento Full, `READY` e as duas jornadas Tauri continuam pendentes.
+
+Entrada `f74e5026d39844a2385cd523cdf4b6565af1f9dd`, branch `codex/new-host-cohesion-20261024`, PR #113 em rascunho. Cinco checks passaram e um foi ignorado nesse SHA. Conferidos os cinco hashes do pacote `windows-sd-handoff-2026-11-12` e a presença do patch local com `git apply --reverse --check`. As 15 diferenças de modo do Windows foram excluídas da comparação de conteúdo com `git -c core.fileMode=false diff`. O patch e as alterações do operador permanecem no checkout.
+
+**Infraestrutura local.** `host-manager.mjs` e `new-host.mjs` passaram a executar os shims Windows com caminho e argumentos delimitados. O diagnóstico encontrou npm 11.20.0 em `C:\Program Files\nodejs` e passou de `missing` para `incompatible`, com pin 11.16.0. A sonda procura o `vswhere.exe` na instalação oficial do Visual Studio. O pareamento compara os três primeiros campos do Edge WebDriver com o build do WebView2 encontrado no registro (localmente 157.0.4341.60). A sonda Node nativa passou com espaços e Unicode, recusou shim ausente e argumentos que o shell interpretaria, rejeitou driver de outro build e ChromeDriver. A descoberta do MSVC instalado e uma sessão WebDriver real continuam pendentes.
+
+**Evidência e limites.** Sintaxe, árvore e diff passaram. `new-host.ps1 -Mode Run`, com um job, retornou 10 por `host_not_ready:DRIFTED` antes do comando. Recibo `sessions/2026-11-18T16-33-44-821Z-22300/` no runtime Windows. Vitest focado parou na inicialização por ausência de `@rollup/rollup-win32-x64-msvc` nas dependências presentes. Nos volumes NTFS e Btrfs, a sonda `System.IO.File.Replace` substituiu o arquivo em caminho com espaços e acentos e guardou a revisão anterior. Com compartilhamento restrito, a operação retornou o erro Win32 32 e preservou os bytes. Após liberar o arquivo, uma nova tentativa confirmou a gravação. O resultado está em `windows-file-replace-preflight-verified.json`. Isso exercita a primitiva do Windows, com persistência/recuperação do Tauri ainda abertas. Os JSONs de recursos e da sonda estão ao lado do recibo.
+
+**Preparação na primeira passagem.** Node 24.18.0, SGDK 2.11 e PVSnesLib 4.5.0 para Windows foram armazenados e verificados por SHA-256 no cache oficial. O ZIP do Node contém npm 11.16.0. Naquela passagem faltavam os arquivos Windows de Temurin/Libretro, MSVC/SDK, driver e a margem térmica. A classe ACPI em `root/wmi` retornou acesso negado. A amostra registrou CPU 95–100%, 4985–5085 MiB disponíveis, 19–1443 páginas de entrada/s e zero de saída. Com reserva de 4096 MiB, sobraram 889–989 MiB para carga adicional. O [handoff do host](handoffs/NOVO_HOST_INICIO.md#retomada-windows-do-editor-csgdk--2026-11-18) mantém origens e comandos.
+
+**Primeiro aceite de produto sem prova.** Depois de READY e debug, repetir `code-draft-roundtrip` e `code-instance-scope` no candidato Windows e na mesma composição Linux. A inspeção de `InstanceCodeView.tsx` encontrou texto pré-Aplicar mantido em estado local. Digitar, alternar para Nós e voltar, salvar, executar Build & Run e trocar de projeto são reproduções pendentes. Conferir texto ao retornar, revisão salva e ROM disparada, incluindo resposta IPC atrasada. O incremento 1 continua Experimental. As demais frentes da matriz seguem abertas.
+
+### Próximo boot pelo cartão SD Windows — editor C/SGDK (2026-11-12)
+
+O operador informou que fará boot do Windows instalado no cartão SD deste host para continuar o editor C/SGDK. Retomar pelo **aceite do incremento 1**, com os cenários `code-draft-roundtrip` e `code-instance-scope` no Tauri real. O pacote de passagem está na raiz do volume `WindowsSD`, pasta `RetroDevStudio-Handoff-2026-11-12` (no Linux, `/mnt/WindowsSD/RetroDevStudio-Handoff-2026-11-12`). Ler `RETOMADA.md` e verificar `SHA256SUMS` antes de usar o patch. O checkout Linux tem base `f74e5026d39844a2385cd523cdf4b6565af1f9dd`, branch `codex/new-host-cohesion-20261024`, com as correções e cenários ainda locais. A alteração do operador em `AGENTS.md` ficou fora do patch de transferência. O PR #113 em rascunho aponta para a base publicada e seus checks não cobrem o patch local.
+
+Linux comprovou o percurso bidirecional, recuperação e descarte de rascunho, alcance compartilhado e individual e efeito observável do nó C na ROM (8/8 e 2/2). O pacote contém relatórios e captura Linux. Em Windows, confirmar checkout e margem do cartão, ativar o ambiente via `scripts/new-host.ps1`, reconstruir do mesmo conteúdo, executar as jornadas e guardar os recibos com hashes do EXE e da ROM. Executar os gates pertinentes e manter o rótulo Experimental. Importados, preservação de formatação e reconciliação externa ainda estão em aberto. Depois do aceite, a hipótese para a primeira fatia do incremento 2 é evoluir o seletor da Lógica para Nós, Código e Dividido na barra existente. Contexto, alcance e estado do trecho devem permanecer visíveis, com Salvar e Build & Run na barra global. Essa hipótese ainda não foi implementada.
+
+**AI Memory:** a gravação da página `notes/retrodevstudio-editor-c-windows-sd-2026-11-12.md` foi tentada. O serviço local está mascarado e a conexão foi recusada. A nota e o comando de importação ficam em `RETOMADA.md` no SD para reenvio quando o serviço estiver disponível.
+
+### Editor de codigo C/SGDK — mudanca de escopo e incremento 1, 2026-11-10 (Experimental, em implementacao)
+
+**Decisao expressa do operador (2026-11-10):** o editor de C para SGDK integrado saiu de `Fora do MVP/Q2` e entrou em execucao, em quatro incrementos ordenados (1 vinculos/sincronizacao; 2 editor profissional com Monaco/clangd; 3 autoria visual no codigo; 4 qualificacao Linux+Windows no mesmo commit). Roadmap atualizado na mesma sessao (linha da matriz e secao «Editor de codigo em texto SGDK — em execucao»). Decisoes confirmadas: edicao aberta pela cena afeta a instancia selecionada por padrao; codigo sem equivalente visual vira no de codigo vinculado; aceite exige Linux e Windows; C++/Godot/RPG Maker/outras linguagens/debugger fora. Para projetos autorais, o C emitido deixa de ser somente leitura e passa a ser projecao editavel do modelo canonico; importados seguem na arvore C sem perdas. Superficie permanece `Experimental`; nada esta pronto nem certificado por este registro. Monaco e clangd **nao** entraram ainda (incremento 2, com lock/licencas/CSP/`02_TECH_STACK`). Estado do incremento 1: paragrafos abaixo.
+
+**Incremento 1 — o que existe em codigo (2026-11-10, sem jornada Tauri):** (a) *Identidade por instancia*: `LogicOp::SourceMapped` e os delimitadores de build carregam a entidade dona do grafo; `build_provenance` passou ao schema 2 com `bindings` (projeto, cena, instancia, hash do grafo, node, revisao = SHA do C), mantendo `graphs` agregado para leitores v1; delimitadores e mapas v1 continuam legiveis (frontend converte v1 em vinculos de instancia desconhecida; o Inspector passa a mostrar so os trechos da instancia selecionada). Arquivo continua `rds-node-source-map.v1.json`. (b) *Contratos e sincronizacao*: `compiler/code_binding.rs` projeta o `CodeDocument` sem delimitadores (os vinculos pertencem ao modelo) e analisa uma `CodeEditTransaction` por regiao de node de UMA instancia, devolvendo recibo: `node_params` (so quando a reemissao do C reproduz exatamente o texto editado — busca por parametros numericos/identificadores do node e de seus nodes de dados, nunca heuristica silenciosa), `code_node` (a regiao vira `code_block` com o mesmo id, conexoes de entrada/continuacao preservadas, nodes aninhados absorvidos, comprovado por reemissao como regiao unica), `draft` (texto incompleto segundo tree-sitter, guardado em `codeDrafts` no proprio grafo; nao emitido), `stale` (projeto/cena/revisao/hash divergentes), `rejected`, `no_change`. Nada grava em disco: o recibo traz o novo grafo e `core/codeEditApply.ts` aplica pelo `editorStore.updateEntity` em UMA entrada de desfazer, descartando respostas atrasadas (sessao de projeto, cena, `sceneRevision`, revisao do documento). Por viver no grafo/cena, rascunho de cena, save atomico e recuperacao existentes cobrem codigo e rascunhos sem mecanismo novo. (c) *Alcance*: padrao `instance`; se a instancia usa `graph_ref` compartilhado, a edicao a desliga (`graph_ref: ""`, grafo inline) e os outros usos ficam intactos; `shared` aplica o mesmo grafo a todos os usos listados. `preserveInheritedGraphRef` respeita a referencia vazia explicita. (d) *No de codigo*: `code_block` no catalogo/definicoes/AST (`LogicOp::RawC`), emitido uma vez pelo emissor SGDK com indentacao do ponto de insercao; SNES emite `#error`; `malloc/calloc/realloc/free` bloqueiam o build (`MEM_*` do SGDK nao). (e) *UI minima*: na Logica de projetos autorais, seletor «Nos | Codigo (Experimental)» e `InstanceCodeView` (regioes da instancia em textarea, Ctrl+Enter aplica, Esc descarta, escolha de alcance com usos afetados). Monaco, clangd, vista Dividido, destaque cruzado node/codigo e «Abrir codigo» sao do incremento 2.
+
+**Gates do incremento 1 (launcher, 1 nucleo, cgroup 3500M sem swap, um por vez):** `check:tree`, lint, `tsc --noEmit` PASS; Vitest completo **1453 PASS/12 skip** (159 arquivos; +16 testes: vinculos nos dois sentidos, uma de duas instancias identicas, definicao compartilhada, descarte de respostas atrasadas/troca de projeto, desfazer unico, rascunhos no grafo, mapa v1/v2); `cargo fmt --check` e Clippy `-D warnings` PASS; 11 testes Rust focados PASS antes do ultimo ajuste (`code_binding` 7, `build_provenance` 4: instancias identicas, edicao representavel so na instancia, logica livre com comentario/Unicode e execucao unica, rascunho, transacoes atrasadas, usos compartilhados). Recibos e logs em `RDS_WORK_ROOT/sessions/code-editor-20261110/`. **Suite Rust completa NAO concluida localmente:** `cargo test --lib` completo foi iniciado as 20:50:33 de 2026-11-10 (launcher `sessions/2026-11-10T23-50-33-646Z-255074`, 1 nucleo, 3500M sem swap, carga < 3 e > 5 GB na entrada), depois de `e7acf755` ja estar publicado; o host reiniciou por volta de 20:59 (novo boot 20:58:57) com o `command.log` ainda vazio e sem recibo terminal. O journal do boot anterior termina as 20:50:58 sem OOM nem erro de kernel. E a terceira coincidencia entre `cargo test` completo e reinicio neste host; **causa nao demonstrada**, nenhum resultado atribuido. Decisao operacional: neste host rodar apenas testes Rust filtrados pelos modulos alterados; a suite completa fica com o CI. PR #112 foi mesclado em `main` (`020cb706`); o incremento 1 segue no **PR #113** (rascunho, mesma branch → `main`), cujo CI roda a suite completa em Linux e Windows — conferir o resultado la, sem transferir PASS de outro SHA. Apos o reinicio, testes Rust filtrados (`code_binding`, `build_provenance`, `sgdk_emitter`, `snes_emitter`) em `e7acf755`: **64 PASS**, recibo `sessions/2026-11-11T00-17-23-706Z-42472`.
+
+**Limites honestos / nao feito:** nenhuma jornada no Tauri real, nenhum build SGDK/ROM/emulacao com `code_block`, nada em Windows — o incremento 1 NAO esta fechado pelo criterio do operador (gates + jornada). Desligamento de instancia herdada de prefab so tem teste unitario do plano; o save real desse caso precisa da jornada. Edicoes pelo NodeGraphEditor nao foram verificadas quanto a preservar `codeDrafts`. Importados (arvore C) ainda nao usam estes contratos. Cenarios pendentes do aceite: salvar/fechar/reabrir/recuperar com codigo, finais de linha em importados, previas, Codigo → Salvar → Build → ROM → Emulacao, teclado/contraste/telas, 10 mil/100 mil linhas. Proximo: jornada Tauri do incremento 1 (editar uma de duas instancias, no de codigo, rascunho, salvar/reabrir, build e ROM), depois incremento 2 (Monaco/clangd com lock, licencas, CSP).
+
+
+### Retomada do editor C/SGDK — 2026-11-12
+
+O checkout parte de `f74e5026`, que permanece na ponta do PR #113 em rascunho. Na consulta ao GitHub, cinco checks passaram e um foi ignorado. O build debug Linux desse SHA passou com árvore dirty no recibo `sessions/2026-11-11T00-22-07-834Z-61768`. O único diff local antes deste lote era o `AGENTS.md` do operador. O build e o smoke desktop do CI são evidências distintas da jornada de edição C.
+
+**Correção local no incremento 1.** Restaurar o C projetado de uma região com rascunho e aplicar a edição agora devolve o recibo `draft_cleared`. A transação remove o rascunho daquela região pelo histórico do `editorStore`, preservando nós e conexões. A vista Código oferece “Restaurar código do modelo” para preencher o texto antes de aplicar. O teste Rust existente passa a conferir a igualdade com o grafo anterior ao rascunho. O teste frontend confere a aplicação do recibo à instância selecionada. O roadmap foi reconciliado com a decisão de tratar o C autoral como projeção editável.
+
+**Validação desta alteração local.** Host READY, `check:tree`, lint, `tsc --noEmit`, Vitest focado 15/15 e `cargo fmt --check` passaram pelo launcher em um núcleo e 3500M sem swap. Logs `resume-*.log` em `sessions/code-editor-20261110/`. A suíte Rust focada desta alteração, Clippy, Vitest completo e o novo build debug ficaram pendentes. A carga de um minuto permaneceu acima de 3 na rechecagem, com cerca de 6,4 GiB disponíveis e atividade de I/O. Adiada a carga pesada para respeitar a margem do host. O binário existente antecede a correção. Nenhuma jornada deste editor foi executada neste lote.
+
+**Próximo passo de aceite.** Retomar com margem medida, validar Rust e reconstruir o binário pelo launcher. No runner desktop existente, usar um projeto autoral SGDK descartável com duas instâncias do mesmo grafo. Editar uma região numérica em Código, conferir o parâmetro em Nós e a outra instância intacta. Testar alcance compartilhado, aplicar um trecho incompleto, salvar/reabrir, restaurar e aplicar o C do modelo, depois desfazer e refazer o descarte. Substituir uma região de evento por código livre com efeito observável e verificar conexões, C emitido, SHA da ROM e efeito no core oficial. Guardar recibos e capturas junto da identificação do binário. A jornada específica em Windows e as lacunas documentadas em importados, preservação de formatação e reconciliação externa permanecem abertas. O incremento 1 permanece Experimental.
+
+
+**Jornada Linux, primeira execução do cenário (2026-11-12).** O runner canônico ganhou `--scenario code-draft-roundtrip`. Ele cria um projeto descartável do modelo de plataforma, aplica um trecho incompleto em Código, salva, reinicia o aplicativo, reabre o projeto pelo wizard e verifica o texto recuperado. Depois restaura o C do modelo, aplica e salva o descarte. `node --check` passou via launcher no recibo `sessions/2026-11-12T11-37-37-769Z-2057013`.
+
+A execução isolada em Xvfb com o build anterior à correção (`f74e5026`, executável SHA-256 `a0d55b14fab70330a00866e805730974efef05fe9f04e6d976ab0d6de6a28c23`) confirmou `draft_saved` e `draft_reopened` na UI. O cenário terminou **FAIL** porque esse binário não tem o botão “Restaurar código do modelo”. Recibo `sessions/2026-11-12T11-38-04-719Z-2058737` e relatório `code-draft-roundtrip-2026-11-12T11-39-18-691Z-report.json`, preservado em `sessions/code-editor-20261110/`. O projeto de teste ficou retido fora do checkout. Clippy com `-D warnings` também passou na árvore local com a correção, recibo `sessions/2026-11-12T11-41-57-666Z-2071973`. O resultado comprova salvar e reabrir com o rascunho nesse binário. A prova do descarte depende de recompilar e repetir o cenário. Ainda faltam o caso das duas instâncias, o efeito na ROM e a jornada específica no Windows.
+
+
+**Build corrigido e histórico no Tauri (2026-11-12).** O build debug Linux passou pelo launcher em um núcleo e 3500M sem swap (recibo `sessions/2026-11-12T18-07-09-763Z-637557`). Executável SHA-256 `563158462e0c2c8734bff108d6b450423bc29ac43fd1db65c64646e844dd33c3`. No Tauri, o cenário confirmou salvar, reiniciar, reabrir, descartar o rascunho e usar Desfazer/Refazer. A primeira execução com esse binário parou na edição numérica. O cenário substituía só uma ocorrência de `-64`, embora o emissor de velocidade gere duas atribuições com esse valor. A automação passou a substituir as duas e a registrar o texto do recibo se a edição não concluir. O teste seguinte exige o nó visual com `vy = -80` no grafo salvo. A prova da ROM exige uma única instrução editada no C emitido, SHA idêntico entre a ROM compilada e a carregada e pontuação 13 estável após pelo menos 30 quadros no core. O relatório da primeira execução corrigida está em `sessions/code-editor-20261110/`.
+
+
+**Prova funcional Linux, 7/7 (2026-11-12).** A execução `sessions/2026-11-12T18-25-55-981Z-687707` do cenário `code-draft-roundtrip` passou no Tauri real, sob Xvfb com perfil isolado. A edição incompleta sobreviveu a salvar, reiniciar e reabrir. Restaurar o código do modelo removeu o rascunho e Desfazer/Refazer reproduziram os dois estados. A edição `-64 → -80` em Código atualizou o parâmetro `vy` no nó visual `jump_velocity` salvo. A edição livre em `music` persistiu como `code_block` com a conexão `start → music` preservada e uma ocorrência de `logic_var_reference_score += 13;` no C emitido. O Build & Run carregou a ROM com o mesmo SHA-256 do arquivo compilado (`021b12cb86949046f73147f7e2e3e5f51f1909f76a92a5a6eb966a1d0f8bd645`). Na amostragem de 180 quadros do core Genesis Plus GX, a pontuação chegou a 13 no quadro 51 e permaneceu 13 até o 192. Uma execução anterior com duas leituras acionadas pelo contador do canvas observou zero. O cenário agora mede diretamente os quadros do core, incluindo a inicialização SGDK.
+
+Relatório, captura, grafo, C emitido e ROM autoral descartável estão em `sessions/code-editor-20261110/proof-linux/` com manifesto SHA-256 verificado. O cenário desktop `code-instance-scope` passou em 2/2 (recibo `sessions/2026-11-12T18-37-39-732Z-723849`). Duas instâncias com o mesmo grafo receberam 19 pela edição compartilhada. Depois da edição no alcance padrão e do save, a primeira continuou com 19 na definição e a segunda persistiu um grafo local com 31. Relatório `proof-linux/instance-scope.json`. Os 11 testes Rust focados de `code_binding` e `build_provenance` também passaram na árvore corrigida (recibo `sessions/2026-11-12T18-29-28-583Z-696944`). Vitest completo na árvore corrigida: 1454 passaram e 12 foram ignorados (recibo `sessions/2026-11-12T18-39-00-357Z-727912`). A repetição ampliada de `code-draft-roundtrip` confirmou o caminho inverso e terminou em 8/8 no mesmo executável (recibo `sessions/2026-11-12T18-48-30-130Z-750107`). O controle de velocidade em Nós mostrou -80, foi editado para -96 e o novo valor apareceu no grafo salvo e na projeção C. A ROM desta repetição tem SHA-256 `495b004a80784acbab99f97536bf27f89f0d12fe5707ce51108050f0ac116aba` e o efeito de 13 pontos voltou a ser observado do quadro 51 ao 192. Evidências e manifesto conferido em `proof-linux/roundtrip-final/`. A qualificação desktop em Windows e os cenários ainda abertos do incremento permanecem pendentes. Antes de avançar a Monaco/clangd, completar a qualificação no mesmo código e os casos em aberto. Seguem abertas as lacunas de importação, preservação de formatação e reconciliação externa. O editor permanece Experimental e as mudanças desta retomada estão locais.
+
 ### Retenção R01 e QA renovado — 2026-11-05
 
 C01 publicado local/remoto `000285e74aaf2b729749acc0121481045f308e39`, mesma branch/PR #112. Só o roteiro mudou após o produto b0b0afbf e o candidato 4a139; hashes Rust reconferidos. A jornada MD passou 24/24 e os gates focados constam abaixo. QA RC renovado em árvore limpa **A–H/32 PASS**, recibo `10-13-30-162Z-602727`; relatório automático identifica 000285e7 e o hash atual do runner. Agregador estrito (`10-17-38-692Z-621490`, exit1 esperado) reconheceu upstream 0/0 e base pública +739/−1, aceitou automático 8 e manteve humano 8 pendentes. `readyForPromotion=false`; não rodou baseline nem empacotamento nesta invocação. Evidências congeladas em `closeout-20261105/qa-rc-C01/`. A observação anterior de upstream desconhecido permanece no relatório histórico; não foi atribuída uma causa sem reprodução.
@@ -77,6 +387,8 @@ RC09 avançou **em código, não em ROM**: `path_contact_template.c` no owner ex
 **RC09 — duas plataformas na ROM (2026-11-09):** pela UI, segunda plataforma criada por «Duplicar» (`passage_blocker_2`, x=146) com trajeto −64 px/60 q e a original com +64 px/60 q, ida e volta, sem espera; jogador apoiado na original. As grades se cruzam sob a raposa (quadro 90 sobrepostas), separam-se (100/110: uma vai à esquerda, outra à direita) e voltam a cruzar (130). A raposa permanece sobre a plataforma de apoio anterior (x do cachecol 107→119→124 acompanhando a que vai à direita) e não é puxada pela outra — regra «empate conserva apoio anterior» observada. Evidência `rc09-two-platforms` (SHA256SUMS). Limite: quadros amostrados a cada ~10; a ordem da cena como desempate secundário não foi isolada. Pendentes RC09: terreno/esmagamento (sem regra definida), mapa ausente, custo 68000.
 
 **RC09 — terreno/esmagamento provado na ROM (2026-11-09, 1 núcleo/cgroup):** (a) **Parede** (`rc09-terrain-wall`): plataforma horizontal leva a raposa contra coluna sólida pintada pela UI (Colisão); a raposa fica parada encostada (x ≈96–99) enquanto a grade segue, e cai pela borda até y≈199; controle sem a coluna: raposa transportada (y 143–145, dx da grade 6–7). (b) **Teto** (`rc09-terrain-crush`): grade vertical (0,−48)/120 q, jogador em (56,136), linha de teto pintada pela UI (tile y 12, x 5–10) e grafo montado na UI por arrastos reais de porta: «A cada quadro» → «Esmagado?» (player) → verdadeiro → «Destruir» (self). `main.c` contém `if ((rds_path_crushed_spr_player)) { SPR_setVisibility(spr_player, HIDDEN); }`; na ROM a raposa some entre os quadros 120 e 130; **controle** (mesma cópia com só a linha de teto zerada por script, `CONTROL.txt`) a raposa segue transportada e visível até o quadro 160. **Defeito encontrado e corrigido:** alvo `self` (padrão do catálogo em «Destruir» e outros nós) não era resolvido pelo compilador — o nó era descartado em silêncio e o ramo ficava vazio. `compile_logic_graph` agora troca `self` (params `target`/`a`/`b`) pelo id da entidade dona do grafo (`resolve_self_targets`, teste). (c) **Chão na descida**: ainda não provado na ROM. Gates (1 núcleo; cgroup 4,5 GB só para o build de testes, autorizado — 3,5 GB matava o link por OOM): fmt, Clippy, Rust 1204 PASS (só a falha BYOR pré-existente). Pendentes RC09: chão, mapa ausente e custo 68000.
+
+**Reconciliação do `main` (2026-11-10, ordem expressa do operador):** PR #112 teve a base trocada de `recovery/studio-preformat-20261021` para `main` e foi mesclado por merge commit `020cb70629100c942656daa505d8a8b7616b3f4f`, fixado no SHA `f7fce07cd94c45c82ef81fde8d9ccc522794e5e5` (`--match-head-commit`) depois de CI `validate` (Windows), `linux-validate` e Desktop E2E verdes nesse SHA (push e pull_request). A árvore de `main` é idêntica à de `f7fce07c`; o único commit que `main` tinha a mais era o merge do PR #60, cujos pais já estavam na branch. Isso é reconciliação de governança, **não promoção de maturidade**: superfícies Experimentais, os 8 aceites humanos e `readyForPromotion=false` permanecem. Trabalho posterior na branch de continuidade (editor C) precisa de PR novo. Pendências do operador: decisão sobre a arte de nome comercial em `data/` agora na branch padrão de repositório público; alertas Dependabot de `main` devem ser reavaliados pelo GitHub após o merge.
 
 **Gates e teste BYOR portátil (2026-11-10, launcher, 1 núcleo/cgroup, um por vez com espera de carga < 3):** `CanvasAuthoringBar.test.tsx` 8/8, `tsc --noEmit`, lint, `check:tree` e Vitest completo 1437 PASS/12 skip (156 arquivos) em `5e431959`; `cargo fmt --check` e Clippy `-D warnings` PASS. `byor_preview_of_modified_artifact` passou a seguir a convenção dos aceites BYOR (`#[ignore]`, roda com `--ignored`; artefato por `RDS_HAMOOPIG_MODIFIED_ROM` ou `$HOME`, sem caminho fixo do host): era a única falha da suíte padrão neste host. Módulo `rex_resources`: 23 PASS/14 ignored (recibo `sessions/2026-11-10T23-04-53-022Z-63030`). **Suíte Rust completa não concluída localmente:** compilou e tinha 652 testes ok quando o host reiniciou às 05:27 (boot terminou sem OOM/erro de kernel no journal; doze boots em 2026-11-10, vários de segundos sem atividade do RetroDev — causa não demonstrada). Para poupar o host a suíte completa ficou a cargo do CI do SHA publicado; não atribuir PASS local a ela.
 

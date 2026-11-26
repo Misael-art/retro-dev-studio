@@ -469,6 +469,7 @@ mod tests {
     fn collision_map_wider_than_viewport_is_non_fatal_with_warning() {
         let mut scene = empty_scene();
         scene.collision_map = Some(CollisionMap {
+            materials: Vec::new(),
             tile_width: 8,
             tile_height: 8,
             width: 64,

@@ -1,6 +1,8 @@
+import Icon from "../common/Icon";
 import { useEffect, useMemo, useState } from "react";
 import AssetPreview from "../common/AssetPreview";
 import { CGraphPanel } from "./CGraphPanel";
+import ReplaceLinkedAtlasPanel from "./ReplaceLinkedAtlasPanel";
 import {
   listScenes,
   switchScene,
@@ -207,6 +209,7 @@ export default function ExplorerWorkspace({
     activeProjectDir,
     activeScenePath,
     activeScene,
+    sceneRevision,
     projectSourceKind,
     projectLegacyIndex,
     setActiveScene,
@@ -521,15 +524,15 @@ export default function ExplorerWorkspace({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[#09090b]">
-      <div className="flex items-center justify-between gap-3 border-b border-[#27272a] px-4 py-3">
-        <div>
+      <div role="group" aria-label="Catálogo do projeto" className="flex items-center justify-between gap-2 border-b border-[#27272a] px-3 py-1">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2">
             <span className="rounded-full border border-[#f9e2af]/30 bg-[#f9e2af]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#f9e2af]">
               Explorer
             </span>
-            <span className="text-[11px] text-[#64748b]">Workspace contextual de arquivos</span>
+
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-[#94a3b8]">
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-[#94a3b8]">
             <span className="rounded-full border border-[#27272a] bg-[#111827] px-2.5 py-1">
               Cenas {sceneCount}
             </span>
@@ -546,15 +549,16 @@ export default function ExplorerWorkspace({
 
         <button
           type="button"
+          aria-label="Atualizar arquivos" data-tool-hint="Atualizar arquivos do projeto"
           onClick={handleRefresh}
           disabled={!activeProjectDir || busy}
           className="rounded-xl border border-[#313244] bg-[#111827] px-3 py-2 text-[11px] font-semibold text-[#cbd5e1] transition-colors hover:bg-[#1f2937] disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {busy ? "Atualizando..." : "Atualizar"}
+          <Icon name="refresh" size={16} /><span className="sr-only">{busy ? "Atualizando..." : "Atualizar"}</span>
         </button>
       </div>
 
-      <div className="grid min-h-0 flex-1 gap-0 xl:grid-cols-[320px_minmax(0,1fr)]">
+      <div className="grid min-h-0 flex-1 gap-0 xl:grid-cols-[minmax(180px,30%)_minmax(0,1fr)]">
         <aside className="min-h-0 overflow-auto border-r border-[#27272a] bg-[#0b1120]">
           <div className="space-y-4 p-3">
             {isLegacyOverlayProject ? (
@@ -812,7 +816,7 @@ export default function ExplorerWorkspace({
                       )}
                     </div>
 
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-[min(100%,20rem)] flex-1">
                       <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#cba6f7]">
                         Asset
                       </div>
@@ -866,6 +870,13 @@ export default function ExplorerWorkspace({
                             </ul>
                           )}
                         </div>
+                      ) : null}
+                      {activeProjectDir && activeScene && selection.asset.kind === "image" ? (
+                        <ReplaceLinkedAtlasPanel
+                          key={JSON.stringify([activeProjectDir, activeScenePath, sceneRevision, selection.asset.relative_path, chosenUse?.entityId])}
+                          projectDir={activeProjectDir} scene={activeScene} assets={assets}
+                          asset={selection.asset.relative_path} chosen={chosenUse?.entityId}
+                        />
                       ) : null}
                     </div>
                   </div>

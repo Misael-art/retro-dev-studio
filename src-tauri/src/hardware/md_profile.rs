@@ -421,7 +421,14 @@ fn analyze_md_vram(scene: &Scene, source_kind: Option<&str>) -> MdVramAnalysis {
                 .saturating_add(stream_step)
                 .saturating_add(tilemap_step)
         }
-    };
+    }
+    .saturating_add(
+        if scene.retrofx.as_ref().is_some_and(|fx| fx.wave.is_some()) {
+            crate::ugdm::entities::RETROFX_WAVE_DMA_BYTES
+        } else {
+            0
+        },
+    );
 
     MdVramAnalysis {
         mode,
@@ -829,6 +836,9 @@ mod tests {
                 "stress".to_string(),
                 AnimationDef {
                     occurrence_ids: None,
+                    pose_alignment: Default::default(),
+                    pose_sockets: Default::default(),
+                    pose_code_drafts: Default::default(),
                     frame_events: Vec::new(),
                     frames: frame_list,
                     fps: 12,
@@ -857,6 +867,9 @@ mod tests {
                 "run".to_string(),
                 AnimationDef {
                     occurrence_ids: None,
+                    pose_alignment: Default::default(),
+                    pose_sockets: Default::default(),
+                    pose_code_drafts: Default::default(),
                     frame_events: Vec::new(),
                     frames: frame_list,
                     fps: 12,
@@ -909,6 +922,7 @@ mod tests {
     fn collision_map_wider_than_viewport_is_non_fatal_with_warning() {
         let mut scene = empty_scene();
         scene.collision_map = Some(CollisionMap {
+            materials: Vec::new(),
             tile_width: 8,
             tile_height: 8,
             width: 128,
@@ -939,6 +953,7 @@ mod tests {
     fn collision_map_with_invalid_data_len_keeps_fatal_guardrails() {
         let mut scene = empty_scene();
         scene.collision_map = Some(CollisionMap {
+            materials: Vec::new(),
             tile_width: 8,
             tile_height: 8,
             width: 32,
@@ -1112,6 +1127,9 @@ mod tests {
             "walk".into(),
             crate::ugdm::components::AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: (0..27).collect(),
                 fps: 12,
@@ -1331,6 +1349,7 @@ mod tests {
                     cells,
                     plane: None,
                     priority: false,
+                    priority_regions: Vec::new(),
                 }),
                 ..Default::default()
             },
@@ -1376,6 +1395,7 @@ mod tests {
                     cells: vec![1; 64],
                     plane: None,
                     priority: false,
+                    priority_regions: Vec::new(),
                 }),
                 ..Default::default()
             },

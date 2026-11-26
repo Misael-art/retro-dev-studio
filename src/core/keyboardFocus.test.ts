@@ -19,4 +19,12 @@ describe("keyboard focus", () => {
     expect(gameMayTakeKeyDown({ target: document.body })).toBe(true);
     expect(gameMayTakeKeyDown({ target: null })).toBe(true);
   });
+  it("keeps activation keys on focused game toolbar controls", () => {
+    const button = document.createElement("button");
+    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    button.append(icon);
+    expect(gameMayTakeKeyDown({ target: button })).toBe(false);
+    expect(gameMayTakeKeyDown({ target: icon })).toBe(false);
+    expect(gameMayTakeKeyDown({ target: document.createElement("summary") })).toBe(false);
+  });
 });

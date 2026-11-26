@@ -1,5 +1,11 @@
 # Plano — autoria integrada, potencial criativo e auto-organização da engine
 
+**Revisão de 24/11/2026.** A [seção 11](#workspace-modular) especifica a mesa de edição, avalia as 24 propostas de interface e define a primeira jornada de implementação, do quadro de animação à ROM.
+
+O [prompt para o agente implementador](../handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#prompt-entrega-integral-workspace) acrescenta as nove ferramentas de produção e reúne o escopo, a ordem de execução e as provas para entrega.
+
+Para a conferência visual, consulte o [registro dos 12 mockups de Porto das Lanternas](#referencia-visual-20261124), com o índice, os locais de recuperação e o manifesto de integridade.
+
 **Status: diretriz de produto registrada; proposta técnica/visual para validação do operador, antes da implementação.** Pedidos de 2026-11-08. Foco atual de implementação: Mega Drive. Esta entrega contém avaliação, plano e mockups. Nenhuma capacidade abaixo foi implementada por esta tarefa, nenhum projeto de jogo foi reorganizado e nenhuma validação de runtime é inferida das imagens.
 
 ## 1. Objetivo e alcance
@@ -383,4 +389,216 @@ Os documentos compartilhados de estado já têm alterações de outra frente. Pa
 
 > Registro detalhado solicitado pelo operador: excelente potencial criativo e aproveitamento amplo dos consoles retrô, com Mega Drive como foco atual. Seções 1.1–1.5 fixam visão, alcance, oito objetivos verificáveis (OBJ01–OBJ08), contrato por ferramenta/lote e avaliação pedagógica/produtiva. As exigências são simultâneas: liberdade, qualidade artística, desempenho/custo real, ferramentas precisas/reversíveis, organização adaptável, autoria interligada e experiência prioritariamente amigável para leigos. Aproveitar o console não é saturar recursos; cumprir a visão exige prova de combinações e uso repetido, sem ampliar frentes ou promover maturidade por mockup. Registro documental concluído; implementação permanece pendente conforme o pedido anterior.
 
-Próximo passo desta tarefa: receber a validação/ajustes do operador sobre o roadmap em série e as cinco vistas complementares, com o grafo espacial integrado como referência para trabalho por nós. A implementação permanece pendente dessa validação explícita, conforme o pedido. Os esclarecimentos sobre abrangência, fluxo de cenas, intercâmbio das esteiras, sequência de produção e autoria bidirecional foram incorporados ao plano; não equivalem a uma autorização para iniciar código nesta rodada.
+<a id="workspace-modular"></a>
+
+## 11. Workspace modular e ferramentas de autoria no Canvas
+
+**Proposta de 24/11/2026.** O primeiro resultado desejado é poder selecionar um ator na fase, ajustar quanto tempo ele fica numa pose, ver a mudança no lugar onde ele joga e experimentar a mesma edição na ROM. Essa jornada curta exige seleção estável, animação, código e execução coerentes. Depois ela serve de base para efeitos, camadas e produção em cenas densas.
+
+O ponto de partida é a inspeção do código em `4840956f0151` e das provas históricas do projeto. O launcher deste checkout informou ausência de Node e de ambiente provisionado. A disposição abaixo é uma proposta de design. O teste visual e a observação humana do desktop atual ficam no primeiro lote. O [mandato de implementação](../handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#execucao-integral-windows-mega-drive-2026-11-18) dá precedência à qualificação do incremento C já em curso.
+
+### 11.1 Como a mesa se organiza
+
+Disposição proposta para **Compor fase**, com o encaixe de Propriedades à esquerda solicitado como exemplo. No primeiro uso após atualização, respeitar a disposição já salva. O usuário pode escolher esse preset em **Exibir → Disposição**, inverter os painéis e restaurar o padrão. Trocar de tarefa mantém projeto, cena, seleção e o ponto de retorno.
+
+```text
+┌─────────────────────────────────────────────────────────────────────┐
+│ Projeto / Fase / Objeto             Salvar        Testar a cena  ▸  │
+├─────────┬───────────────────────────────────────────────────────────┤
+│ Áreas   │ Cena   ·   Animação   ·   Lógica   ·   Código             │
+│         ├─────────────┬─────────────────────────┬───────────────────┤
+│ Cena    │ Propriedades│ Selecionar  Mover  Mais │ Projeto | Camadas │
+│ Teste   │             │                         │                   │
+│ Arquivos│ Objeto      │         CANVAS          │ Árvore ou lista   │
+│ Lógica  │ Posição X/Y │                         │ do painel ativo   │
+│ Arte    │ Animação    │  Cena e objeto editados │                   │
+│ Efeitos │ Precisão ▸  │                         │                   │
+│ Depurar ├─────────────┴─────────────────────────┴───────────────────┤
+│         │ Gaveta recolhível   Recursos | Timeline | Histórico | Log │
+├─────────┴───────────────────────────────────────────────────────────┤
+│ Mega Drive       Alterações salvas       ROM anterior · Atualizar   │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+O trilho extremo esquerdo orienta no produto inteiro. A faixa horizontal leva às representações relacionadas ao objeto. O centro conserva espaço para ver o jogo. O Inspector responde “o que seleciono e o que posso mudar?”. Projeto responde “onde está o recurso?” e Camadas, “o que fica na frente e o que estou vendo?”. O histórico, os recursos e o log ocupam a mesma gaveta em momentos diferentes. Os nomes das abas e os estados do esquema são ilustrativos.
+
+| Disposição | Superfície principal | O que ganha espaço |
+|---|---|---|
+| Compor fase | Canvas com câmera e enquadramento do jogo | Propriedades, árvore e camadas. Recursos abre para inserir e pode ficar fixado para pintura repetida. |
+| Animar | Canvas com ator no cenário ou detalhe em pixel inteiro | Timeline aberta. Propriedades segue o quadro, a caixa ou o evento selecionado. Um comando alterna a prévia entre o detalhe e a cena na mesma pose. |
+| Depurar | Jogo em execução ou quadro pausado | Revisão da ROM, entrada, log e instrumentos com origem da medição. “Voltar ao objeto” recupera o contexto de autoria. |
+
+Em tela estreita, reunir os painéis laterais em abas com uma aberta por vez e preservar atalhos visíveis para abrir, fixar e restaurar. No modo foco, a saída e o acesso às áreas continuam ao alcance do teclado. Uma seleção nova atualiza o conteúdo de Propriedades. Um campo com edição incompleta conserva o texto com indicação do objeto a que pertence. Mover uma aba, usar a sonda ou redimensionar a janela altera preferências de trabalho. Salvar a cena continua sendo uma ação separada.
+
+**Acesso ao restante do Studio.** Arquivos continua sendo a entrada para criar por template, importar, revisar a conversão e localizar recursos. Um áudio pode ser ouvido na biblioteca e ligado a um evento do quadro. Arte conserva desenho, atlas e paletas. Lógica mantém o grafo completo, as ligações manuais e a origem em código. Em Depurar, inspeção e REX continuam acessíveis com o perfil, a origem BYOR e o alcance da edição por patch. Em Teste e na entrega, a revisão identifica o jogo executado e exportado. Para projetos importados, como MUGEN ou SGDK, o Inspector informa se o recurso é autoral, convertido, vinculado ou apenas referência. Os modos Guiado, Criador, Pro e Hacker podem mudar a densidade inicial. Um acesso permanente à lista completa de áreas explica como abrir cada ferramenta compatível. Conferir as [16 jornadas J00–J15](../handoffs/PROMPT_RETOMADA_COESAO_PRODUTO_2026-10-24.md) a cada reorganização de acesso.
+
+### 11.2 Decisão sobre os 24 itens propostos
+
+“Integrar” indica que há componentes relevantes no checkout. “Estender” identifica trabalho novo sobre essa base. “Posterior” identifica dependência ou custo que justifica adiar a implementação. São decisões de prioridade. A maturidade por alvo continua na [matriz do roadmap](../03_ROADMAP_MVP.md).
+
+| Item | Decisão e aplicação |
+|---|---|
+| 1. Encaixar e desencaixar | Estender. Começar com destinos previsíveis na janela principal, realce do destino, cancelar e comando “Mover painel para…”. Encaixe livre vem depois da restauração confiável. |
+| 2. Janelas flutuantes e múltiplos monitores | Posterior. Primeiro destacar uma vista de consulta. Fechar a janela ou desconectar o monitor devolve o painel à janela principal. Liberar edição em duas janelas após provar foco, atalhos, escala, rascunho e Undo compartilhados. |
+| 3. Grupos em abas | Integrar as abas existentes e permitir reunir Projeto, Hierarquia, Camadas e Propriedades por tarefa. A aba ativa e o comando para recuperá-la são visíveis. |
+| 4. Divisores e vistas divididas | Integrar divisores existentes com teclado e limites mínimos. Estender para Canvas + Timeline e, no incremento C correspondente, Nós + Código com seleção vinculada. |
+| 5. Presets de workspace | Integrar os presets existentes. Acrescentar salvar, nomear e restaurar disposição pessoal por densidade da tela. Projetos antigos abrem com as preferências reconhecidas. |
+| 6. Laterais recolhíveis e modo ícone | Integrar o recolhimento. Estender com ícones nomeados, foco visível, nomes acessíveis e comando para exibir todas as ferramentas do contexto. |
+| 7. Modo foco | Integrar o modo existente. Ao sair, restaurar larguras, abas, zoom e seleção, inclusive após redimensionar a janela. |
+| 8. Canvas de cena | Integrar. Qualquer objeto compatível usa seleção e manipulação direta. Sonda de câmera e inspeção do jogo têm indicação própria. |
+| 9. Hierarquia | Integrar árvore e busca com “Localizar na cena”, “Selecionar sob o cursor” e retorno a entidades encobertas. |
+| 10. Inspector | Integrar. Primeiro mostrar identidade, alcance e propriedades de uso frequente. A seção Precisão conserva campos, unidades e detalhes técnicos. |
+| 11. Navegador de recursos | Integrar Arquivos e a seleção de recursos numa gaveta contextual com miniaturas, busca por tipo, origem, usos e “Adicionar à cena”. Preservar importação, áudio, modelos e acesso ao arquivo. |
+| 12. Camadas | Integrar `LayerPanel` com a composição efetiva. Separar controles de organização, visualização e ordem exportável conforme §11.3. |
+| 13. Barra contextual | Integrar a barra que já expõe Trajeto, Composição e Paletas. Oferecer verbos como Mover, Girar e Ondular conforme seleção, tipo, alvo e técnica disponível. |
+| 14. Tiles e terreno automático | Integrar pintura de células. Estender com carimbos e regras de vizinhança que exibam o resultado antes da aplicação. Um traço registra uma operação, incluindo as bordas recalculadas. [Referência de regras de terreno no Tiled](https://doc.mapeditor.org/en/stable/manual/automapping/) |
+| 15. Timeline e folha de chaves | Integrar quadros, duração, caixas, eventos e onion skin existentes nos domínios cobertos. Estender para trilhas de propriedades e eventos sobre os mesmos dados. [Referência da timeline do Aseprite](https://aseprite.org/docs/timeline/) |
+| 16. Colisões e hitboxes | Integrar células sólidas e caixas de ataque/dano por ocorrência onde suportadas. Propor gatilhos e polígonos só com forma, consumidor e precisão demonstrados no alvo. |
+| 17. Grade, encaixe e réguas | Integrar grade, guias, réguas e encaixe já presentes no Canvas. Permitir ajuste fino numérico e mostrar em que unidade ou guia o gesto encaixou. |
+| 18. Câmera e paralaxe | Integrar sonda, enquadramento e RetroFX. Estender com zona segura e comparação em movimento entre planos, HUD e sprites. |
+| 19. Alças de transformação | Integrar posição e alças de trajeto. Estender pivô, rotação e escala conforme o domínio. Reta, curva, elipse, velocidade, espera, repetição e ida e volta conservam edição precisa. |
+| 20. Jogar e editar ao vivo | Integrar Teste e o vínculo com a ROM. Um ajuste mostra prévia imediata na autoria. Atualização durante o jogo exige suporte específico. Oferecer “Reconstruir e testar” e retorno ao objeto para as demais operações. |
+| 21. Arrastar recursos | Estender por tipo de destino. Sprite na cena cria instância, recurso sobre um campo compatível cria vínculo, som sobre evento associa som. Destacar resultado e alcance antes de soltar. Oferecer a mesma ação por clique e teclado. |
+| 22. Busca global de comandos | Integrar a paleta existente (`Ctrl+P` ou `Ctrl+Shift+P` por padrão). Ampliar a descoberta por sinônimos como “onda” e “distorção”, e resultados de recursos com origem. Resultados indisponíveis explicam o motivo. |
+| 23. Histórico visual | Estender Undo/Redo com linhas legíveis, objeto, escopo e diferença antes/depois. Uma passagem entre editores preserva a transação do proprietário. Indicar a abrangência quando a edição for de arquivo ou recurso. |
+| 24. Console e desempenho | Integrar log e diagnóstico com filtros e localização da origem. Identificar quadros apresentados pelo frontend, cadência do core e estimativas de VRAM/DMA separadamente. “Draw calls” só cabe a um renderizador instrumentado para essa métrica. |
+
+Para o encaixe e os presets, a referência é a possibilidade de reorganizar por menu, destacar uma vista e recuperar uma disposição conhecida. No RetroDev, a janela única já deve sustentar a jornada completa antes de passar às flutuantes. [Personalização do editor Godot](https://docs.godotengine.org/en/stable/tutorials/editor/customizing_editor.html)
+
+### 11.3 Camadas e efeitos pelo gesto de quem cria
+
+O painel **Camadas** deve responder a três perguntas sem misturar seus efeitos. **A qual grupo pertence?** organiza entidades do projeto. **O que quero inspecionar?** oferece isolar, atenuar e mostrar colisões temporariamente. **O que aparece na frente no jogo?** edita plano, prioridade e ordem compatíveis com o alvo. No código atual, o painel já persiste propriedades de camada, inclusive visibilidade e bloqueio. Mapear os consumidores e preservar o significado dos projetos antigos antes de introduzir filtros locais. Diferenciar o olho de inspeção do comando autoral que afeta a cena.
+
+Exemplo de aceite: isolar a vegetação ajuda a selecionar uma pilastra. Mandar o ator para trás altera a composição nos pixels de sobreposição. Tirar o isolamento restaura a visão do resto da sala. Só a operação de composição deve mudar o jogo. O teste inclui pilastra com vazios, dois atores e câmera em movimento. A pessoa pode comparar antes/depois e conferir o custo de decompor uma região em tiles ou sprites.
+
+| Ferramenta desejada | Gesto e controles revelados | O que implementar ou comprovar no Mega Drive |
+|---|---|---|
+| **Cor transparente** | Escolher a ferramenta e clicar na cor do sprite. Realçar os pixels atingidos, alternar região conectada ou toda a ocorrência e escolher o alcance se a imagem tiver outros usos. | Remapear os pixels selecionados para o índice transparente na arte indexada. Uma variante local preserva os demais usos. Conferir buracos sobre fundo móvel e preservar índices fora da máscara. O ResComp usa o índice 0 na imagem indexada. [SGDK 2.11, ResComp](https://raw.githubusercontent.com/Stephane-D/SGDK/v2.11/bin/rescomp.txt) |
+| **Fantasma** | Ativar e clicar no sprite para experimentar um aspecto translúcido sobre a cena. A prévia pode variar intensidade e exibir a técnica, a aparência em movimento e o custo. | Prototipar uma variante com padrão de pixels alternados (dithering) para densidades discretas. Pesquisar separadamente composição por software e shadow/highlight. Habilitar cada receita depois de observar fundo claro, escuro e móvel no core. A opacidade de trabalho do editor continua um controle de inspeção. |
+| **Girar** | Arrastar a alça em torno do pivô ou digitar o ângulo. Comparar poses, contorno e alinhamento de pés e caixas. | Começar pela rotação de arte e por poses pré-calculadas. Estimar tiles e VRAM adicionais e mostrar o ângulo representável. O atributo de sprite do VDP oferece espelhamento horizontal/vertical. Uma rotação contínua em jogo precisa de técnica e orçamento próprios. [SGDK 2.11, atributos de sprite](https://raw.githubusercontent.com/Stephane-D/SGDK/v2.11/inc/vdp_spr.h) |
+| **Iluminar** | Clicar num objeto para realçar ou pintar uma região de luz. Ajustar força e cor, comparar no cenário e conferir a lista de usos atingidos. | Começar por variante de paleta com o planner vigente. Luz localizada, troca temporária e shadow/highlight têm alcances diferentes. Verificar banco compartilhado, prioridades, restauração e custo na cena composta antes de habilitar a técnica. [SGDK 2.11, modos do VDP](https://raw.githubusercontent.com/Stephane-D/SGDK/v2.11/inc/vdp.h) |
+| **Ondular** | Pintar a faixa de água e arrastar para definir direção e amplitude. A seguir aparecem comprimento de onda, velocidade e fase. O contorno da prévia mostra a extensão efetiva. | Começar com onda horizontal de plano por linha via RetroFX. Se a linha atravessar a margem seca, mostrá-la afetada na prévia. Compor câmera e paralaxe com um cálculo de scroll por plano. Máscara local e onda radial dependem de outra implementação e prova. [SGDK 2.11, rolagem de planos](https://raw.githubusercontent.com/Stephane-D/SGDK/v2.11/inc/vdp_bg.h) |
+
+Três complementos ajudam no uso diário: **Comparar** alterna original e prévia na mesma pose e câmera. **Mostrar usos** localiza quem compartilha uma arte, paleta ou regra antes de aplicá-la. **Ver no jogo** reconstrói a revisão quando necessário e permite voltar ao objeto e ao quadro de origem. Colocar essas ações junto da edição reduz o custo de experimentar e desfazer. Integrá-las às famílias VIS07 já previstas, inclusive carimbos, câmera, paletas e mapa de custos.
+
+### 11.4 Uma animação editada em quatro lugares
+
+1. Em **Cena**, selecionar um ator e abrir **Animação**. A timeline inferior mostra a sequência ativa com miniaturas, duração, cursor de reprodução e loop. Arrastar o cursor exibe a pose na cena. Onion skin, trilhas de eventos e hit/hurt boxes abrem por demanda. O cabeçalho informa se a edição vale para esta instância ou para um recurso compartilhado.
+2. Alongar a segunda ocorrência de **3 para 6 ticks**, arrastando sua borda ou digitando o valor. Mesmo que duas ocorrências usem a mesma imagem, só a indicada muda. Projetar o contrato sobre o dado de animação correspondente, com unidades e arredondamento explícitos. Uma política de reposicionamento de eventos precisa preservar ou explicar o destino de cada marcador.
+3. **Ver origem** abre o parâmetro, nó, recurso ou região de código que governa essa duração. Para um campo com vínculo editável, aplicar **6 para 4** no código atualiza a timeline, o Inspector e a prévia da cena. Essa ligação de duração é uma extensão a implementar e testar. No incremento C atual, o caminho inverso cobre regiões mapeadas de grafos por instância. Onde o build emite dados de recurso, mostrar a origem real desses dados.
+4. Uma edição livre representável como bloco C conserva o texto e sua ligação ao grafo. Texto incompleto fica como rascunho identificado. Um campo visual sem representação fiel oferece “Abrir origem”. Em conflito externo ou resposta antiga, preservar a edição e apresentar a revisão divergente antes de substituir qualquer valor. Em projeto C importado, encaminhar ao editor de fonte/overlay pelo seu contrato próprio.
+5. **Desfazer**, **Refazer**, salvar e reabrir devem reproduzir os valores esperados em todas as vistas. **Testar a cena** constrói e carrega a ROM da revisão escolhida. Ao pausar no core, contar a duração efetiva da pose, verificar o evento e confrontar os pixels com a cena esperada. **Voltar à edição** recupera o ator, o quadro e o zoom.
+
+**Contrato de implementação.** Identificar projeto, cena, instância, recurso, ocorrência/propriedade e revisão pelo proprietário existente. Canvas, Inspector, Nós e Código projetam esse dado. Um gesto produz prévia transitória. Confirmar valida suporte, registra uma mudança no histórico do proprietário e atualiza as vistas abertas. Cancelar restaura o valor anterior. Rejeitar uma resposta de outra revisão preserva inclusive uma instância com o mesmo nome. Para recursos derivados, regenerar/inutilizar por revisão e conservar o original. Distinguir visualmente “prévia atual”, “rascunho”, “salvo”, “ROM anterior” e “executando esta revisão”.
+
+| Área de implementação | Pontos de integração a reutilizar |
+|---|---|
+| Mesa, navegação e busca | [Shell e paleta de comandos](../../src/App.tsx), [presets e densidades](../../src/core/workspaceLayout.ts), [catálogo de áreas](../../src/core/surfaceRegistry.ts) e [atalhos](../../src/core/shortcuts.ts). |
+| Seleção, edição e retorno | [Contexto de estúdio](../../src/core/studioContext.ts), [estado e histórico](../../src/core/store/editorStore.ts), [persistência da cena](../../src/core/scenePersistence.ts) e [composição](../../src/core/sceneComposition.ts). |
+| Ferramentas visuais | [Barra do Canvas](../../src/components/viewport/CanvasAuthoringBar.tsx), [camadas](../../src/components/hierarchy/LayerPanel.tsx), [timeline de personagem](../../src/components/artstudio/CharacterTimelinePanel.tsx), [plano de paletas](../../src/core/palettePlan.ts) e [RetroFX](../../src/components/retrofx/RetroFXDesigner.tsx). |
+| Código e execução | [Documento C](../../src/core/codeDocument.ts), [aplicação por instância](../../src/core/codeEditApply.ts), [vínculos do compilador](../../src-tauri/src/compiler/code_binding.rs), [suporte por plataforma](../../src-tauri/src/compiler/platform_support.rs) e [vínculo com a ROM](../../src/core/runtimeLink.ts). |
+
+### 11.5 Acabamento visual e acessibilidade
+
+- Adotar a tipografia, a iconografia e os temas do produto. Reservar maior contraste à seleção, ao foco e à ação principal. Usar texto e forma para distinguir editando, executando, pendente e Experimental. Manter a arte com pixels nítidos em zoom inteiro e separar a área fora da câmera da imagem entregue ao jogo.
+- Usar verbos da tarefa em português. **“Ondular água”** abre uma prévia com bom valor inicial. **“Precisão”** revela amplitude em pixels, comprimento em pixels e velocidade com unidade. Presets devem preencher parâmetros editáveis. A pessoa pode digitar o valor, navegar por teclado ou alterar o gesto.
+- Manter títulos de painéis, linha de propriedades e alinhamento de valores consistentes. Reservar tamanho legível ao texto de ajuda e números estáveis durante arraste. Agrupar ações repetidas no mesmo local. Escolher uma só ação primária por contexto. Devolver o foco ao acionador ao fechar a gaveta, conservar o foco nos campos durante atualizações e respeitar movimento reduzido.
+- Oferecer alternativa de ponteiro sem arraste para encaixar, reordenar quadros e mover entidades. Testar foco visível, nomes em leitor de tela, contraste, alvos de ponteiro de pelo menos 24×24 CSS px ou espaçamento equivalente, 125% de escala e operação sem cor. Avaliar a acessibilidade com pessoas e com tecnologia assistiva. [WCAG 2.2, novos critérios de interação](https://www.w3.org/WAI/standards-guidelines/wcag/new-in-22/)
+
+### 11.6 Sequência e aceite
+
+| Ordem dentro da frente atual | Entrega observável | Critério para avançar |
+|---|---|---|
+| 1. Conservar e medir · S00–S01, EC atual | Qualificar o host e o incremento C. Capturar no Tauri o caminho atual de abrir, editar e testar. Registrar, por capacidade, acesso, proprietário, alvo e prova anterior. Medir também a pessoa que já domina o editor. | Reproduzir os cenários de rascunho e instâncias gêmeas do C. Identificar quem grava cada campo, cada revisão e todos os acessos que a alteração deve preservar. |
+| 2. Entregar a primeira jornada · S02–S04, VIS01/VIS04 | Usar os painéis atuais para a jornada de duração da pose (§11.4), por clique e teclado, antes de generalizar o encaixe. Fase original MD, duas instâncias e duas ocorrências da mesma imagem. | 3→6→4 ticks coerentes nas vistas vinculadas e no core. Uma operação por edição. Cancelar, desfazer, reabrir e retorno ao objeto corretos. Testar campo livre, projeto legado e resposta atrasada. |
+| 3. Compor uma fase · S02–S05 | Consolidar presets, abas, gaveta, histórico e ações de recursos. Montar dois planos, ator animado, câmera, colisão e uma plataforma com trajeto. Pintar células e testar. | Fase simples e variante densa utilizáveis em 1366×768 e 949×593. Dez alternâncias entre áreas conservam foco e seleção. Isolamento e disposição conservam a cena. Prioridade, movimento, colisão e tempo chegam à ROM. |
+| 4. Ferramentas e composição · S05–S09, VIS02–08, PLAY01–06 | Entregar cor transparente e variantes de rotação, luz, água e Fantasma por técnica. Adicionar terrenos automáticos, trilhas e gatilhos conforme seus contratos. Encaixar grupos livremente na janela principal quando os presets estiverem estáveis. | Para cada técnica, uma região/instância afetada e outra de controle, ida/volta, orçamento e efeito no core. Depois testar efeitos combinados, câmera ativa, entrada e áudio. Validar os custos nas condições do alvo. |
+| 5. Validar o conjunto e expandir a mesa · S09–S10 | Fechar a avaliação humana e a regressão dos caminhos anteriores. Avaliar janelas nativas e multimonitor depois de a janela única cumprir a jornada. | Monitor removido, DPI misto, fechamento e reabertura, duas janelas com edição pendente, uma única execução e histórico consistente. Qualificar Linux e Windows conforme o gate. Preservar a compatibilidade SNES já coberta e documentar suporte distinto por técnica. |
+
+Usar o [roteiro de validação humana existente](ROTEIRO_VALIDACAO_HUMANA.md). Em projetos equivalentes, alternar a ordem entre interface atual e candidata. Pedir a iniciantes e experientes para ajustar uma pose, passar um ator atrás da pilastra e modificar a ondulação enquanto a câmera acompanha o jogo. Registrar conclusão sem ajuda, tempo até a primeira prévia e até a ROM, trocas de painel, retornos à seleção errada e capacidade de desfazer. Proposta de aceite para o piloto: zero perda de edição ou troca de instância, iniciantes completam o percurso principal sem orientação e a mediana de trocas de painel cai sem piorar o tempo dos experientes. Publicar também tentativas incompletas, tamanho da amostra e causas observadas.
+
+A saída de cada lote registra o SHA do candidato, a cena usada, o que foi visto no Tauri, a revisão/SHA da ROM carregada e as limitações do alvo. Para o lote documental de 24/11, a próxima ação executável permanece a qualificação já registrada. A primeira mudança de interface proposta depois dela é a jornada de uma animação no Canvas.
+
+<a id="referencia-visual-20261124"></a>
+
+### 11.7 Referência visual para conferência futura · 24/11/2026
+
+Por solicitação do operador, fica preservado o conjunto **Maré Alta / Porto das Lanternas**, produzido com ImageGen a partir do plano e do prompt presentes em `b434edea5c17`. As 12 imagens conceituais usam a personagem Lia para relacionar as telas. Poses, parâmetros, revisões de ROM e medições desenhadas são exemplos de design. A implementação deve ser conferida no Tauri e, quando a mudança afetar o jogo, na ROM identificada.
+
+| Imagem | O que comparar na implementação |
+|---|---|
+| `01-cena.png` | Ao selecionar Lia, a navegação global continua acessível. Propriedades, Canvas e Camadas identificam o mesmo objeto. |
+| `02-animacao.png` | O segundo quadro da corrida mostra 4 ticks, pé de apoio, âncoras e prévia no cenário. |
+| `03-arte.png` | Editar a borda do tile de água preserva o contexto da paleta e permite conferir a emenda na repetição 3×3. |
+| `04-arquivos.png` | Substituir a arte mostra o recurso anterior, o novo, as ocorrências e o alcance da mudança. |
+| `05-logica.png` | A coleta do anel liga condição, contador, brilho e som. O atraso sonoro aparece também na sequência temporal. |
+| `06-codigo.png` | A edição vinculada à segunda ocorrência mostra os mesmos 4 ticks da timeline e oferece retorno à cena. |
+| `07-efeitos.png` | A comparação da água indica o plano, a faixa afetada e os parâmetros da ondulação. |
+| `08-teste.png` | A revisão carregada, os controles de execução e a prévia dos extremos do HUD têm identificação própria. |
+| `09-depurar.png` | O quadro pausado apresenta os dois saltos, seus pontos de saída, ápice e pouso e a origem das medidas e estimativas. |
+| `10-workspace.png` | A timeline destacada conserva o contexto e mostra onde reencaixar o painel e restaurar a disposição. |
+| `11-terreno.png` | A faixa pintada com gelo, sua regra e o trajeto da plataforma podem ser conferidos diretamente no Canvas. |
+| `12-efeitos-sprite.png` | Recorte por cor, Fantasma, giro e luz podem ser comparados sobre a mesma cena, com alcance e técnica visíveis. |
+
+**Onde abrir.** A pasta privada `sessions/mockups-workspace-20261124/` fica no runtime do projeto. Neste host, o caminho é `$HOME/RetroDevStudio-work/sessions/mockups-workspace-20261124/`. Abra `galeria.html` para ampliar cada tela ou `prancha-geral.png` para ver o conjunto. O arquivo `retrodev-studio-mockups.zip` contém essas duas peças e os 12 PNGs individuais. Uma segunda cópia do ZIP e do manifesto foi gravada e relida no cartão WindowsSD, em `Documents/RetroDevStudio-Mockups-20261124` do perfil Deck. O NVMe e o cartão foram identificados como dispositivos distintos.
+
+**Como verificar e recuperar.** O ZIP tem 27.533.064 bytes e SHA-256 `8c2fbc595081f0fe76a152922a92621dd79c6248be842f01c3902b9143fa0f1b`. O [manifesto versionado](../../data/studio_grafico/mockups-workspace-20261124.sha256) identifica os 15 arquivos. Para recuperar, copie o ZIP para uma pasta vazia, confira seu SHA-256, extraia os 14 itens nessa pasta e conserve o ZIP junto deles. Na pasta da galeria completa, execute o comando abaixo com o caminho para o manifesto do checkout. No registro de 24/11, os arquivos da galeria e todas as entradas da cópia do cartão foram verificados.
+
+```bash
+sha256sum -c /home/deck/Projects/RetroDevStudio/data/studio_grafico/mockups-workspace-20261124.sha256
+```
+
+**Como usar na revisão.** Coloque a imagem correspondente ao lado da captura da mesma tarefa no candidato. Registre nome da imagem, SHA do candidato, sistema, escala da interface, gesto executado e divergência observada. Confira acesso, precisão, escopo, reversibilidade e retorno à seleção. Para a jornada de animação, use as imagens 01, 02, 06 e 08 em sequência e registre a duração efetivamente observada no core. A aceitação de usabilidade permanece vinculada ao roteiro humano do projeto.
+
+Para abrir a mesa de conferência, execute `node scripts/qa/review-workspace.mjs --referencias`. O programa verifica os 12 PNGs e gera uma página local na pasta de sessões. Depois da captura, passe o caminho de um JSON de rodada ao mesmo comando. Use uma rodada por binário, sistema, área útil e escala. Os caminhos no JSON são relativos à pasta dele. A página mostra os pares que já têm captura e permite ampliar as imagens. O registro anexo guarda os hashes dos dois lados e do executável. A avaliação funcional e os resultados da ROM entram no relatório do teste correspondente.
+
+```json
+{
+  "commit": "<SHA Git completo do candidato testado>",
+  "binary": "<caminho do executável usado na rodada>",
+  "system": "Windows 11",
+  "viewport": [1366, 768],
+  "scalePercent": 125,
+  "screens": [{
+    "name": "02-animacao.png",
+    "capture": "<caminho do PNG capturado no Tauri>",
+    "gesture": "<gesto executado sobre a segunda ocorrência>",
+    "observation": "<resultado observado e divergência, se houver>"
+  }]
+}
+```
+
+Para revisar artefatos de outro host, o campo `nativeReport` aceita o relatório JSON do cenário E2E. Ele fornece o hash do executável e identifica as capturas que podem ser usadas. Mantenha os PNGs com o nome gravado no relatório e ao lado dele ao extrair o artefato da CI. Se informar também `binary`, os hashes do executável e do relatório precisam concordar. Em uma linha de base histórica, use `"purpose": "baseline"`. Os campos `viewport` e `scalePercent` aceitam `null` nesse caso quando a medição estiver ausente.
+
+Em 24/11 o operador autorizou a execução do [prompt integral](../handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#prompt-entrega-integral-workspace) e pediu a comparação de cada tela com estes 12 mockups. A execução começa pelo aceite do editor C em Linux e Windows. As cinco vistas complementares do plano de 08/11 seguem como propostas para revisão visual com o operador.
+
+### Conferência do reagrupamento por propósito de uso
+
+A rodada de 25/11/2026 conserva a navegação global à esquerda e as abas da área atual. No cabeçalho ficam projeto, comandos comuns e execução. A partir de 1480 px esses grupos ocupam uma linha. O guia da área abre por botão e teclado. As dicas dos ícones aparecem ao apontar ou focar. Comandos de edição da cena, de visualização e de transporte do jogo ficam junto da superfície que controlam.
+
+| Referência | Onde conferir |
+| --- | --- |
+| 01 · Cena | Selecionar, pintar, apagar e editar colisão junto ao palco. Zoom e enquadramento abaixo. Hierarquia e Camadas continuam acessíveis na lateral. |
+| 02 · Animação | Selecionar a segunda ocorrência na timeline e abrir seu atlas. Para um sprite sem atlas vinculado, usar **Abrir editor de pixels**. |
+| 03 · Arte | No editor de pixels, escolher um documento de plano, abrir Tiles e inspecionar a emenda. |
+| 04 · Arquivos | Abrir o catálogo pela navegação global e atualizar os arquivos do projeto. |
+| 05 · Lógica | Abrir Nós e expandir o compositor para editar as etapas. Conferir o tempo da segunda etapa. |
+| 06 · Código | Alternar para a projeção da instância pelo mesmo contexto de Lógica. |
+| 07 · Efeitos | Abrir Ondular no RetroFX e consultar os parâmetros da faixa. |
+| 08 · Teste | Compilar e executar. Em Teste, usar o transporte junto da ROM, F8 para pausar ou retomar e F10 para avançar um quadro em pausa. |
+| 09 · Depurar | Abrir a depuração da sessão e os instrumentos de leitura do movimento. |
+| 10 · Workspace | Aplicar a disposição Animar, destacar a timeline e devolver o painel ao dock. |
+| 11 · Terreno | Escolher Colisão, Materiais e Areia. O pincel fica junto da pintura e a regra tem controles de precisão no Inspetor. Com o Inspetor indisponível, os controles continuam junto da cena. |
+| 12 · Efeitos de sprite | No documento de sprite, abrir Cores e a prévia Fantasma. |
+
+No Deck, com a mesma sala a 1920 × 1080 e escala 1×, o cabeçalho passou de 89 para 49 px. O canvas da cena manteve 560 × 392 px e seu topo passou de Y=513 para Y=419. A 1366 × 768, a navegação global mediu 88 px, sem transbordamento horizontal. O ensaio abriu o guia por teclado e leu a dica de Salvar com Ctrl+S ao focar o botão. As medições estão em `sessions/capturas-fullhd-VylAf5j6/cena.json` e `sessions/workspace-purpose-OZJMocUH/final/`. Os estados de edição dependem da seleção e dos recursos do projeto aberto.
+
+A [rodada Windows de c69f4c5](https://github.com/Misael-art/retro-dev-studio/actions/runs/45742512368) percorreu as doze vistas e as janelas destacadas. No Genesis Plus GX a ROM editada de 131072 bytes teve SHA-256 `6773cb9df1a725e4797e53de17d783bde1f9bf484db66844bf6f9962cceebefd`. A resposta do material, os passos, o encaixe da lanterna e os eventos foram comparados com a ROM de controle. A primeira captura da volta a Teste revelou que a janela podia perder a imagem da fase pausada ao recriar o canvas.
+
+O candidato `4ebd242` recupera o framebuffer da ROM pausada ao reabrir Teste. As [doze vistas e as janelas destacadas passaram no Tauri Windows](https://github.com/Misael-art/retro-dev-studio/actions/runs/45744555953). O executável tem SHA-256 `b7f8362e4466b5322268216f6a862abebdce612e30b7dfdde578e51749d7438f`. A ROM editada repetiu o hash acima. Ao voltar da edição para Teste, os pixels no canvas e no core tiveram SHA-256 `7e46be48805a7374efd708b0de2c13a1237dd8ff6059d3139bf8515e5f9fdd0a` e o core permaneceu no quadro 258. As 12 capturas têm área útil de 1920 × 1080, escala 1× e cabeçalho de 49 px, sem transbordamento horizontal da janela. O compositor foi capturado expandido.
+
+A mesa local com os 12 pares está em `sessions/conferencia-workspace-rzgmvN/index.html`. Para reproduzir, execute o workflow **Desktop E2E** com `target=advanced-authoring`, preserve o relatório `advanced-flash` e os PNGs `-mesa-`, e use a rodada com `scripts/qa/review-workspace.mjs`. O JSON desta conferência está em `sessions/workspace-purpose-OZJMocUH/validado/windows-45744555953/rodada.json`. O inventário nos componentes alterados conservou os 487 identificadores de teste registrados antes da reorganização. A visita nativa verificou comandos por tarefa. As vistas de Arte e Efeitos de sprite usam um documento sem atlas vinculado. Usabilidade por participantes e dois monitores físicos continuam em aberto.
+
+O Tauri Linux de `4ebd242` também percorreu as 12 vistas no Deck. A mesa fica em `sessions/conferencia-workspace-iRwwjc/index.html`. Ao abrir Areia com oito células, o palco manteve posição e dimensões. Na sala simples, Build & Run compilou 524288 bytes e o Genesis Plus GX carregou o mesmo SHA-256 do arquivo, `e02491ed86cb4e0f61ea4e96828cdca07543185bc29a4a3e84a5a222aeccc2cd`. F8 pausou no quadro 33 e F10 levou ao 34. Ao sair e retornar a Teste, o framebuffer permaneceu idêntico. O executável é `04cf979aad1a47f54bff5974b11e61844336cc0969adc6a5003f38e7a54167c9`. O recibo de execução está em `sessions/workspace-purpose-OZJMocUH/validado/rom.json`. O diagnóstico do host foi READY. O Fôlego adiou a recertificação completa local pelo limite de RAM após a carga prevista.
+
+A [regressão desktop completa do mesmo candidato](https://github.com/Misael-art/retro-dev-studio/actions/runs/45744556808) passou no Windows, incluindo Mega Drive, SNES e edições C compartilhadas e por instância.

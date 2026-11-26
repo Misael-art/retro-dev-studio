@@ -92,11 +92,15 @@ RetroDevStudio/
 |   |   |   |-- ImageIngress.tsx (entrada única de imagens/GIF por colar, soltar e seletor; fluxo Experimental MD)
 |   |   |   |-- PixelEditor.tsx (editor indexado MD: desenho, contexto, histórico/salvar, CRAM, frames/layers)
 |   |   |   |-- PixelImagePanel.tsx (controles por tarefa/prévias de imagem, filtros, composição e diagnóstico de tiles)
+|   |   |   |-- PixelDeformationPanel.tsx (ferramentas de transformação, medidas, alcance e custo de tiles/cores)
+|   |   |   |-- PixelTransformHandles.tsx (alças de escala e curvatura sobre a célula)
+|   |   |   |-- PixelFrameCanvas.tsx (mesma pose composta no palco, alças e miniaturas)
 |   |   |   `-- useSpriteAnimator.ts
 |   |   `-- viewport/
 |   |-- core/
 |   |   |-- pixelEditor.ts (modelo indexado: ferramentas, limites VDP/tiles, guardas PNG 4-bit, .rdspixel.json)
 |   |   |-- pixelImageOps.ts (operações puras no mesmo PixelDoc: escopo, filtros, geometria, composição e layers; regressões .test.ts)
+|   |   |-- pixelDeformation.ts (amostragem da seleção e isolamento entre ocorrências do atlas; regressões .test.ts)
 |   |   |-- imageIngress.ts (transporte, publicação pelo writer de pixels e propostas pelo plano canônico de paletas)
 |   |   |-- ipc/
 |   |   |-- nodegraph/
@@ -173,6 +177,7 @@ RetroDevStudio/
 |-- scripts/
 |   |-- bootstrap.ps1
 |   |-- host-manager.mjs
+|   |-- host-resource-monitor.mjs (sonda local de CPU, memória/paginação, I/O, discos, temperatura e processos; não substitui readiness)
 |   |-- host-manager.test.mjs
 |   |-- architecture-metrics.mjs
 |   |-- architecture-metrics.test.mjs
@@ -247,6 +252,7 @@ RetroDevStudio/
 - `scripts/run-cargo-msvc.cmd` e o wrapper canonico para comandos `cargo` em ambiente MSVC preparado no Windows institucional.
 - `scripts/e2e-tauri-build-run.mjs` e o runner canonico de regressao desktop/Tauri para `Build -> Load ROM -> Run frames` e grava evidencia de sucesso por commit/cenario/target.
 - `scripts/host-manager.mjs` e a fonte canonica cross-platform para `host:diagnose`, `host:ensure` e `host:certify`; os bootstraps Bash/PowerShell permanecem entrypoints de nivel zero quando Node ainda nao existe.
+- `scripts/host-resource-monitor.mjs` e uma sonda operacional read-only, cross-platform, disparada por `npm run host:monitor`; registra amostras JSONL locais fora do checkout e separa folga de recursos do veredito de readiness do `host-manager`. PSI/paginação/sensores ausentes ficam desconhecidos; a sonda não inicia nem encerra processos.
 - `scripts/new-host.sh` / `scripts/new-host.ps1` sao launchers de retomada em host vazio; delegam instalacao aos bootstraps existentes. `scripts/new-host.mjs` coordena ambiente por processo, disco/jobs, recibos e comandos canonicos (sem novo instalador de SDK). `scripts/new-host.test.mjs` cobre falhas/isolamento. Onboarding em `docs/handoffs/NOVO_HOST_INICIO.md`; gerados vivem fora do checkout, nos caches nativos e na pasta de trabalho do operador, nunca em uma nova raiz versionada.
 - `scripts/license-inventory.mjs`, `scripts/security-contract.test.mjs` e `NOTICE` formam o inventario/politica de seguranca e redistribuicao; nenhum deles autoriza redistribuir cores/toolchains.
 - `scripts/architecture-metrics.mjs` registra a linha de base de acoplamento; `scripts/release-rehearsal-linux.mjs` agrega evidencia Linux sem autorizar release publico.
@@ -259,6 +265,7 @@ RetroDevStudio/
 - `docs/09_AGENT_DEV_MODE.md` consolida a hierarquia de verdade, os gates e as regras anti-poluicao para agentes.
 - `docs/06_CURRENT_WAVE_AI_BANK.md` e o arquivo de memoria ativa do agente para a wave corrente (Wave S+); `docs/06_AI_MEMORY_BANK.md` continua sendo a entrada canonica e pode redirecionar para a wave ativa; `docs/06_AI_MEMORY_BANK_WAVE_A_R.md` guarda o historico das waves A-R para consulta pontual.
 - `.github/workflows/ci.yml` e o baseline canonico de validacao automatizada do projeto e deve ser mantido verde em mudancas relevantes.
+- Editor de codigo C/SGDK (Experimental, incremento 1 em 2026-11-10): `src-tauri/src/compiler/code_binding.rs` (projecao do documento, transacoes e recibos; comandos IPC `code_document_project`/`code_edit_analyze`), evolucao v2 de `compiler/build_provenance.rs` (vinculos por instancia), `src/core/codeDocument.ts` (contratos `CodeDocument`/`CodeBinding`/`CodeEditTransaction`), `src/core/codeEditApply.ts` (aplicacao pelo `editorStore`), `src/core/ipc/codeDocumentService.ts` e `src/components/nodegraph/InstanceCodeView.tsx` (vista «Codigo» da Logica). Sem store, motor ou pipeline de build paralelos; rascunhos de codigo vivem no grafo (`codeDrafts`).
 
 ## Planejamento paralelo e avaliações históricas
 

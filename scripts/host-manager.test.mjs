@@ -24,6 +24,7 @@ import {
   readManifest,
   resolveCommand,
   repoRoot,
+  spawnHostCommand,
   stableJson,
   validateManifest,
 } from "./host-manager.mjs";
@@ -39,6 +40,7 @@ const posixIt = process.platform === "win32" ? it.skip : it;
 // operacional do caminho Windows permanece no desktop-smoke com as ferramentas
 // reais do host.
 const posixCommandFixtureIt = process.platform === "win32" ? it.skip : it;
+const windowsIt = process.platform === "win32" ? it : it.skip;
 
 const tempDirs = [];
 
@@ -339,6 +341,60 @@ describe("host requirements contract", () => {
 });
 
 describe("host detection and probes", () => {
+  windowsIt("extracts an offline ZIP stored under its checksum without an extension", () => {
+    const cache = tempDir();
+    const fixture = path.join(cache, "Pacote de teste");
+    mkdirSync(fixture);
+    writeFileSync(path.join(fixture, "fixture.txt"), "windows zip fixture\n", "utf8");
+    const zip = path.join(cache, "fixture.zip");
+    const pack = spawnSync("tar.exe", ["-a", "-cf", zip, "-C", fixture, "fixture.txt"], { encoding: "utf8" });
+    expect(pack.status, pack.stderr).toBe(0);
+
+    const contents = readFileSync(zip);
+    const sha256 = createHash("sha256").update(contents).digest("hex");
+    const artifact = { id: "windows-zip-fixture", platform: "win32", arch: "x64", version: "1", format: "zip", size: contents.length, sha256 };
+    const portable = path.join(repoRoot, "toolchains", ".cache", "artifacts", sha256);
+    const target = path.join(cache, "objects", sha256);
+    mkdirSync(path.dirname(portable), { recursive: true });
+    writeFileSync(portable, contents, { flag: "wx" });
+    try {
+      const requirement = { id: artifact.id, install: { kind: "artifact", artifact: artifact.id, target } };
+      const env = { ...process.env, RDS_HOST_CACHE: cache };
+      const context = { repo: repoRoot, host: { platform: "win32", arch: "x64" }, hostCache: cache, env, pathEnv: env.PATH, manifest: { artifacts: [artifact] } };
+      expect(installRequirement(requirement, context, { offline: true })).toMatchObject({ ok: true, target });
+      expect(readFileSync(path.join(target, "fixture.txt"), "utf8")).toBe("windows zip fixture\n");
+    } finally {
+      rmSync(portable);
+    }
+  });
+
+  windowsIt("runs a command shim from PATH and by absolute path with spaces and Unicode", () => {
+    const project = tempDir();
+    const directory = path.join(project, "Ferramentas de criação");
+    const shim = executable(directory, "npm.cmd", '@echo off\r\nif "%~1"=="argument with spaces" exit /b 0\r\nif not "%~1"=="--version" exit /b 9\r\necho 11.16.0\r\n');
+    executable(directory, "npm", "exit 99");
+    const env = { ...process.env, RDS_HOST_TEST_PATH: directory };
+    const context = { repo: project, hostCache: project, host: { platform: "win32" }, pathEnv: directory, env };
+    const requirement = { id: "npm", label: "npm", probe: { kind: "command", names: ["npm"], version_pattern: "^11\\.16\\.0$" } };
+
+    expect(probeRequirement(requirement, context)).toMatchObject({ status: "ready", path: shim, version: "11.16.0" });
+    expect(spawnHostCommand("npm.cmd", ["--version"], { cwd: project, env })).toMatchObject({ status: 0 });
+    expect(spawnHostCommand(path.relative(project, shim), ["--version"], { cwd: project, env })).toMatchObject({ status: 0 });
+    expect(spawnHostCommand(shim, ["argument with spaces"], { cwd: project, env })).toMatchObject({ status: 0 });
+    expect(spawnHostCommand(shim, ["argument", "with", "spaces"], { cwd: project, env })).toMatchObject({ status: 9 });
+    expect(spawnHostCommand(shim, ["a&b"], { cwd: project, env }).error?.message).toBe("unsafe_windows_shell_argument");
+    expect(spawnHostCommand(path.join(directory, "missing.cmd"), [], { cwd: project, env }).error?.message).toBe("windows_command_shim_not_found");
+  });
+
+  it("matches the Edge driver against the WebView2 build used by Tauri", () => {
+    const runtime = { route: "webview2", version: "157.0.4341.46" };
+    const driver = { applicable: true, status: "ready", path: "msedgedriver.exe", version: "MSEdgeDriver 157.0.4341.55" };
+
+    expect(browserDriverCompatible(runtime, driver)).toBe(true);
+    expect(browserDriverCompatible(runtime, { ...driver, version: "MSEdgeDriver 157.0.4340.46" })).toBe(false);
+    expect(browserDriverCompatible(runtime, { ...driver, path: "chromedriver.exe" })).toBe(false);
+  });
+
   it("supports only the declared Windows and Arch-family x64 hosts", () => {
     const { manifest } = readManifest(defaultManifestPath);
 
@@ -369,22 +425,24 @@ describe("host detection and probes", () => {
 
   posixCommandFixtureIt("finds MSVC through vswhere when cl.exe is not on the ordinary PATH", () => {
     const directory = tempDir();
-    const vswhere = executable(directory, "vswhere.exe", "#!/bin/sh\nprintf '%s\\n' \"$RDS_TEST_CL_PATH\"\n");
-    const clPath = path.join(directory, "Visual Studio Build Tools", "VC", "Tools", "MSVC", "14.44", "bin", "Hostx64", "x64", "cl.exe");
+    const installer = path.join(directory, "Microsoft Visual Studio", "Installer");
+    const vswhere = executable(installer, "vswhere.exe", "#!/bin/sh\nprintf '%s\\n' \"$RDS_TEST_CL_PATH\"\n");
+    const clPath = path.join(directory, "Microsoft Visual Studio", "BuildTools", "VC", "Tools", "MSVC", "14.44", "bin", "Hostx64", "x64", "cl.exe");
     executable(path.dirname(clPath), "cl.exe", "#!/bin/sh\nprintf 'Microsoft (R) C/C++ Optimizing Compiler Version 19.44\\n'\n");
 
-    const result = probeRequirement(
-      { id: "msvc", label: "MSVC", probe: { kind: "command", names: ["cl.exe"], version_args: [] } },
-      {
-        repo: directory,
-        hostCache: directory,
-        host: { platform: "win32", arch: "x64" },
-        pathEnv: directory,
-        env: { PATH: directory, RDS_VSWHERE_PATH: vswhere, RDS_TEST_CL_PATH: clPath },
-      },
-    );
-
-    expect(result).toMatchObject({ status: "ready", path: clPath, installed: true });
+    for (const discovery of [{ "ProgramFiles(x86)": directory }, { RDS_VSWHERE_PATH: vswhere }]) {
+      const result = probeRequirement(
+        { id: "msvc", label: "MSVC", probe: { kind: "command", names: ["cl.exe"], version_args: [] } },
+        {
+          repo: directory,
+          hostCache: directory,
+          host: { platform: "win32", arch: "x64" },
+          pathEnv: directory,
+          env: { PATH: directory, RDS_TEST_CL_PATH: clPath, ...discovery },
+        },
+      );
+      expect(result).toMatchObject({ status: "ready", path: clPath, installed: true });
+    }
   });
 
   it("reports MSVC as missing when neither PATH nor Visual Studio discovery provides cl.exe", () => {

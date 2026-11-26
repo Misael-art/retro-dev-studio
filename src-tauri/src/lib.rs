@@ -450,7 +450,7 @@ fn generate_c_code(project_dir: String) -> GenerateResult {
             (o.main_c, o.resources_res)
         }
     };
-    let source_map = build_source_map(&resolved_scene, &project.target, &main_c);
+    let source_map = build_source_map(&project.name, &resolved_scene, &project.target, &main_c);
     GenerateResult {
         ok: true,
         main_c,
@@ -4271,7 +4271,9 @@ pub struct SceneDataResult {
     pub scene_json: String, // JSON da cena serializado
     pub project_name: String,
     pub target: String,
+    pub project_fps: Option<u32>,
     pub scene_path: String,
+    pub studio_context_json: Option<String>,
     pub source_kind: String,
     pub legacy_sgdk_index: Option<LegacySgdkIndex>,
 }
@@ -4358,7 +4360,9 @@ fn switch_scene_impl(project_dir: String, scene_path: String) -> SceneDataResult
             scene_json: String::new(),
             project_name: String::new(),
             target: String::new(),
+            project_fps: None,
             scene_path,
+            studio_context_json: None,
             source_kind: String::new(),
             legacy_sgdk_index: None,
         };
@@ -4375,7 +4379,9 @@ fn load_scene_result(project_dir: &Path, scene_path: Option<&str>) -> SceneDataR
             scene_json: String::new(),
             project_name: String::new(),
             target: String::new(),
+            project_fps: None,
             scene_path: String::new(),
+            studio_context_json: None,
             source_kind: String::new(),
             legacy_sgdk_index: None,
         };
@@ -4391,7 +4397,9 @@ fn load_scene_result(project_dir: &Path, scene_path: Option<&str>) -> SceneDataR
                 scene_json: String::new(),
                 project_name: String::new(),
                 target: String::new(),
+                project_fps: None,
                 scene_path: String::new(),
+                studio_context_json: None,
                 source_kind: String::new(),
                 legacy_sgdk_index: None,
             }
@@ -4427,20 +4435,31 @@ fn load_scene_result(project_dir: &Path, scene_path: Option<&str>) -> SceneDataR
                 scene_json: String::new(),
                 project_name: project.name,
                 target: project.target,
+                project_fps: Some(project.fps),
                 scene_path: resolved_scene_path,
+                studio_context_json: None,
                 source_kind,
                 legacy_sgdk_index,
             }
         }
     };
     let scene_json = serde_json::to_string_pretty(&scene).unwrap_or_default();
+    let studio_context_json = match core::scene_save::read_context(&dir, &resolved_scene_path) {
+        Ok(context) => context,
+        Err(error) => {
+            eprintln!("[get_scene_data] contexto do editor indisponível: {error}");
+            None
+        }
+    };
     SceneDataResult {
         ok: true,
         error: String::new(),
         scene_json,
         project_name: project.name,
         target: project.target,
+        project_fps: Some(project.fps),
         scene_path: resolved_scene_path,
+        studio_context_json,
         source_kind,
         legacy_sgdk_index,
     }
@@ -4615,6 +4634,7 @@ async fn save_scene_data(
     resolved_scene_json: Option<String>,
     expected_scene_json: Option<String>,
     expected_graphs: Option<BTreeMap<String, String>>,
+    studio_context_json: Option<String>,
 ) -> Result<SceneSaveResult, String> {
     run_heavy_result_command("save_scene_data", move || {
         Ok(save_scene_data_impl(
@@ -4624,6 +4644,7 @@ async fn save_scene_data(
             resolved_scene_json,
             expected_scene_json,
             expected_graphs,
+            studio_context_json.as_deref(),
         ))
     })
     .await
@@ -4636,6 +4657,7 @@ fn save_scene_data_impl(
     resolved_scene_json: Option<String>,
     expected_scene_json: Option<String>,
     expected_graphs: Option<BTreeMap<String, String>>,
+    studio_context_json: Option<&str>,
 ) -> SceneSaveResult {
     let mut conflict_json = None;
     let mut graphs = BTreeMap::new();
@@ -4686,8 +4708,15 @@ fn save_scene_data_impl(
             writes = collect_external_graph_refs(&dir, &mut scene, &resolved)
                 .map_err(|e| e.to_string())?;
         }
-        core::scene_save::commit(&dir, target, &scene, &writes, &guard)
-            .map_err(|e| e.to_string())?;
+        core::scene_save::commit_with_context(
+            &dir,
+            target,
+            &scene,
+            &writes,
+            studio_context_json,
+            &guard,
+        )
+        .map_err(|e| e.to_string())?;
         let persisted = load_scene(&dir, target).map_err(|e| e.to_string())?;
         graphs = core::project_mgr::external_graph_baseline(&dir, &persisted)
             .map_err(|e| e.to_string())?;
@@ -6669,6 +6698,27 @@ fn parse_input_command_file(path: String) -> Result<Vec<InputCommandDefinition>,
 
 // ── App Builder ───────────────────────────────────────────────────────────────
 
+#[tauri::command]
+fn close_studio_panel(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    panel: &str,
+) -> Result<bool, String> {
+    if window.label() != "main" {
+        return Err("Somente a janela principal pode reencaixar painéis.".into());
+    }
+    let label = match panel {
+        "timeline" => "studio-floating-timeline",
+        "properties" => "studio-floating-properties",
+        _ => return Err("Painel de autoria desconhecido.".into()),
+    };
+    let Some(panel) = app.get_webview_window(label) else {
+        return Ok(false);
+    };
+    panel.destroy().map_err(|error| error.to_string())?;
+    Ok(true)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // WebKitGTK nao repinta bitmaps de <img> em janela destruida/recriada sob
@@ -6678,6 +6728,96 @@ pub fn run() {
 
     tauri::Builder::default()
         .setup(|app| {
+            #[cfg(desktop)]
+            if app.get_webview_window("main").is_none() {
+                use tauri::{webview::NewWindowResponse, WebviewUrl, WebviewWindowBuilder};
+                let handle = app.handle().clone();
+                let config = app
+                    .config()
+                    .app
+                    .windows
+                    .iter()
+                    .find(|window| window.label == "main")
+                    .ok_or("Configuração da janela principal ausente")?;
+                let main = WebviewWindowBuilder::from_config(app, config)?
+                    .on_new_window(move |url, features| {
+                        if cfg!(target_os = "windows") && url.as_str() == "about:blank" {
+                            // The related blank document inherits the opener's origin. A
+                            // separately navigated WebView2 popup cannot resolve Tauri's
+                            // virtual asset host through the opener's resource handler.
+                            return NewWindowResponse::Allow;
+                        }
+                        if url.path() != "/src/studio-panel.html" {
+                            return if matches!(url.scheme(), "http" | "https") {
+                                NewWindowResponse::Allow
+                            } else {
+                                NewWindowResponse::Deny
+                            };
+                        }
+                        let Some(origin) = handle
+                            .get_webview_window("main")
+                            .and_then(|main| main.url().ok())
+                        else {
+                            return NewWindowResponse::Deny;
+                        };
+                        if url.scheme() != origin.scheme()
+                            || url.host_str() != origin.host_str()
+                            || url.port_or_known_default() != origin.port_or_known_default()
+                            || url.fragment().is_some()
+                        {
+                            return NewWindowResponse::Deny;
+                        }
+                        let (label, title) = match url.query() {
+                            Some("panel=timeline") => {
+                                ("studio-floating-timeline", "Timeline · RetroDev Studio")
+                            }
+                            Some("panel=properties") => (
+                                "studio-floating-properties",
+                                "Propriedades · RetroDev Studio",
+                            ),
+                            _ => return NewWindowResponse::Deny,
+                        };
+                        if handle.get_webview_window(label).is_some() {
+                            return NewWindowResponse::Deny;
+                        }
+                        match WebviewWindowBuilder::new(
+                            &handle,
+                            label,
+                            // The runtime skips initial navigation for exactly about:blank.
+                            // WebView2 can then attach the unopened view to the opener's request.
+                            WebviewUrl::External(
+                                "about:blank".parse().expect("URL de painel estática"),
+                            ),
+                        )
+                        .window_features(features)
+                        .title(title)
+                        .inner_size(750.0, 524.0)
+                        .min_inner_size(390.0, 300.0)
+                        .on_navigation(move |next| next.as_str() == "about:blank" || next == &url)
+                        .build()
+                        {
+                            Ok(window) => NewWindowResponse::Create { window },
+                            Err(error) => {
+                                eprintln!("[Janela] Falha ao destacar painel: {error}");
+                                NewWindowResponse::Deny
+                            }
+                        }
+                    })
+                    .build()?;
+                main.on_window_event({
+                    let handle = app.handle().clone();
+                    move |event| {
+                        if matches!(event, tauri::WindowEvent::Destroyed) {
+                            for label in ["studio-floating-properties", "studio-floating-timeline"]
+                            {
+                                if let Some(panel) = handle.get_webview_window(label) {
+                                    let _ = panel.close();
+                                }
+                            }
+                        }
+                    }
+                });
+            }
             if let Some(window) = app.get_webview_window("main") {
                 if let Some(monitor) = window
                     .current_monitor()
@@ -6713,10 +6853,13 @@ pub fn run() {
         .manage(ProjectAssetWatchState::default())
         .manage(ProjectAssetScopeState::default())
         .invoke_handler(tauri::generate_handler![
+            close_studio_panel,
             app_build_identity,
             // Build pipeline
             validate_project,
             generate_c_code,
+            compiler::code_binding::code_document_project,
+            compiler::code_binding::code_edit_analyze,
             build_project,
             build_multi_target,
             validate_scene_draft,
@@ -10494,6 +10637,7 @@ pub extern "C" fn retro_run() {
             Some(hydration.scene_json),
             Some(source_json),
             Some(hydration.graphs),
+            None,
         );
         assert!(!result.ok && result.conflict, "{}", result.message);
         assert_eq!(fs::read_to_string(graph_path).unwrap(), changed);
@@ -10523,6 +10667,7 @@ pub extern "C" fn retro_run() {
             source.to_string(),
             Some("scenes/main.json".into()),
             Some(source.to_string()),
+            None,
             None,
             None,
         );
@@ -10611,6 +10756,7 @@ pub extern "C" fn retro_run() {
             Some(resolved_scene.to_string()),
             None,
             None,
+            None,
         );
         assert!(!invalid.ok);
         assert_eq!(fs::read(&scene_file).unwrap(), scene_before);
@@ -10624,6 +10770,7 @@ pub extern "C" fn retro_run() {
             serde_json::to_string_pretty(&source_scene).expect("serialize source scene"),
             Some("scenes/main.json".to_string()),
             Some(serde_json::to_string_pretty(&resolved_scene).expect("serialize resolved scene")),
+            None,
             None,
             None,
         );
@@ -10649,6 +10796,7 @@ pub extern "C" fn retro_run() {
             Some(resolved_scene.to_string()),
             result.scene_json.clone(),
             Some(stale_graphs),
+            None,
         );
         assert!(!conflict.ok && conflict.conflict);
         assert_eq!(fs::read_to_string(&graph_file).unwrap(), concurrent);
@@ -10674,6 +10822,7 @@ pub extern "C" fn retro_run() {
             Some("scenes/main.json".into()),
             Some(serde_json::to_string(&changed_graph).unwrap()),
             Some(baseline),
+            None,
             None,
         );
         assert!(!refused.ok && refused.conflict);

@@ -519,6 +519,8 @@ mod tests {
             "tileset":"world.png","map_width":32,"map_height":32,"scroll_x":0,"scroll_y":0
         }}})).unwrap());
         let md = emit_sgdk(&generate_ast(&project("megadrive"), &s), "Camera").main_c;
+        assert!(md.contains("VDP_setHorizontalScrollVSync("));
+        assert!(md.contains("VDP_setVerticalScrollVSync("));
         assert!(md.contains("-24 - ((s32)rds_camera_x * rds_camera_ratio_x[0]) / 100"));
         assert!(md.contains("((s32)rds_camera_y * rds_camera_ratio_y[0]) / 100 - 17"));
         let snes = emit_snes(&generate_ast(&project("snes"), &s), "Camera").main_c;

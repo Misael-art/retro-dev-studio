@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const invokeMock=vi.hoisted(()=>vi.fn());
 vi.mock("@tauri-apps/api/core",()=>({invoke:invokeMock}));
-import { applyImageEdits, captureClipboardImage, editableImageTarget, imageFileInput, imageTransferSources, insertImageEntity, MAX_IMAGE_BYTES, pixelDocAnimation, replaceImageBank, type ImageCandidate } from "./imageIngress";
+import { applyImageEdits, atlasUses, captureClipboardImage, editableImageTarget, imageFileInput, imageTransferSources, insertImageEntity, MAX_IMAGE_BYTES, pixelDocAnimation, replaceImageBank, replaceLinkedAtlas, validateImageBinding, type ImageCandidate } from "./imageIngress";
 import { createSpriteEntityFromAsset, createTilemapEntityFromAsset } from "./editorEntityFactory";
 import { createPixelDoc } from "./pixelEditor";
 import type { Scene } from "./ipc/sceneService";
@@ -52,11 +52,63 @@ describe("image ingress", () => {
     const separate = { ...scene, palettes: [{ ...scene.palettes![0], uses: [a.entity_id] }] };
     expect(applyImageEdits(separate, a.entity_id, "copy.png", doc).palettes![0].colors[1]).toBe("#ff0000");
   });
+  it("relinks an atlas copy by image identity and preserves authored data on each occurrence", () => {
+    const edited = sprite("edited"), control = sprite("control");
+    const original = createPixelDoc(16, 16, { frames: 3 });
+    const animation = {
+      frames: [0, 1, 2, 1], fps: 12, loop: false,
+      occurrence_ids: ["o1", "o2", "o3", "o4"], frame_durations: [5, 4, 7, 2],
+      pose_code_drafts: { o2: "duracao = 9" },
+      frame_events: [{ id: "sound", occurrence: "o2", kind: "sound" as const, tick: 2, sound: "passo" }],
+      hitboxes: [{ frame: 1, occurrence_id: "o2", kind: "attack" as const, x: 2, y: 3, width: 4, height: 5 }],
+    };
+    edited.components.sprite!.animations = { idle: animation };
+    edited.components.sprite!.pivot = { x: 8, y: 15 };
+    edited.components.logic = { logic_hints: ["pixel_art:document=original.rdspixel.json", "art_ingress:original=original.gif"] };
+    control.components.sprite!.asset = edited.components.sprite!.asset;
+    control.components.sprite!.animations = { idle: { ...animation, frame_durations: [5, 3, 7, 2] } };
+    control.components.logic = edited.components.logic;
+    const scene: Scene = { scene_id: "scene", entities: [edited, control], background_layers: [] };
+    const reordered = { ...original, frames: [original.frames[2], original.frames[0], original.frames[1]] };
+    const next = applyImageEdits(scene, edited.entity_id, "copy.png", reordered, original, "copy.rdspixel.json");
+    expect(next.entities[0].components.sprite).toMatchObject({
+      asset: "copy.png", pivot: { x: 8, y: 15 },
+      animations: { idle: { ...animation, frames: [1, 2, 0, 2], hitboxes: [{ ...animation.hitboxes[0], frame: 2 }] } },
+    });
+    expect(next.entities[1]).toEqual(control);
+    expect(next.entities[0].components.logic?.logic_hints).toEqual(["art_ingress:original=original.gif", "pixel_art:document=copy.rdspixel.json"]);
+    expect(scene.entities[0].components.sprite?.animations?.idle).toEqual(animation);
+    const missing = { ...original, frames: [original.frames[0], original.frames[2]] };
+    expect(() => validateImageBinding(scene, edited.entity_id, missing, original)).toThrow("O quadro 2");
+    edited.components.sprite!.animations = { passo: animation };
+    const linked = applyImageEdits(scene, edited.entity_id, "copy.png", reordered, original);
+    expect(Object.keys(linked.entities[0].components.sprite!.animations!)).toEqual(["passo"]);
+  });
   it("preserves unequal animation delays and splits long holds without duplicating source frames", () => {
     const doc = createPixelDoc(16,16,{ frames: 3 });
     [40,150,5000].forEach((ms,i) => { doc.frames[i].durationMs = ms; });
     expect(pixelDocAnimation(doc)).toMatchObject({ frames: [0,1,2,2], frame_durations: [2,9,255,45] });
     expect(doc.frames).toHaveLength(3);
+  });
+  it("requires every used image and preserves both poses of a repeated image through atlas replacement", () => {
+    const subject = sprite("subject"), control = sprite("control");
+    const animation = {
+      frames: [0, 1, 1], frame_durations: [3, 6, 4], occurrence_ids: ["o1", "o2", "o3"], fps: 12, loop: false,
+      hitboxes: [{ frame: 2, kind: "attack" as const, x: 2, y: 1, width: 3, height: 4 }],
+    };
+    subject.components.sprite!.animations = { passo: animation };
+    subject.components.logic = { logic_hints: ["action:keep", "pixel_art:document=prior.rdspixel.json"] };
+    control.components.sprite!.asset = subject.components.sprite!.asset;
+    const scene: Scene = { scene_id: "sandbox", entities: [subject, control], background_layers: [] };
+    expect(atlasUses([subject])).toEqual([0, 1, 2]);
+    expect(() => replaceLinkedAtlas(scene, [subject.entity_id], "next.png", new Map([[0, 1], [1, 0]]))).toThrow("quadro 3");
+    const changed = replaceLinkedAtlas(scene, [subject.entity_id], "next.png", new Map([[0, 2], [1, 0], [2, 1]]), "next.rdspixel.json");
+    expect(changed.entities[0].components.sprite!.animations!.passo).toEqual({
+      ...animation, frames: [2, 0, 0], hitboxes: [{ ...animation.hitboxes[0], frame: 1 }],
+    });
+    expect(changed.entities[0].components.logic?.logic_hints).toEqual(["action:keep", "pixel_art:document=next.rdspixel.json"]);
+    expect(changed.entities[1]).toBe(control);
+    expect(subject.components.sprite!.animations!.passo).toBe(animation);
   });
   it("keeps the original GIF URL when a browser also supplies a flattened PNG", () => {
     const png = new File(["png"], "clipboard.png", { type: "image/png" });

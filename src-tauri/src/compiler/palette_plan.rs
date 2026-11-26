@@ -113,7 +113,7 @@ pub struct PlanBank {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PlanSwap {
     pub id: String,
-    /// Disparo: `golpe:<id>` (cada acerto aplicado do golpe autoral).
+    /// Disparo: `golpe:<id>` ou `fluxo` ao executar o nó no grafo.
     pub trigger: String,
     pub target_entity: String,
     pub palette: String,
@@ -204,12 +204,14 @@ fn entry_colors(entry: &PaletteEntry) -> Vec<Option<[u8; 3]>> {
     colors
 }
 
-/// Paletas de troca declaradas nas logicas (`LogicOp::PaletteSwapOnHit`).
-pub fn collect_swaps(ast: &AstOutput) -> Vec<(String, String, String, String, u16, String)> {
-    fn walk(ops: &[LogicOp], out: &mut Vec<(String, String, String, String, u16, String)>) {
+type PaletteSwap = (String, Option<String>, String, String, u16, String);
+
+/// Paletas de troca declaradas nas lógicas (`LogicOp::PalettePulse`).
+fn collect_swaps(ast: &AstOutput) -> Vec<PaletteSwap> {
+    fn walk(ops: &[LogicOp], out: &mut Vec<PaletteSwap>) {
         for op in ops {
             match op {
-                LogicOp::PaletteSwapOnHit {
+                LogicOp::PalettePulse {
                     swap_id,
                     strike_id,
                     target_entity,
@@ -247,6 +249,11 @@ pub fn collect_swaps(ast: &AstOutput) -> Vec<(String, String, String, String, u1
                     walk(if_warn, out);
                 }
                 LogicOp::HardwareEvent { ops, .. } => walk(ops, out),
+                LogicOp::TimelineSequence { slots, .. } => {
+                    for slot in slots {
+                        walk(&slot.actions, out);
+                    }
+                }
                 LogicOp::StateMachine { states, .. } => {
                     for state in states {
                         walk(&state.body, out);
@@ -914,7 +921,7 @@ pub fn plan(
         }
         swaps.push(PlanSwap {
             id: swap_id,
-            trigger: format!("golpe:{strike_id}"),
+            trigger: strike_id.map_or_else(|| "fluxo".into(), |id| format!("golpe:{id}")),
             target_entity,
             palette: palette_id,
             frames,
@@ -926,6 +933,24 @@ pub fn plan(
             off_values,
             ok,
         });
+    }
+    for swap in swaps
+        .iter()
+        .filter(|swap| swap.ok && swap.trigger == "fluxo")
+    {
+        if swaps
+            .iter()
+            .any(|other| other.ok && other.id != swap.id && other.bank == swap.bank)
+        {
+            diagnostics.push(diag(
+                "error",
+                "trocas_disputam_banco",
+                format!("A troca '{}' divide um banco com outra troca temporária. As duas restaurações podem interferir.", swap.id),
+                swap.affected_uses.clone(),
+                vec![swap.palette.clone()],
+                vec!["Usar bancos distintos", "Concentrar o efeito em uma troca"],
+            ));
+        }
     }
 
     let mut entity_banks = BTreeMap::new();
@@ -1089,9 +1114,9 @@ mod tests {
             nodes: vec![],
             sprite_assets: vec![],
             logic_scripts: vec![LogicScript {
-                ops: vec![LogicOp::PaletteSwapOnHit {
+                ops: vec![LogicOp::PalettePulse {
                     swap_id: "dano".into(),
-                    strike_id: "golpe".into(),
+                    strike_id: Some("golpe".into()),
                     target_entity: target.into(),
                     palette_id: palette.into(),
                     frames: 8,

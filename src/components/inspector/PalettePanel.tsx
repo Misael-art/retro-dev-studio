@@ -24,7 +24,8 @@ import {
   type PlanResource,
   type PlanUse,
 } from "../../core/palettePlan";
-import { applyPalettes, palettePlanContextKey, usePalettePlanStore } from "../../core/palettePlanStore";
+import { applyPalettes, palettePlanContextKey, proposePalettes, usePalettePlanStore, type PaletteProposal } from "../../core/palettePlanStore";
+import { channelToMd, mdColorToCss } from "../../core/pixelEditor";
 import { useEditorStore } from "../../core/store/editorStore";
 import { useSceneAttentionStore } from "../../core/sceneAttentionStore";
 
@@ -389,6 +390,107 @@ function PalettePanelBody({ plan }: { plan: PalettePlan }) {
   );
 }
 
+function LightingVariant({ plan, resource, entityId }: { plan: PalettePlan; resource: PlanResource; entityId: string }) {
+  const [levels, setLevels] = useState(1);
+  const [preview, setPreview] = useState<{ palettes: ReturnType<typeof createLocalVariant>; proposal: PaletteProposal } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const request = useRef(0);
+  useEffect(() => () => { request.current++; }, []);
+  const ownUse = resource.uses.find((use) => use.entity_id === entityId);
+  const colors = resource.colors.map((color, index) => {
+    if (index === 0 || !/^#[a-f\d]{6}$/i.test(color)) return color;
+    const shift = (start: number) => channelToMd(parseInt(color.slice(start, start + 2), 16)) + levels;
+    return mdColorToCss([shift(1), shift(3), shift(5)]);
+  });
+  const changed = ownUse?.indices.filter((index) => colors[index]?.toLowerCase() !== resource.colors[index]?.toLowerCase()) ?? [];
+  const usedBanks = (value: PalettePlan) => value.banks.filter((bank) => bank.resources.length > 0).length;
+  const otherIds = [...new Set(resource.uses.map((use) => use.entity_id).filter((id) => id !== entityId))];
+  const freeBank = otherIds.length && resource.pinned_bank !== undefined
+    ? plan.banks.find((bank) => bank.state === "livre")?.bank : undefined;
+  const cancel = () => {
+    request.current++;
+    setPreview(null);
+    setBusy(false);
+    setMessage("");
+  };
+  const compare = async () => {
+    const id = ++request.current;
+    const before = palettePlanContextKey(useEditorStore.getState());
+    const palettes = createLocalVariant(currentPalettes(), { ...resource, colors }, entityId,
+      `${resource.name} · luz ${levels > 0 ? "+" : ""}${levels}`, freeBank);
+    setBusy(true);
+    setMessage("");
+    try {
+      const proposal = await proposePalettes(palettes);
+      if (id !== request.current || palettePlanContextKey(useEditorStore.getState()) !== before) return;
+      if (proposal) setPreview({ palettes, proposal });
+    } catch (error) {
+      if (id === request.current) setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      if (id === request.current) setBusy(false);
+    }
+  };
+  const apply = async () => {
+    if (!preview || preview.proposal.added.length) return;
+    const id = ++request.current;
+    setBusy(true);
+    try {
+      const result = await applyPalettes(preview.palettes);
+      if (id !== request.current) return;
+      if (result.applied) setPreview(null);
+      else setMessage(result.added.map((item) => item.message).join(" ") || "A cena mudou. Compare a variante novamente.");
+    } catch (error) {
+      if (id === request.current) setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      if (id === request.current) setBusy(false);
+    }
+  };
+  return (
+    <details data-testid="inspector-lighting" className="mt-2 rounded border border-[var(--rds-border-subtle)] p-1"
+      onToggle={(event) => { if (!event.currentTarget.open) cancel(); }}>
+      <summary className="cursor-pointer text-[var(--rds-text-primary)]">Iluminar</summary>
+      <div className="mt-1 grid gap-1">
+        <p>Variante RGB333 de {entityId}. {otherIds.length > 0 ? `Usos preservados: ${otherIds.join(", ")}.` : ""}</p>
+        <label>Níveis por canal
+          <select data-testid="inspector-lighting-levels" value={levels} disabled={busy}
+            className="ml-1 rounded border border-[var(--rds-border-default)] bg-[var(--rds-surface-base)]"
+            onChange={(event) => { cancel(); setLevels(Number(event.target.value)); }}>
+            {[-3, -2, -1, 1, 2, 3].map((value) => <option key={value} value={value}>{value > 0 ? "+" : ""}{value}</option>)}
+          </select>
+        </label>
+        <div className="flex gap-2">
+          <div>Atual <Swatches colors={resource.colors} used={ownUse?.indices} testid="inspector-lighting-before" /></div>
+          <div>Variante <Swatches colors={colors} used={ownUse?.indices} testid="inspector-lighting-after" /></div>
+        </div>
+        <p>{changed.length ? `Índices alterados: ${changed.join(", ")}.` : "As cores usadas já estão no limite para este ajuste."}</p>
+        {!preview && <button type="button" data-testid="inspector-lighting-compare" disabled={busy || !changed.length}
+          className="justify-self-start rounded border border-[var(--rds-border-default)] px-1 disabled:opacity-40" onClick={() => void compare()}>
+          {busy ? "Consultando bancos…" : "Comparar no plano de paletas"}
+        </button>}
+        {preview && <>
+          <p data-testid="inspector-lighting-preview" role="status">
+            Bancos ocupados: {usedBanks(plan)} → {usedBanks(preview.proposal.plan)} de {plan.capacity.banks}.
+            {preview.proposal.plan.entity_banks[entityId] !== undefined && ` Variante em PAL${preview.proposal.plan.entity_banks[entityId]}.`}
+          </p>
+          <Blocked added={preview.proposal.added} />
+          <div className="flex flex-wrap gap-2">
+            <button type="button" data-testid="inspector-lighting-apply" disabled={busy || preview.proposal.added.length > 0}
+              className="rounded border border-[var(--rds-action-primary)] px-1 disabled:opacity-40" onClick={() => void apply()}>
+              Aplicar variante
+            </button>
+            <button type="button" data-testid="inspector-lighting-cancel" disabled={busy} onClick={cancel}
+              className="rounded border border-[var(--rds-border-default)] px-1">
+              Cancelar
+            </button>
+          </div>
+        </>}
+        {message && <p role="alert">{message}</p>}
+      </div>
+    </details>
+  );
+}
+
 /** Seção do Inspector: paleta do objeto selecionado, alcance, opções e ações locais. */
 export function EntityPaletteSection({ entityId }: { entityId: string }) {
   const plan = usePlan();
@@ -423,6 +525,9 @@ export function EntityPaletteSection({ entityId }: { entityId: string }) {
         );
       })()}
       <Swatches colors={resource.colors} used={resource.used_indices} testid="inspector-palette-colors" />
+      {plan.target === "megadrive" && resource.uses.some((use) => use.entity_id === entityId && use.role === "sprite") && (
+        <LightingVariant key={`${resource.id}:${entityId}`} plan={plan} resource={resource} entityId={entityId} />
+      )}
       <div className="mt-1 flex flex-wrap items-center gap-1">
         <label className="text-[9px] text-[#a6adc8]">
           Usar

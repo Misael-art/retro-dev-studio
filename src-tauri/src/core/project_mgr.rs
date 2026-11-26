@@ -2614,6 +2614,9 @@ fn derive_sgdk_sprite_sheet_from_rescomp_png(
             anim_name,
             AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: frame_indices,
                 fps,
@@ -2658,6 +2661,7 @@ fn derive_sgdk_scene_collision_map_from_tile_cells(
     );
     Some((
         CollisionMap {
+            materials: Vec::new(),
             tile_width: 8,
             tile_height: 8,
             width: map_width,
@@ -4077,6 +4081,7 @@ fn build_sgdk_tilemap_entity(
                 cells,
                 plane: None,
                 priority: false,
+                priority_regions: Vec::new(),
             }),
             logic: if hud_overlay_hint || resource.kind == "TILESET" || had_cells {
                 let mut hints = Vec::new();
@@ -6013,6 +6018,7 @@ fn platformer_tilemap_prefab_with_dims(map_width: u32, map_height: u32) -> Entit
                 cells: Vec::new(),
                 plane: None,
                 priority: false,
+                priority_regions: Vec::new(),
             }),
             ..Components::default()
         },
@@ -6166,6 +6172,7 @@ fn platformer_gm_collision_data() -> CollisionMap {
     }
 
     CollisionMap {
+        materials: Vec::new(),
         tile_width: 8,
         tile_height: 8,
         width,
@@ -8490,6 +8497,7 @@ fn static_mugen_sprite_entity(
                 cells: Vec::new(),
                 plane: None,
                 priority: false,
+                priority_regions: Vec::new(),
             }),
             ..Components::default()
         },
@@ -8571,6 +8579,9 @@ fn mugen_actions_to_animation_defs(
             format!("action_{}", action.action_no),
             AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames,
                 fps,
@@ -10639,6 +10650,7 @@ fn build_gamemaker_collision_map(
     }
 
     CollisionMap {
+        materials: Vec::new(),
         tile_width: 8,
         tile_height: 8,
         width,
@@ -10653,6 +10665,9 @@ fn gamemaker_player_animations(frame_count: u32) -> BTreeMap<String, AnimationDe
         "idle".to_string(),
         AnimationDef {
             occurrence_ids: None,
+            pose_alignment: Default::default(),
+            pose_sockets: Default::default(),
+            pose_code_drafts: Default::default(),
             frame_events: Vec::new(),
             frames: vec![0],
             fps: 6,
@@ -10670,6 +10685,9 @@ fn gamemaker_player_animations(frame_count: u32) -> BTreeMap<String, AnimationDe
             "walk".to_string(),
             AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: walk_frames,
                 fps: 10,
@@ -10814,6 +10832,7 @@ fn import_gamemaker_tile_layer_entities(
                     cells,
                     plane: None,
                     priority: false,
+                    priority_regions: Vec::new(),
                 }),
                 ..Components::default()
             },
@@ -12201,6 +12220,9 @@ fn godot_animation_defs<'a>(
             trimmed.to_string(),
             AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![0],
                 fps: 8,
@@ -13861,6 +13883,9 @@ fn openbor_animation_to_def(block: &OpenBorAnimationBlock) -> AnimationDef {
 
     AnimationDef {
         occurrence_ids: None,
+        pose_alignment: Default::default(),
+        pose_sockets: Default::default(),
+        pose_code_drafts: Default::default(),
         frame_events: Vec::new(),
         frames,
         fps,
@@ -15538,6 +15563,7 @@ fn imported_tilemap_entity(
                 cells: Vec::new(),
                 plane: None,
                 priority: false,
+                priority_regions: Vec::new(),
             }),
             ..Components::default()
         },
@@ -16059,6 +16085,9 @@ fn reference_player_prefab() -> Entity {
         "idle".to_string(),
         AnimationDef {
             occurrence_ids: None,
+            pose_alignment: Default::default(),
+            pose_sockets: Default::default(),
+            pose_code_drafts: Default::default(),
             frame_events: Vec::new(),
             frames: vec![0, 1],
             fps: 4,
@@ -16074,6 +16103,9 @@ fn reference_player_prefab() -> Entity {
         "run".to_string(),
         AnimationDef {
             occurrence_ids: None,
+            pose_alignment: Default::default(),
+            pose_sockets: Default::default(),
+            pose_code_drafts: Default::default(),
             frame_events: Vec::new(),
             frames: vec![2, 3],
             fps: 8,
@@ -16089,6 +16121,9 @@ fn reference_player_prefab() -> Entity {
         "jump".to_string(),
         AnimationDef {
             occurrence_ids: None,
+            pose_alignment: Default::default(),
+            pose_sockets: Default::default(),
+            pose_code_drafts: Default::default(),
             frame_events: Vec::new(),
             frames: vec![4],
             fps: 1,
@@ -16228,6 +16263,9 @@ fn reference_goal_prefab() -> Entity {
                     "idle".to_string(),
                     AnimationDef {
                         occurrence_ids: None,
+                        pose_alignment: Default::default(),
+                        pose_sockets: Default::default(),
+                        pose_code_drafts: Default::default(),
                         frame_events: Vec::new(),
                         frames: vec![0],
                         fps: 1,
@@ -16265,6 +16303,9 @@ fn reference_passage_prefab() -> Entity {
                     "closed".to_string(),
                     AnimationDef {
                         occurrence_ids: None,
+                        pose_alignment: Default::default(),
+                        pose_sockets: Default::default(),
+                        pose_code_drafts: Default::default(),
                         frame_events: Vec::new(),
                         frames: vec![0],
                         fps: 1,
@@ -16351,6 +16392,7 @@ fn reference_tilemap_prefab() -> Entity {
                 cells: Vec::new(),
                 plane: None,
                 priority: false,
+                priority_regions: Vec::new(),
             }),
             ..Components::default()
         },
@@ -16538,6 +16580,7 @@ fn reference_platformer_scene() -> Scene {
         data[(21 * width + x) as usize] = 1;
     }
     scene.collision_map = Some(CollisionMap {
+        materials: Vec::new(),
         tile_width: 8,
         tile_height: 8,
         width,
@@ -23771,6 +23814,15 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
                 offset_x: 6,
                 enabled: true,
             }],
+            wave: Some(crate::ugdm::entities::RetroFXWaveBand {
+                entity_id: "plano".to_string(),
+                first_line: 105,
+                last_line: 140,
+                amplitude: 5,
+                wavelength: 24,
+                speed: -3,
+                phase: 47,
+            }),
         });
 
         save_scene(&project_dir, &project.entry_scene, &scene).expect("save retrofx scene");
@@ -23805,6 +23857,9 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
                             "idle".to_string(),
                             AnimationDef {
                                 occurrence_ids: None,
+                                pose_alignment: Default::default(),
+                                pose_sockets: Default::default(),
+                                pose_code_drafts: Default::default(),
                                 frame_events: Vec::new(),
                                 frames: vec![0],
                                 fps: 6,
@@ -23820,6 +23875,9 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
                             "run".to_string(),
                             AnimationDef {
                                 occurrence_ids: None,
+                                pose_alignment: Default::default(),
+                                pose_sockets: Default::default(),
+                                pose_code_drafts: Default::default(),
                                 frame_events: Vec::new(),
                                 frames: vec![1, 2, 3],
                                 fps: 12,
@@ -23875,6 +23933,9 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
             sprite.animations.get("idle"),
             Some(&AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![0],
                 fps: 6,
@@ -23890,6 +23951,9 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
             sprite.animations.get("run"),
             Some(&AnimationDef {
                 occurrence_ids: None,
+                pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![1, 2, 3],
                 fps: 12,

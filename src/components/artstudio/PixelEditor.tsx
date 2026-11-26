@@ -49,11 +49,13 @@ import {
   type PixelTarget,
   type PixelConversion,
 } from "../../core/pixelEditor";
-import { loadPixelArtDoc, savePixelArtAsset } from "../../core/ipc/artStudioService";
+import { loadPixelArtDoc, savePixelArtAsset, type SavedPixelArt } from "../../core/ipc/artStudioService";
 import { useEditorStore } from "../../core/store/editorStore";
 import { prepareImage } from "../../core/imageIngress";
 import { clearUnusedPixelColors, copyPixelDoc, disablePixelPalette, duplicatePixelLayer, enablePixelPalette, erasePixelRegion, fitPixelDoc, mergePixelLayerDown, type PixelEditScope } from "../../core/pixelImageOps";
 import Icon, { type IconName } from "../common/Icon";
+import type { SpriteSequenceBinding } from "../../core/pixelDeformation";
+import PixelFrameCanvas from "./PixelFrameCanvas";
 import PixelImagePanel, { PIXEL_TASKS, type PixelTask, type PixelTileView } from "./PixelImagePanel";
 
 export type PixelTool =
@@ -69,6 +71,7 @@ export type PixelTool =
   | "select"
   | "move"
   | "background"
+  | "transparent"
   | "picker";
 
 export const PIXEL_TOOLS: { id: PixelTool; key: string; icon: IconName; label: string; hint: string }[] = [
@@ -85,6 +88,7 @@ export const PIXEL_TOOLS: { id: PixelTool; key: string; icon: IconName; label: s
   { id: "move", key: "M", icon: "drag", label: "Mover", hint: "Arraste a seleção ou a camada atual" },
   { id: "picker", key: "I", icon: "color-picker", label: "Conta-gotas", hint: "Pega a cor do canvas" },
   { id: "background", key: "K", icon: "magic-wand", label: "Apagar fundo", hint: "Clique numa região de fundo para apagar cores parecidas; ajuste a tolerância em Imagem e fundo" },
+  { id: "transparent", key: "T", icon: "color-picker", label: "Cor transparente", hint: "Clique numa ilha de cor para ver o recorte transparente antes de aplicar" },
 ];
 
 const SIZE_PRESETS: [number, number][] = [
@@ -112,14 +116,17 @@ export interface PixelEditorSource {
   frames: number[];
   /** Open the canonical imported document; previous edits remain in Undo. */
   autoOpen?: boolean;
+  initialFrame?: number;
   originalPath?: string;
 }
 
 interface PixelEditorProps {
+  binding?: SpriteSequenceBinding;
   projectDir: string | null;
   source: PixelEditorSource | null;
   log: (level: "info" | "warn" | "error" | "success", message: string) => void;
-  onSaved: (pngAbsolute: string, doc?: PixelDoc) => void;
+  beforeSave?: (doc: PixelDoc, previous?: PixelDoc) => void;
+  onSaved: (pngAbsolute: string, doc?: PixelDoc, previous?: PixelDoc, saved?: SavedPixelArt) => void | Promise<void>;
 }
 
 type Drag = {
@@ -172,7 +179,7 @@ export async function importFramesFromSheet(source: PixelEditorSource, line: num
   return { doc, warnings: result.warnings };
 }
 
-export default function PixelEditor({ projectDir, source, log, onSaved }: PixelEditorProps) {
+export default function PixelEditor({ projectDir, source, binding, log, beforeSave, onSaved }: PixelEditorProps) {
   const projectKey = projectDir ?? "";
   const initial = useRef(useEditorStore.getState().pixelEditorSessions[projectKey]).current;
   const [doc, setDocState] = useState<PixelDoc>(() => initial?.doc ?? createPixelDoc(32, 32));
@@ -199,7 +206,10 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
   const [lockTilePalette, setLockTilePalette] = useState(true);
   const [onion, setOnion] = useState(false);
   const [sizeHistory, setSizeHistory] = useState<{ base: PixelDoc; result: PixelDoc } | null>(null);
-  const [zoom, setZoom] = useState(12);
+  const [fittedZoom, setFittedZoom] = useState(12);
+  const [manualZoom, setManualZoom] = useState<number | null>(initial?.manualZoom ?? null);
+  const zoom = manualZoom ?? fittedZoom;
+  const adjustZoom = (step: number) => setManualZoom((current) => Math.max(1, Math.min(48, (current ?? fittedZoom) + step)));
   const [hover, setHover] = useState<[number, number] | null>(null);
   const [selection, setSelection] = useState<PixelRect | null>(null);
   const [moveAll, setMoveAll] = useState(false);
@@ -215,9 +225,11 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
   }, []);
+  const [lightComparison, setLightComparison] = useState(false);
   const [previewFrame, setPreviewFrame] = useState(0);
   const [status, setStatus] = useState<string | null>(null);
   const [preview, setPreview] = useState<Uint8Array | null>(null);
+  const [transparencyPreview, setTransparencyPreview] = useState<{ base: PixelDoc; next: PixelDoc } | null>(null);
   const [savedPath, setSavedPath] = useState<string | null>(initial?.savedPath ?? null);
   const [savedSource, setSavedSource] = useState<string | null>(initial?.savedSource ?? null);
   const [saving, setSaving] = useState(false);
@@ -243,9 +255,9 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
 
   useLayoutEffect(() => {
     useEditorStore.getState().setPixelEditorSession(projectKey, {
-      doc, past, future, frameIndex, layerIndex, savedPath, savedSource,
+      doc, past, future, frameIndex, layerIndex, savedPath, savedSource, manualZoom: manualZoom ?? undefined,
     });
-  }, [projectKey, doc, past, future, frameIndex, layerIndex, savedPath, savedSource]);
+  }, [projectKey, doc, past, future, frameIndex, layerIndex, savedPath, savedSource, manualZoom]);
   useEffect(() => {
     mounted.current = true;
     return () => { mounted.current = false; importRequest.current += 1; };
@@ -256,6 +268,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
   const layer = Math.min(layerIndex, doc.layers.length - 1);
 
   const docRef = useRef(doc);
+  const boundDocumentRef = useRef<{ source: string; doc: PixelDoc } | null>(null);
   docRef.current = doc;
   const commit = useCallback((next: PixelDoc) => {
     const current = docRef.current;
@@ -265,27 +278,40 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
     docRef.current = next;
     setDocState(next);
   }, []);
+  const undoneVariantFocus = useRef(new WeakMap<PixelDoc, string>());
   const undo = useCallback(() => {
     if (past.length === 0) return;
     setStatus(null);
-    setFuture((f) => [docRef.current, ...f]);
-    setDocState(past[past.length - 1]);
+    const current = docRef.current, previous = past[past.length - 1];
+    const selected = current.frames[frame];
+    if (selected?.variant && !previous.frames.some(f => f.id === selected.id)) {
+      const index = previous.frames.findIndex(f => f.id === selected.variant?.sourceId);
+      if (index >= 0) { undoneVariantFocus.current.set(current, selected.id); setFrameIndex(index); }
+    }
+    setFuture((f) => [current, ...f]);
+    setDocState(previous);
     setPast(past.slice(0, -1));
-  }, [past]);
+  }, [past, frame]);
   const redo = useCallback(() => {
     if (future.length === 0) return;
     setStatus(null);
-    setPast((p) => [...p, docRef.current]);
-    setDocState(future[0]);
+    const current = docRef.current, next = future[0];
+    const index = next.frames.findIndex(f => f.id === undoneVariantFocus.current.get(next));
+    if (index >= 0) setFrameIndex(index);
+    setPast((p) => [...p, current]);
+    setDocState(next);
     setFuture(future.slice(1));
   }, [future]);
 
+  const compareSprite = Boolean(imagePreview && doc.target === "sprite");
   const fitCanvas = useCallback(() => {
     const stage = stageRef.current;
     if (!stage || stage.clientWidth === 0 || stage.clientHeight === 0) return;
-    const fit = Math.floor(Math.min((stage.clientWidth - 24) / doc.width, (stage.clientHeight - 24) / doc.height));
-    setZoom(Math.max(1, Math.min(48, fit)));
-  }, [doc.width, doc.height]);
+    const availableWidth = compareSprite ? (stage.clientWidth - 32) / 2 : stage.clientWidth - 24;
+    const availableHeight = stage.clientHeight - (compareSprite ? 44 : 24);
+    const fit = Math.floor(Math.min(availableWidth / doc.width, availableHeight / doc.height));
+    setFittedZoom(Math.max(1, Math.min(48, fit)));
+  }, [compareSprite, doc.width, doc.height]);
   // First layout can be zero-sized while CSS/panels load. Fit again when the
   // actual stage becomes available, and keep oversized canvases scrollable.
   useEffect(() => {
@@ -301,7 +327,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
   useEffect(() => { setSizeHistory(null); }, [sourceIdentity]);
   const displayDoc = imagePreview ?? doc;
   const editScope: PixelEditScope = { frame, layer, allFrames: allImageFrames, rect: selection, color: isolation };
-  useEffect(() => { setImagePreview(null); setSelection(null); setIsolation(null); }, [doc.width, doc.height, sourceIdentity]);
+  useEffect(() => { setImagePreview(null); setTransparencyPreview(null); setSelection(null); setIsolation(null); }, [doc.width, doc.height, sourceIdentity]);
 
   // ── Desenho do canvas ──
   const composite = useMemo(() => {
@@ -320,6 +346,10 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
     if (!ctx) return;
     ctx.imageSmoothingEnabled = false;
     const cell = Math.max(4, Math.round(zoom / 2));
+    if (imagePreview && doc.target === "sprite") {
+      ctx.fillStyle = lightComparison ? "#eadfcf" : "#18202b";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    } else
     for (let y = 0; y < canvas.height; y += cell)
       for (let x = 0; x < canvas.width; x += cell) {
         ctx.fillStyle = ((x + y) / cell) % 2 === 0 ? "#1e2433" : "#272e40";
@@ -341,6 +371,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
       if (frame < doc.frames.length - 1) paint(compositeFrame(doc, frame + 1), 0.12);
     }
     paint(composite, 1);
+    if (imagePreview && doc.target === "sprite") return;
     // Tiles com mais de uma linha de paleta.
     for (const tile of analyzeTiles(displayDoc, composite))
       if (tile.lines.length > 1) {
@@ -396,7 +427,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
       ctx.strokeRect(selection.x * zoom + 0.5, selection.y * zoom + 0.5, selection.w * zoom - 1, selection.h * zoom - 1);
       ctx.setLineDash([]);
     }
-  }, [doc, displayDoc, frame, composite, zoom, onion, hover, selection, tool, brushSize, imagePreview, showGrid, isolation, tileMap, tileView, tileReuse]);
+  }, [doc, displayDoc, frame, composite, zoom, onion, hover, selection, tool, brushSize, imagePreview, lightComparison, showGrid, isolation, tileMap, tileView, tileReuse]);
 
   // ── Preview animado ──
   useEffect(() => {
@@ -507,6 +538,15 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
     const other = right ? primary : secondary;
     setStatus(null);
     if (tileMap) { setSelection({ x: Math.floor(at[0] / TILE) * TILE, y: Math.floor(at[1] / TILE) * TILE, w: TILE, h: TILE }); return; }
+    if (tool === "transparent") {
+      const next = erasePixelRegion(doc, editScope, at[0], at[1], 0);
+      if (next === doc) setStatus("Escolha um pixel opaco dentro da área e da camada em edição.");
+      else {
+        setTransparencyPreview({ base: doc, next });
+        setImagePreview(next);
+      }
+      return;
+    }
     if (tool === "background") { const next = erasePixelRegion(doc, editScope, at[0], at[1], backgroundTolerance); commit(next); setStatus(next === doc ? "Nenhum pixel apagado nesta região. Confira a camada, a seleção e a cor isolada." : "Região apagada por cor. Ctrl+Z restaura os pixels."); return; }
     if (tool === "picker") {
       const picked = composite[at[1] * doc.width + at[0]];
@@ -587,6 +627,13 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
     const key = event.key.toLowerCase();
+    if (key === "escape" && transparencyPreview) {
+      event.preventDefault();
+      event.stopPropagation();
+      setTransparencyPreview(null);
+      setImagePreview(null);
+      return;
+    }
     if ((event.ctrlKey || event.metaKey) && key === "s") {
       event.preventDefault();
       event.stopPropagation();
@@ -620,13 +667,13 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
       setSecondary(primary);
     } else if (key === "[") setBrushSize((s) => Math.max(1, s - 1));
     else if (key === "]") setBrushSize((s) => Math.min(8, s + 1));
-    else if (key === "h") flip(true);
-    else if (key === "v") flip(false);
+    else if (key === "h" && task !== "deform") flip(true);
+    else if (key === "v" && task !== "deform") flip(false);
     else if (key === "escape") setSelection(null);
     else if (key === "arrowleft") setFrameIndex((f) => Math.max(0, f - 1));
     else if (key === "arrowright") setFrameIndex((f) => Math.min(doc.frames.length - 1, f + 1));
-    else if (key === "+" || key === "=") setZoom((z) => Math.min(48, z + 1));
-    else if (key === "-") setZoom((z) => Math.max(1, z - 1));
+    else if (key === "+" || key === "=") adjustZoom(1);
+    else if (key === "-") adjustZoom(-1);
     else return;
     event.preventDefault();
   };
@@ -645,9 +692,12 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
         if (!stillCurrent()) return;
         if (json) {
           const opened = deserializePixelDoc(json);
+          if (source.autoOpen) boundDocumentRef.current = { source: autoSourceIdentity, doc: opened };
           if (serializePixelDoc(opened) !== serializePixelDoc(docRef.current)) {
-            commit(opened); setFrameIndex(0); setLayerIndex(0);
+            commit(opened);
+            setLayerIndex(0);
           }
+          setFrameIndex(Math.max(0, Math.min(source.initialFrame ?? 0, opened.frames.length - 1)));
           setSavedPath(`${pixelDoc[1]}.png`);
           setSavedSource(serializePixelDoc(opened));
           setStatus("Documento de pixel art reaberto com layers e frames.");
@@ -702,25 +752,40 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
       setStatus("Abra um projeto para salvar.");
       return;
     }
-    const snapshot = docRef.current;
-    const snapshotSource = serializePixelDoc(snapshot);
+    const previous = source?.autoOpen && boundDocumentRef.current?.source === autoSourceIdentity
+      ? boundDocumentRef.current.doc : undefined;
+    if (source?.autoOpen && beforeSave && !previous) {
+      setStatus("Recupere o documento vinculado antes de salvar.");
+      return;
+    }
     const stillCurrent = () => mounted.current && projectIdentityRef.current === projectDir && sourceIdentityRef.current === sourceIdentity;
     savingRef.current = true;
     setSaving(true);
     try {
+      let snapshot = docRef.current;
+      beforeSave?.(snapshot, previous);
+      const changedSheetLayout = previous && (snapshot.width !== previous.width || snapshot.height !== previous.height
+        || snapshot.frames.length !== previous.frames.length || snapshot.frames.some((frame, index) => frame.id !== previous.frames[index]?.id));
+      if (previous && changedSheetLayout && snapshot.name === previous.name) {
+        snapshot = copyPixelDoc(snapshot);
+        commit(snapshot);
+      }
+      const snapshotSource = serializePixelDoc(snapshot);
       const sheet = await exportSheetPng(snapshot);
       if (!stillCurrent()) return;
+      beforeSave?.(snapshot, previous);
       const saved = await savePixelArtAsset(projectDir, snapshot.name, sheet.png, snapshotSource);
       if (!stillCurrent()) return;
+      if (serializePixelDoc(docRef.current) === snapshotSource) {
+        if (previous) await onSaved(saved.png_absolute, snapshot, previous, saved);
+        else await onSaved(saved.png_absolute, snapshot);
+        if (!stillCurrent()) return;
+        if (source?.autoOpen) boundDocumentRef.current = { source: autoSourceIdentity, doc: snapshot };
+        setStatus(null);
+      } else setStatus("A versão anterior foi salva. Há novas alterações de pixels pendentes.");
       setSavedPath(saved.png_relative);
       setSavedSource(snapshotSource);
       log("success", `[Editor de pixels] ${saved.png_relative} (${snapshot.frames.length} frame(s), PAL${sheet.line}, PNG 4-bit).`);
-      if (serializePixelDoc(docRef.current) === snapshotSource) {
-        // The revision-bound save-state line is the single save indicator.
-        // Tool errors (e.g. a rejected palette tile) keep their own feedback.
-        setStatus(null);
-        onSaved(saved.png_absolute, snapshot);
-      } else setStatus("A versão anterior foi salva. Há novas alterações de pixels pendentes.");
     } catch (error) {
       if (!mounted.current) return;
       setStatus(`Falha ao salvar: ${error instanceof Error ? error.message : String(error)}`);
@@ -842,16 +907,16 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
           }} className="rounded border border-[#313244] px-2 py-1" title="Remove a cor uniforme conectada às bordas em todos os quadros; permite desfazer">
             Remover fundo
           </button>
-          <button type="button" onClick={undo} disabled={past.length === 0} className="rounded border border-[#313244] px-2 py-1 disabled:opacity-40" title="Desfazer (Ctrl+Z)">
-            ↶
+          <button type="button" onClick={undo} disabled={past.length === 0} className="rounded border border-[#313244] px-2 py-1 disabled:opacity-40" aria-label="Desfazer" data-tool-hint="Desfazer (Ctrl+Z)" title="Desfazer (Ctrl+Z)">
+            <Icon name="undo" size={16} />
           </button>
-          <button type="button" onClick={redo} disabled={future.length === 0} className="rounded border border-[#313244] px-2 py-1 disabled:opacity-40" title="Refazer (Ctrl+Y)">
-            ↷
+          <button type="button" onClick={redo} disabled={future.length === 0} className="rounded border border-[#313244] px-2 py-1 disabled:opacity-40" aria-label="Refazer" data-tool-hint="Refazer (Ctrl+Y)" title="Refazer (Ctrl+Y)">
+            <Icon name="redo" size={16} />
           </button>
           <button type="button" onClick={() => void download()} className="rounded border border-[#313244] px-2 py-1 hover:bg-[#1f2937]" title="Folha horizontal, PNG indexado 4-bit">
             Baixar PNG
           </button>
-          {source?.autoOpen && <button type="button" data-testid="pixel-save-copy" disabled={saving || imagePreview !== null} onClick={() => { commit(copyPixelDoc(docRef.current)); void save(); }} className="rounded border border-[#313244] px-2 py-1 disabled:opacity-40" title="Cria outro recurso e aplica apenas à ocorrência selecionada">Salvar cópia</button>}
+          {source?.autoOpen && <button type="button" data-testid="pixel-save-copy" disabled={saving || imagePreview !== null} onClick={() => { commit(copyPixelDoc(docRef.current)); void save(); }} className="rounded border border-[#313244] px-2 py-1 disabled:opacity-40" title="Cria outro recurso para a instância selecionada">Salvar cópia</button>}
           <button
             type="button"
             data-testid="pixel-save"
@@ -865,12 +930,12 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
       </div>
       <p data-testid="pixel-save-state" role="status" className="px-1 text-[10px] text-[#a6adc8]">
         {imagePreview ? "Prévia não aplicada · use Aplicar ou Cancelar no painel da imagem antes de salvar." : isSaved ? `PNG e documento salvos: ${savedPath}.` : "Pixels pendentes · mantidos nesta sessão ao trocar de ferramenta. Salve antes de fechar o aplicativo."}
-        {" "}{source?.autoOpen ? "O mesmo nome atualiza o recurso compartilhado; outro nome ou Salvar cópia aplica apenas à ocorrência selecionada. Ctrl+Z recupera edições desta sessão." : sourceDocument ? "Salvar atualiza este documento no projeto; outros objetos podem usar o mesmo recurso. Renomeie para gravar outra cópia." : "Salvar grava este documento no projeto. A imagem de origem permanece preservada; aplique a cópia à cena quando desejar."}
+        {" "}{source?.autoOpen ? "Salvar recurso atualiza os usos compartilhados. Salvar cópia e alterações na estrutura do atlas usam outro recurso para esta instância. Ctrl+Z recupera edições desta sessão." : sourceDocument ? "Salvar atualiza este documento no projeto. Outros objetos podem usar o mesmo recurso. Renomeie para gravar outra cópia." : "Salvar grava este documento no projeto. A imagem de origem permanece preservada. Aplique a cópia à cena quando desejar."}
       </p>
 
       <nav aria-label="Tarefas de edição de imagem" className="flex shrink-0 flex-wrap gap-1 rounded-xl border border-[#313244] bg-[#111827] p-1 text-xs">
         <button type="button" data-testid="pixel-toggle-options" aria-expanded={optionsOpen} onClick={() => setOptionsOpen(v => !v)} className="rounded-lg border px-3 py-2">Opções da tarefa</button>
-        {PIXEL_TASKS.map(t => <button type="button" key={t.id} data-testid={`pixel-task-${t.id}`} aria-pressed={task === t.id} onClick={() => { setTask(t.id); setOptionsOpen(true); setTileMap(t.id === "tiles"); if (optionsRef.current) optionsRef.current.scrollTop = 0; }} className={`rounded-lg px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#7dd3fc] ${task === t.id ? "bg-[#7dd3fc]/20 font-semibold text-[#7dd3fc]" : "text-[#cdd6f4] hover:bg-[#7dd3fc]/10"}`}>{t.label}</button>)}
+        {PIXEL_TASKS.filter(t => t.id !== "deform" || doc.target === "sprite").map(t => <button type="button" key={t.id} data-testid={`pixel-task-${t.id}`} aria-pressed={task === t.id} onClick={() => { setTask(t.id); if (t.id === "deform") setTool("select"); setOptionsOpen(true); setTileMap(t.id === "tiles"); if (optionsRef.current) optionsRef.current.scrollTop = 0; }} className={`rounded-lg px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#7dd3fc] ${task === t.id ? "bg-[#7dd3fc]/20 font-semibold text-[#7dd3fc]" : "text-[#cdd6f4] hover:bg-[#7dd3fc]/10"}`}>{t.label}</button>)}
       </nav>
 
       <div className="grid min-h-0 flex-1 gap-2" style={{ gridTemplateColumns: optionsOpen ? "110px minmax(0,1fr) minmax(230px,280px)" : "110px minmax(0,1fr)" }}>
@@ -884,7 +949,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
               data-testid={`pixel-tool-${t.id}`}
               data-active={tool === t.id}
               onClick={() => { setTool(t.id); setTileMap(false); }}
-              title={`${t.label} (${t.key}) — ${t.hint}`}
+              data-tool-hint={`${t.label} (${t.key}) — ${t.hint}`} title={`${t.label} (${t.key}) — ${t.hint}`}
               aria-label={`${t.label} (${t.key})`}
               aria-pressed={tool === t.id}
               className={`flex min-h-8 shrink-0 items-center gap-2 rounded-lg px-2 py-1.5 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#7dd3fc] ${tool === t.id ? "bg-[#7dd3fc]/20 text-[#7dd3fc] ring-1 ring-[#7dd3fc]/60" : "text-[#cdd6f4] hover:bg-[#1f2937]"}`}
@@ -903,7 +968,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
         </div>
 
         {/* Canvas + frames */}
-        <div className="flex min-h-0 flex-col gap-2">
+        <div className="flex min-h-0 flex-col gap-2 overflow-y-auto">
           <p className="px-1 text-xs text-[#a6adc8]" data-testid="pixel-tool-help"><strong className="text-[#cdd6f4]">{tileMap ? "Mapa de tiles" : PIXEL_TOOLS.find(t => t.id === tool)?.label}</strong> · {tileMap ? "Clique num tile para ver padrão, repetições e espelhos." : PIXEL_TOOLS.find(t => t.id === tool)?.hint}{isolation !== null ? " · Outras cores estão protegidas." : ""}</p>
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#313244] bg-[#111827] px-2 py-1 text-[10px] text-[#cdd6f4]">
             <label className="flex items-center gap-1" title="Tamanho do pincel ([ e ])">
@@ -934,13 +999,37 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
             {onion && <span className="text-[#f9e2af]" data-testid="pixel-onion-notice">Quadros vizinhos são só uma guia; não são salvos nem aparecem no jogo.</span>}
             <label className="flex items-center gap-1"><input type="checkbox" data-testid="pixel-grid" checked={showGrid} onChange={e => setShowGrid(e.target.checked)} />Grade</label>
             <span className="ml-auto flex items-center gap-1">
-              <button type="button" onClick={fitCanvas} className="rounded border border-[#313244] px-1.5 py-1">Enquadrar</button>
-              <button type="button" aria-label="Diminuir zoom" onClick={() => setZoom((z) => Math.max(1, z - 1))} className="rounded border border-[#313244] px-1.5">−</button>
+              <button type="button" onClick={() => { setManualZoom(null); fitCanvas(); }} className="rounded border border-[#313244] px-1.5 py-1">Enquadrar</button>
+              <button type="button" aria-label="Diminuir zoom" onClick={() => adjustZoom(-1)} className="rounded border border-[#313244] px-1.5">−</button>
               <span className="w-10 text-center" data-testid="pixel-zoom">{zoom}×</span>
-              <button type="button" aria-label="Aumentar zoom" onClick={() => setZoom((z) => Math.min(48, z + 1))} className="rounded border border-[#313244] px-1.5">+</button>
+              <button type="button" aria-label="Aumentar zoom" onClick={() => adjustZoom(1)} className="rounded border border-[#313244] px-1.5">+</button>
             </span>
           </div>
-          <div ref={stageRef} data-testid="pixel-stage" className="min-h-0 flex-1 overflow-auto rounded-xl border border-[#313244] bg-[#0b0f19] p-3"><div className="flex min-h-full min-w-full w-max items-center justify-center">
+          {transparencyPreview ? (
+            <div data-testid="pixel-transparent-preview" className="flex shrink-0 flex-wrap items-center gap-2 rounded border border-[var(--rds-border-default)] p-1 text-xs">
+              <span>Prévia da ilha transparente</span>
+              <button type="button" data-testid="pixel-transparent-apply" className="rounded border border-[var(--rds-action-primary)] px-2 py-1" onClick={() => {
+                if (docRef.current === transparencyPreview.base) commit(source?.autoOpen ? copyPixelDoc(transparencyPreview.next) : transparencyPreview.next);
+                else setStatus("A imagem mudou. Selecione novamente a ilha.");
+                setTransparencyPreview(null);
+                setImagePreview(null);
+              }}>Aplicar</button>
+              <button type="button" className="rounded border border-[var(--rds-border-default)] px-2 py-1" onClick={() => {
+                setTransparencyPreview(null);
+                setImagePreview(null);
+              }}>Cancelar</button>
+            </div>
+          ) : null}
+          {imagePreview && doc.target === "sprite" && <div className="flex shrink-0 items-center justify-between text-xs">
+            <span>Original e tratamento · quadro {frame + 1} · {zoom}×</span>
+            <label><input type="checkbox" checked={lightComparison} onChange={e => setLightComparison(e.target.checked)} /> Fundo claro</label>
+          </div>}
+          <div ref={stageRef} data-testid="pixel-stage" className="min-h-24 flex-1 overflow-auto rounded-xl border border-[#313244] bg-[#0b0f19] p-3"><div className="flex min-h-full min-w-full w-max items-center justify-center gap-2">
+            {imagePreview && doc.target === "sprite" &&
+              <figure style={{ background: lightComparison ? "#eadfcf" : "#18202b" }}><figcaption className="bg-[var(--rds-surface-panel)] text-xs">Original</figcaption>
+                <PixelFrameCanvas doc={doc} index={frame} scale={zoom} label="Pose original" /></figure>}
+            <figure>
+            {imagePreview && doc.target === "sprite" && <figcaption className="bg-[var(--rds-surface-panel)] text-xs">Tratamento</figcaption>}
             <canvas
               ref={canvasRef}
               data-testid="pixel-canvas"
@@ -950,10 +1039,11 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
               onPointerLeave={() => setHover(null)}
               onWheel={(e) => {
                 if (!e.ctrlKey) return;
-                setZoom((z) => Math.max(1, Math.min(48, z + (e.deltaY < 0 ? 1 : -1))));
+                adjustZoom(e.deltaY < 0 ? 1 : -1);
               }}
               className="cursor-crosshair [image-rendering:pixelated]"
             />
+            </figure>
           </div></div>
           <div className="flex items-center gap-3 px-1 text-[10px] text-[#94a3b8]" data-testid="pixel-status">
             <span>{hover ? `x ${hover[0]} · y ${hover[1]} · tile ${Math.floor(hover[0] / TILE)},${Math.floor(hover[1] / TILE)}` : `${doc.width}×${doc.height} px · ${doc.width / TILE}×${doc.height / TILE} tiles`}</span>
@@ -976,18 +1066,19 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
             </div>
             <div className="flex flex-col justify-center gap-1 text-[10px]">
               <span className="flex gap-1">
-                <button type="button" onClick={() => { commit(moveFrame(doc, frame, frame - 1)); setFrameIndex(Math.max(0, frame - 1)); }} className="rounded border border-[#313244] px-1.5" title="Mover para a esquerda">◀</button>
-                <button type="button" onClick={() => { commit(moveFrame(doc, frame, frame + 1)); setFrameIndex(Math.min(doc.frames.length - 1, frame + 1)); }} className="rounded border border-[#313244] px-1.5" title="Mover para a direita">▶</button>
+                <button type="button" data-testid="pixel-frame-move-left" onClick={() => { commit(moveFrame(doc, frame, frame - 1)); setFrameIndex(Math.max(0, frame - 1)); }} className="rounded border border-[#313244] px-1.5" aria-label="Mover quadro para a esquerda">◀</button>
+                <button type="button" data-testid="pixel-frame-move-right" onClick={() => { commit(moveFrame(doc, frame, frame + 1)); setFrameIndex(Math.min(doc.frames.length - 1, frame + 1)); }} className="rounded border border-[#313244] px-1.5" aria-label="Mover quadro para a direita">▶</button>
               </span>
-              <button type="button" disabled={doc.frames.length <= 1} onClick={() => { commit(removeFrame(doc, frame)); setFrameIndex(Math.max(0, frame - 1)); }} className="rounded border border-[#f38ba8]/40 px-2 py-0.5 text-[#f38ba8] disabled:opacity-40">✕ Excluir</button>
+              <button type="button" data-testid="pixel-frame-remove" disabled={doc.frames.length <= 1} onClick={() => { commit(removeFrame(doc, frame)); setFrameIndex(Math.max(0, frame - 1)); }} className="rounded border border-[#f38ba8]/40 px-2 py-0.5 text-[#f38ba8] disabled:opacity-40">✕ Excluir</button>
             </div>
           </div>
         </div>
 
         {/* Coluna direita */}
-        <div ref={optionsRef} hidden={!optionsOpen} aria-label="Opções da tarefa de edição" className={`${optionsOpen ? "flex" : "hidden"} min-h-0 flex-col gap-2 overflow-y-auto pr-1 text-xs text-[#cdd6f4]`}>
-          <PixelImagePanel task={task} doc={doc} projectDir={projectDir} scope={editScope} primary={primary} assetLine={report.lineUsage[0]?.line ?? pixelLine(primary)} onPrimary={value => { setPrimary(value); setActiveLine(pixelLine(value)); }} originalAvailable={Boolean(originalPath)} onReconvert={method => void reopenOriginal(method)}
-            onCommit={(next, base, separate) => { if (docRef.current !== base) { setStatus("A imagem mudou. Gere uma nova prévia; seu trabalho foi preservado."); return; } commit(separate && source?.autoOpen ? copyPixelDoc(next) : next); if (!enabledPixelPalettes(next).includes(activeLine)) { const line = enabledPixelPalettes(next)[0]; setActiveLine(line); setPrimary(packPixel(line, 1)); setSecondary(packPixel(line, 2)); setEditingSlot(null); } setImagePreview(null); setIsolation(null); }} onPreview={setImagePreview}
+        <div ref={optionsRef} hidden={!optionsOpen} inert={Boolean(transparencyPreview)} aria-label="Opções da tarefa de edição" className={`${optionsOpen ? "flex" : "hidden"} min-h-0 flex-col gap-2 overflow-y-auto pr-1 text-xs text-[#cdd6f4]`}>
+          <PixelImagePanel hardware={report} binding={binding} previous={boundDocumentRef.current?.source === autoSourceIdentity ? boundDocumentRef.current.doc : undefined} onFrame={setFrameIndex} task={task} doc={doc} projectDir={projectDir} scope={editScope} primary={primary} assetLine={report.lineUsage[0]?.line ?? pixelLine(primary)} onPrimary={value => { setPrimary(value); setActiveLine(pixelLine(value)); }} originalAvailable={Boolean(originalPath)} onReconvert={method => void reopenOriginal(method)}
+            onCommit={(next, base, separate) => { if (docRef.current !== base) { setStatus("A imagem mudou. Gere uma nova prévia; seu trabalho foi preservado."); return; } commit(separate && source?.autoOpen ? copyPixelDoc(next) : next); if (!enabledPixelPalettes(next).includes(activeLine)) { const line = enabledPixelPalettes(next)[0]; setActiveLine(line); setPrimary(packPixel(line, 1)); setSecondary(packPixel(line, 2)); setEditingSlot(null); } setImagePreview(null); setIsolation(null); }}
+            onPreview={(next) => { if (!transparencyPreview) setImagePreview(next); }}
             onSelectLayer={setLayerIndex} onSelectTool={next => { setTool(next); setTileMap(false); }} onSelection={setSelection} onIsolation={setIsolation}
             tolerance={backgroundTolerance} onTolerance={setBackgroundTolerance} allFrames={allImageFrames} onAllFrames={setAllImageFrames}
             tileMap={tileMap} onTileMap={setTileMap} tileView={tileView} onTileView={setTileView} tiles={tileReuse} selectedTile={selectedTile}
@@ -1184,7 +1275,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
             <p className="mt-1 text-[#a6adc8]">Camadas são editáveis separadamente; o PNG junta as camadas visíveis. Duplicar, unir e excluir permitem Ctrl+Z.</p>
           </Section>
 
-          <Section title="Transformar">
+          {task !== "deform" && <Section title="Transformar">
             <div className="flex flex-wrap gap-1">
               <button type="button" onClick={() => flip(true)} className="rounded border border-[#313244] px-2 py-0.5" title="Flip horizontal (H) — gratuito no hardware">⇋ Flip H</button>
               <button type="button" onClick={() => flip(false)} className="rounded border border-[#313244] px-2 py-0.5" title="Flip vertical (V)">⇵ Flip V</button>
@@ -1192,7 +1283,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
             </div>
             <label className="mt-1 flex items-center gap-1"><input type="checkbox" checked={moveAll} onChange={(e) => setMoveAll(e.target.checked)} /> Aplicar a todos os frames e layers</label>
             <label className="flex items-center gap-1"><input type="checkbox" checked={wrapMove} onChange={(e) => setWrapMove(e.target.checked)} /> Mover com wrap nas bordas</label>
-          </Section>
+          </Section>}
 
           <Section title="Exportar para SGDK">
             <p className="text-[#94a3b8]">Folha horizontal de {doc.frames.length} frame(s), PNG 4-bit indexado com PAL{exportLine}; índice 0 transparente.</p>
@@ -1222,23 +1313,6 @@ function Section({ title, children, priority = false }: { title: string; childre
 }
 
 function FrameThumb({ doc, index, active, onSelect }: { doc: PixelDoc; index: number; active: boolean; onSelect: () => void }) {
-  const ref = useRef<HTMLCanvasElement | null>(null);
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    const scale = Math.max(1, Math.floor(48 / Math.max(doc.width, doc.height)));
-    canvas.width = doc.width * scale;
-    canvas.height = doc.height * scale;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const pixels = compositeFrame(doc, index);
-    for (let i = 0; i < pixels.length; i += 1) {
-      const css = pixelCss(doc, pixels[i]);
-      if (!css) continue;
-      ctx.fillStyle = css;
-      ctx.fillRect((i % doc.width) * scale, Math.floor(i / doc.width) * scale, scale, scale);
-    }
-  }, [doc, index]);
   return (
     <button
       type="button"
@@ -1247,7 +1321,7 @@ function FrameThumb({ doc, index, active, onSelect }: { doc: PixelDoc; index: nu
       data-active={active}
       className={`relative flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border bg-[#0b0f19] ${active ? "border-[#7dd3fc]" : "border-[#313244]"}`}
     >
-      <canvas ref={ref} className="max-h-14 max-w-14 [image-rendering:pixelated]" />
+      <PixelFrameCanvas doc={doc} index={index} label={"Quadro " + (index + 1)} scale={Math.max(1, Math.floor(48 / Math.max(doc.width, doc.height)))} className="max-h-14 max-w-14 [image-rendering:pixelated]" />
       <span className="absolute left-1 top-0.5 text-[9px] text-[#94a3b8]">{index + 1}</span>
       <span className="absolute bottom-0.5 right-1 text-[8px] text-[#6c7086]">{doc.frames[index].durationMs}ms</span>
     </button>

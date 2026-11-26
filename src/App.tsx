@@ -1,10 +1,13 @@
+import CommandHint from "./components/common/CommandHint";
 import ProjectStartWizard from "./components/common/ProjectStartWizard";
 import ImageIngress from "./components/artstudio/ImageIngress";
 import RomDropDecompile from "./components/tools/RomDropDecompile";
 import Icon, { type IconName } from "./components/common/Icon";
 import StudioAppearancePicker from "./components/common/StudioAppearancePicker";
-import { Suspense, lazy, useEffect, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { invoke, isTauri } from "@tauri-apps/api/core";
+import { useFloatingStudioPanels } from "./components/common/useFloatingStudioPanels";
 import { APP_COMMAND_EVENT, requestAppCommand, useSceneAttentionStore } from "./core/sceneAttentionStore";
 import { dispatchGraphHistory } from "./core/nodegraph/graphHistory";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -25,8 +28,10 @@ import {
   useDefaultLayout,
 } from "react-resizable-panels";
 import Console from "./components/common/Console";
-import LayoutSplitter from "./components/common/LayoutSplitter";
+import LayoutSplitter, { type LayoutResizeIntent } from "./components/common/LayoutSplitter";
+import WorkspaceTabs from "./components/common/WorkspaceTabs";
 import { StudioContextBar } from "./components/common/StudioContextBar";
+import SceneHistoryDialog from "./components/common/SceneHistoryDialog";
 import DeliveryPanel from "./components/tools/DeliveryPanel";
 import UnifiedTopBar, {
   type UnifiedTopBarSection,
@@ -106,6 +111,7 @@ import {
   detectRomDependency,
   getThirdPartyStatus,
   installThirdPartyDependency,
+  listProjectAssets,
   type ThirdPartyDependencyId,
 } from "./core/ipc/toolsService";
 import {
@@ -129,6 +135,8 @@ import {
   createTilemapEntityFromAsset,
 } from "./core/editorEntityFactory";
 import { getEntityDisplayName } from "./core/entityDisplay";
+import { nativeAnimationNames } from "./core/characterTimeline";
+import { parseStudioContext } from "./core/studioContext";
 import {
   getPreferredSceneEntity,
   resolveSceneWorkspaceContext,
@@ -136,6 +144,7 @@ import {
 import { resolveSceneWorldMetrics } from "./core/sceneWorldModel";
 import {
   DEFAULT_SHORTCUTS,
+  assetPathFromCommand,
   getPaletteCommands,
   findShortcutConflicts,
   formatShortcutKeys,
@@ -143,6 +152,7 @@ import {
   getShortcutTitle,
   groupShortcutsByGroup,
   loadShortcutCustomizations,
+  projectAssetCommands,
   resetShortcutCustomizations,
   resolveShortcutCommand,
   saveShortcutCustomizations,
@@ -153,12 +163,18 @@ import {
   type ShortcutConflict,
 } from "./core/shortcuts";
 import {
+  DEFAULT_SCENE_DESK,
   getLayoutStorageKeyForDensity,
-  getPresetLayout,
   getShellDensity,
+  normalizeTimelinePercent,
+  placeScenePanels,
+  readWorkspaceLayout,
   resolveWorkspaceShellConfig,
+  fitWorkspaceLayout,
   type LayoutMap,
-  type LayoutPresetId,
+  type ProjectPanelTab,
+  type SceneDesk,
+  type SceneDeskPreferences,
 } from "./core/workspaceLayout";
 import {
   SHELL_PERSONAS,
@@ -188,6 +204,7 @@ const ExplorerWorkspace = lazy(() => import("./components/explorer/ExplorerWorks
 const InspectorPanel = lazy(() => import("./components/inspector/InspectorPanel"));
 const ToolsPanel = lazy(() => import("./components/tools/ToolsPanel"));
 const ViewportPanel = lazy(() => import("./components/viewport/ViewportPanel"));
+const CharacterTimelinePanel = lazy(() => import("./components/artstudio/CharacterTimelinePanel"));
 
 function looksLikeRuntimeDependencyFailure(message: string): boolean {
   const lower = message.toLowerCase();
@@ -233,6 +250,7 @@ function ToolbarButton({
   testId,
   title,
   describedBy,
+  iconOnly = false,
   icon,
 }: {
   label: string;
@@ -241,6 +259,7 @@ function ToolbarButton({
   accent?: "default" | "primary" | "success" | "danger";
   testId?: string;
   title?: string;
+  iconOnly?: boolean;
   describedBy?: string;
   icon?: IconName;
 }) {
@@ -258,12 +277,13 @@ function ToolbarButton({
       onClick={onClick}
       disabled={disabled}
       data-testid={testId}
-      title={title}
+      title={title ?? label}
+      data-tool-hint={iconOnly ? title ?? label : undefined}
       aria-describedby={describedBy}
       className={`inline-flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap rounded px-2 py-1 text-xs font-semibold leading-none transition-colors ${palette} disabled:cursor-not-allowed disabled:opacity-40`}
     >
       {icon ? <Icon name={icon} size={18} /> : null}
-      {label}
+      <span className={iconOnly ? "sr-only" : undefined}>{label}</span>
     </button>
   );
 }
@@ -271,6 +291,10 @@ function ToolbarButton({
 type WorkspaceGroupId = "core" | "authoring" | "advanced";
 
 const LAYOUT_STORAGE_KEY = "retrodev-shell-saved-layout";
+
+function workspaceLayoutKey(workspace: EditorWorkspace, density: ReturnType<typeof getShellDensity>) {
+  return getLayoutStorageKeyForDensity(`${LAYOUT_STORAGE_KEY}::${workspace}`, density);
+}
 const WORKSPACE_GUIDE_STORAGE_KEY = "retrodev-workspace-guide-expanded";
 const SRAM_SIZE_OPTIONS = [2048, 8192, 16384, 32768, 65536];
 
@@ -1231,6 +1255,7 @@ export function CommandPaletteDialog({
   onExecute,
   onClose,
   isCommandDisabled,
+  fileStatus,
 }: {
   results: CommandSearchResult[];
   query: string;
@@ -1239,8 +1264,10 @@ export function CommandPaletteDialog({
   onExecute: (commandId: string) => void;
   onClose: () => void;
   isCommandDisabled: (commandId: string) => boolean;
+  fileStatus?: string;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const activeResults = results.filter((result) => !isCommandDisabled(result.command.id));
   const activeResultCount = activeResults.length;
@@ -1263,6 +1290,10 @@ export function CommandPaletteDialog({
     });
   }, [activeResultCount]);
 
+  useEffect(() => {
+    listRef.current?.querySelector('[data-selected="true"]')?.scrollIntoView?.({ block: "nearest" });
+  }, [selectedIndex]);
+
   function executeSelected() {
     if (activeResultCount === 0) {
       return;
@@ -1280,12 +1311,18 @@ export function CommandPaletteDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="command-palette-title"
+        onKeyDown={(event) => {
+          if (event.key !== "Escape") return;
+          event.stopPropagation();
+          event.preventDefault();
+          onClose();
+        }}
         className="flex w-[min(720px,calc(100vw-24px))] max-h-[72vh] flex-col overflow-hidden rounded border border-[#313244] bg-[#111827] shadow-2xl"
       >
         <div className="border-b border-[#313244] p-3">
           <div className="mb-2 flex items-center justify-between gap-3">
             <h2 id="command-palette-title" className="text-xs font-bold uppercase tracking-[0.16em] text-[#cba6f7]">
-              Command Palette
+              Comandos e arquivos
             </h2>
             <kbd className="rounded border border-[#334155] bg-[#020617] px-1.5 py-0.5 font-mono text-[10px] text-[#94a3b8]">
               Esc
@@ -1297,10 +1334,7 @@ export function CommandPaletteDialog({
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                event.preventDefault();
-                onClose();
-              } else if (event.key === "Enter") {
+              if (event.key === "Enter") {
                 event.preventDefault();
                 executeSelected();
               } else if (event.key === "ArrowDown") {
@@ -1311,14 +1345,16 @@ export function CommandPaletteDialog({
                 setSelectedIndex((current) => Math.max(current - 1, 0));
               }
             }}
-            placeholder="Buscar comando..."
+            aria-label="Buscar comando ou arquivo do projeto"
+            placeholder="Buscar comando ou arquivo..."
             className="h-9 w-full rounded border border-[#334155] bg-[#020617] px-3 text-sm text-[#e2e8f0] outline-none focus:border-[#89b4fa]"
           />
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-2">
+        {fileStatus && <p role="status" className="px-3 pt-2 text-xs text-[#94a3b8]">{fileStatus}</p>}
+        <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto p-2">
           {results.length === 0 ? (
             <div className="rounded border border-[#313244] bg-[#0b1020] px-3 py-4 text-xs text-[#94a3b8]">
-              Nenhum comando real encontrado.
+              Nenhum comando ou arquivo encontrado.
             </div>
           ) : (
             <div className="grid gap-1">
@@ -1748,16 +1784,24 @@ export default function App() {
   const [toolPanelActive, setToolPanelActive] = useState<ToolTab>("setup");
   const [toolPanelWorkspace, setToolPanelWorkspace] = useState<ToolWorkspace>("editing");
   const [toolPanelShowAdvanced, setToolPanelShowAdvanced] = useState(false);
-  const [leftPanelTab, setLeftPanelTab] = useState<"scene" | "layers">("scene");
+  const [sceneDesk, setSceneDesk] = useState<SceneDeskPreferences>(() =>
+    readWorkspaceLayout(localStorage.getItem(`${LAYOUT_STORAGE_KEY}::last-scene-desk`))?.scene ?? DEFAULT_SCENE_DESK
+  );
+  const [layoutNameDraft, setLayoutNameDraft] = useState<string | null>(null);
+  const [propertiesDock, setPropertiesDock] = useState<"choose" | "drag" | null>(null);
+  const propertiesDrag = useRef<{ id: number; x: number; y: number; moved: boolean } | null>(null);
+  const propertiesDropClick = useRef(false);
   const [focusedShell, setFocusedShell] = useState(false);
   const [compactPanel, setCompactPanel] = useState<"hierarchy" | "canvas" | "inspector">("canvas");
-  const [layoutPreset, setLayoutPreset] = useState<LayoutPresetId>("authoring");
+  const [materialDock, setMaterialDock] = useState<HTMLDivElement | null>(null);
+  const [hiddenSidePanels, setHiddenSidePanels] = useState({ left: false, right: false });
   const [shellWidth, setShellWidth] = useState(
     typeof window !== "undefined"
       ? window.innerWidth / (Number.parseFloat(getComputedStyle(document.documentElement).zoom) || 1)
       : 1440
   );
   const [shellPersona, setShellPersona] = useState<ShellPersona>(() => loadShellPersona());
+  const [showAllAreas, setShowAllAreas] = useState(false);
   const [personaSuggestion, setPersonaSuggestion] = useState<ShellPersona | null>(null);
   const [pendingSceneDraft, setPendingSceneDraft] = useState<SceneDraftRecord | null>(null);
   const dismissedDraftRef = useRef<{ session: number; raw?: string } | null>(null);
@@ -1919,6 +1963,7 @@ export default function App() {
   const [showAbout, setShowAbout] = useState(false);
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [showDelivery, setShowDelivery] = useState(false);
+  const [showSceneHistory, setShowSceneHistory] = useState(false);
   const [projectSettings, setProjectSettings] = useState<ProjectSettingsSnapshot | null>(null);
   const [projectSettingsDraft, setProjectSettingsDraft] =
     useState<ProjectSettingsPayload | null>(null);
@@ -1928,6 +1973,8 @@ export default function App() {
   const [projectSettingsError, setProjectSettingsError] = useState("");
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
+  const [commandAssets, setCommandAssets] = useState<{ project: string; entries: ShortcutCommand[]; failed?: boolean } | null>(null);
+  const commandPaletteOrigin = useRef<HTMLElement | null>(null);
   const [showShortcutEditor, setShowShortcutEditor] = useState(false);
   const [shortcuts, setShortcuts] = useState(() =>
     loadShortcutCustomizations(DEFAULT_SHORTCUTS, localStorage)
@@ -1936,10 +1983,16 @@ export default function App() {
   const [explorerBreadcrumb, setExplorerBreadcrumb] = useState<string | null>(null);
   const buildInFlightRef = useRef(false);
   const panelGroupRef = useRef<GroupImperativeHandle | null>(null);
+  const panelGroupElement = useRef<HTMLDivElement | null>(null);
   const leftPanelRef = useRef<PanelImperativeHandle | null>(null);
   const rightPanelRef = useRef<PanelImperativeHandle | null>(null);
-  const lastNonFocusLayoutRef = useRef<LayoutMap | null>(null);
-  const applyingLayoutRef = useRef(false);
+  const workspaceLayoutsRef = useRef(new Map<string, LayoutMap>());
+  const settledLayoutRef = useRef<string | null>(null);
+  const draggedLayoutRef = useRef<string | null>(null);
+  const timelinePanelRef = useRef<PanelImperativeHandle | null>(null);
+  const timelineShareRef = useRef(normalizeTimelinePercent(Number(localStorage.getItem(`${LAYOUT_STORAGE_KEY}::timeline`))));
+  const sidebarRestoreRef = useRef(new Map<string, number>());
+  const compactBeforeFocus = useRef<typeof compactPanel>("canvas");
   const tauriInternals =
     (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
   const automationEnabled =
@@ -1949,7 +2002,7 @@ export default function App() {
     String(import.meta.env.TAURI_ENV_DEBUG ?? "") === "1" ||
     new URLSearchParams(window.location.search).has("e2e");
 
-  const { defaultLayout, onLayoutChanged } = useDefaultLayout({
+  const { defaultLayout: legacyDefaultLayout } = useDefaultLayout({
     id: "retrodev-layout",
     storage: typeof window !== "undefined" ? localStorage : undefined,
     panelIds: ["left", "center", "right"],
@@ -2007,26 +2060,61 @@ export default function App() {
   const workspaceMeta =
     WORKSPACE_ITEMS.find((workspace) => workspace.id === activeWorkspace) ?? WORKSPACE_ITEMS[0];
   const shellConfig = resolveWorkspaceShellConfig(activeWorkspace, shellWidth);
+  const layoutKey = workspaceLayoutKey(activeWorkspace, shellDensity);
   const compactShell = shellWidth < 960;
+  const propertiesLeft = activeWorkspace === "scene" && sceneDesk.propertiesLeft;
+  const layoutRevision = `${layoutKey}:${propertiesLeft}:${focusedShell}`;
+  const splitTimeline = activeWorkspace === "scene" && activeViewportTab === "scene" && sceneDesk.desk === "animate" && !focusedShell;
+  const floating = useFloatingStudioPanels(useCallback((reason: string) => {
+    useEditorStore.getState().logMessage("error", "O painel não abriu em outra janela. A disposição atual foi recuperada. " + reason);
+  }, []));
+  const leftMinimum = propertiesLeft ? 320 : 200;
+  const rightMinimum = propertiesLeft ? 200 : 320;
+  const leftAvailable = propertiesLeft ? shellConfig.showRight : shellConfig.showLeft;
+  const rightAvailable = propertiesLeft ? shellConfig.showLeft : shellConfig.showRight;
+  const workspaceDefaultLayout = placeScenePanels(shellConfig.panels, propertiesLeft);
   const compactVisiblePanel = focusedShell ||
     (compactPanel === "hierarchy" && !shellConfig.showLeft) ||
     (compactPanel === "inspector" && !shellConfig.showRight)
     ? "canvas"
     : compactPanel;
   const compactTabs: ["canvas" | "hierarchy" | "inspector", string][] = [
+    ...(propertiesLeft && !focusedShell ? [["inspector", "Propriedades"]] as ["inspector", string][] : []),
     ["canvas", workspaceMeta.label],
-    ...(shellConfig.showLeft && !focusedShell ? [["hierarchy", "Hierarquia"]] as ["hierarchy", string][] : []),
-    ...(shellConfig.showRight && !focusedShell ? [["inspector", "Inspector"]] as ["inspector", string][] : []),
+    ...(shellConfig.showLeft && !focusedShell ? [["hierarchy", "Projeto e camadas"]] as ["hierarchy", string][] : []),
+    ...(shellConfig.showRight && !propertiesLeft && !focusedShell ? [["inspector", "Propriedades"]] as ["inspector", string][] : []),
   ];
   useEffect(() => {
     setCompactPanel(activeWorkspace === "debug" && shellConfig.showRight ? "inspector" : "canvas");
   }, [activeWorkspace, compactShell, shellConfig.showRight]);
   const defaultRightMode = shellConfig.defaultRightMode;
   const shortcutConflicts = findShortcutConflicts(shortcuts);
-  const paletteCommands = getPaletteCommands(shortcuts).filter((command) =>
+  const paletteCommands = useMemo(() => getPaletteCommands(shortcuts).filter((command) =>
     EXECUTABLE_COMMAND_IDS.has(command.id)
-  );
-  const commandPaletteResults = searchCommands(commandPaletteQuery, paletteCommands);
+  ), [shortcuts]);
+  const searchProjectAssets = showCommandPalette && commandPaletteQuery.trim().length > 1;
+  useEffect(() => {
+    if (!searchProjectAssets || !activeProjectDir || commandAssets?.project === activeProjectDir) return;
+    let cancelled = false;
+    const pending = window.setTimeout(() => {
+      void listProjectAssets(activeProjectDir).then((assets) => {
+        if (!cancelled) setCommandAssets({ project: activeProjectDir, entries: projectAssetCommands(assets.map(({ relative_path }) => relative_path)) });
+      }).catch(() => {
+        if (!cancelled) setCommandAssets({ project: activeProjectDir, entries: [], failed: true });
+      });
+    }, 180);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(pending);
+    };
+  }, [activeProjectDir, commandAssets?.project, searchProjectAssets]);
+  const files = searchProjectAssets && commandAssets?.project === activeProjectDir ? commandAssets : null;
+  const commandPaletteResults = useMemo(() => {
+    const commands = searchCommands(commandPaletteQuery, paletteCommands);
+    if (!files?.entries.length) return commands;
+    const matchingFiles = searchCommands(commandPaletteQuery, files.entries).slice(0, 12);
+    return [...commands, ...matchingFiles].sort((a, b) => b.score - a.score);
+  }, [commandPaletteQuery, files, paletteCommands]);
 
   useLiveValidationController();
 
@@ -2074,15 +2162,44 @@ export default function App() {
 
   function openToolsCommand(activeTool: ToolTab, workspace: ToolWorkspace, showAdvanced = false) {
     const currentShell = resolveWorkspaceShellConfig(activeWorkspace, shellWidth);
+    setFocusedShell(false);
     if (!currentShell.showRight) {
       handleWorkspaceSelect(workspace === "debug" || activeTool === "setup" ? "debug" : "scene");
+    } else if (!compactShell) {
+      const side = propertiesLeft ? "left" : "right";
+      if (hiddenSidePanels[side] && !focusedShell) sidebarAction(side);
+    }
+    if (compactShell) {
+      window.requestAnimationFrame(() => setCompactPanel("inspector"));
     }
     openToolsWorkspace(activeTool, workspace, showAdvanced);
   }
 
   function openCommandPalette() {
+    if (showCommandPalette) return;
+    commandPaletteOrigin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setCommandPaletteQuery("");
+    setCommandAssets(null);
     setShowCommandPalette(true);
+  }
+
+  function closeCommandPalette() {
+    setShowCommandPalette(false);
+    const origin = commandPaletteOrigin.current;
+    requestAnimationFrame(() => { if (origin?.isConnected) origin.focus({ preventScroll: true }); });
+  }
+
+  function executeCommandPaletteEntry(commandId: string) {
+    setShowCommandPalette(false);
+    const path = assetPathFromCommand(commandId);
+    if (path === null) {
+      executeAppCommand(commandId);
+      return;
+    }
+    const state = useEditorStore.getState();
+    if (!path || files?.project !== state.activeProjectDir || !files?.entries.some(({ id }) => id === commandId)) return;
+    state.setExplorerAssetPath(path);
+    state.openStudioEditor({ focus: { ...state.studio.focus, task: "files" } });
   }
 
   function updateShortcut(commandId: string, value: string) {
@@ -2121,6 +2238,7 @@ export default function App() {
       commandId === "scene.save" ||
       commandId === "build.validate" ||
       commandId === "code.generate" ||
+      commandId === "tools.palette" ||
       commandId === "tools.assetBrowser"
     ) {
       return !activeProjectDir;
@@ -2198,6 +2316,9 @@ export default function App() {
       case "tools.assetBrowser":
         openToolsCommand("assets", "editing", true);
         break;
+      case "tools.palette":
+        openToolsCommand("palette", "editing");
+        break;
       case "console.open":
         if (!consoleVisible) {
           toggleConsole();
@@ -2215,38 +2336,105 @@ export default function App() {
   }
 
   function applyShellLayout(nextLayout: LayoutMap) {
-    applyingLayoutRef.current = true;
-    if (nextLayout.left > 0 && leftPanelRef.current?.isCollapsed()) {
-      leftPanelRef.current.expand();
+    const group = panelGroupRef.current;
+    const element = panelGroupElement.current;
+    if (!group || !element || !("center" in group.getLayout())) return;
+    const width = Array.from(element.children).reduce((sum, pane) =>
+      pane instanceof HTMLElement && pane.hasAttribute("data-panel") ? sum + pane.offsetWidth : sum, 0);
+    const fitted = fitWorkspaceLayout(nextLayout, width, leftAvailable ? leftMinimum : 0, rightAvailable ? rightMinimum : 0);
+    updateHiddenSidePanels(group.setLayout(fitted));
+  }
+
+  function updateHiddenSidePanels(layout: Record<string, number>) {
+    const left = (layout.left ?? 0) < 0.01;
+    const right = (layout.right ?? 0) < 0.01;
+    setHiddenSidePanels((current) => current.left === left && current.right === right ? current : { left, right });
+  }
+
+  function getCurrentLayout(): LayoutMap | undefined {
+    const layout = panelGroupRef.current?.getLayout();
+    if (!layout || !("center" in layout)) return undefined;
+    return { left: layout.left ?? 0, center: layout.center, right: layout.right ?? 0 };
+  }
+
+  function getRememberedLayout() {
+    const remembered = workspaceLayoutsRef.current.get(layoutKey)
+      ?? readWorkspaceLayout(localStorage.getItem(`${layoutKey}::current`))?.layout;
+    if (remembered) return placeScenePanels(remembered, propertiesLeft);
+    if (activeWorkspace !== "scene") return workspaceDefaultLayout;
+    const legacy = readWorkspaceLayout(localStorage.getItem(getLayoutStorageKeyForDensity(LAYOUT_STORAGE_KEY, shellDensity)))
+      ?? readWorkspaceLayout(localStorage.getItem(LAYOUT_STORAGE_KEY))
+      ?? readWorkspaceLayout(JSON.stringify(legacyDefaultLayout ?? null));
+    return legacy && legacy.layout.left > 0 && legacy.layout.right > 0
+      ? placeScenePanels(legacy.layout, propertiesLeft)
+      : workspaceDefaultLayout;
+  }
+
+  function rememberLayout(layout: LayoutMap, propertiesOnLeft = propertiesLeft) {
+    const semanticWidths = placeScenePanels(layout, propertiesOnLeft);
+    workspaceLayoutsRef.current.set(layoutKey, semanticWidths);
+    localStorage.setItem(`${layoutKey}::current`, JSON.stringify({ layout: semanticWidths }));
+  }
+
+  function changeSceneDesk(desk: SceneDesk) {
+    setSceneDesk((current) => ({ ...current, desk }));
+    setPropertiesDock(null);
+    setFocusedShell(false);
+    setCompactPanel("canvas");
+    if (activeWorkspace !== "scene") handleWorkspaceSelect("scene");
+  }
+
+  function moveProperties() {
+    const previous = getCurrentLayout() ?? getRememberedLayout();
+    rememberLayout(previous);
+    setSceneDesk((current) => ({ ...current, propertiesLeft: !current.propertiesLeft }));
+    if (compactShell) setCompactPanel("inspector");
+  }
+
+  function closePropertiesDock(side?: "left" | "right") {
+    setPropertiesDock(null);
+    if (side && propertiesLeft !== (side === "left")) moveProperties();
+    requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('[data-testid="workspace-dock-properties"]')?.focus());
+  }
+
+  function sidebarAction(side: "left" | "right", intent?: LayoutResizeIntent) {
+    const panel = side === "left" ? leftPanelRef.current : rightPanelRef.current;
+    if (!panel) return;
+    const size = panel.getSize();
+    const minimum = side === "left" ? leftMinimum : rightMinimum;
+    const restoreKey = `${layoutKey}:${propertiesLeft}:${side}`;
+    if (!intent) {
+      const layout = getCurrentLayout();
+      if (!layout) return;
+      const collapsed = layout[side] < 0.01;
+      if (!collapsed) sidebarRestoreRef.current.set(restoreKey, layout[side]);
+      const next = collapsed ? Math.min(layout.center - 20, sidebarRestoreRef.current.get(restoreKey) ?? workspaceDefaultLayout[side]) : 0;
+      if (collapsed && next <= 0) panel.resize(minimum);
+      else applyShellLayout({ ...layout, [side]: next, center: layout.center + layout[side] - next });
+    } else if (intent.type === "step") {
+      const delta = side === "left" ? intent.delta : -intent.delta;
+      panel.resize(Math.max(minimum, size.inPixels + delta));
+    } else if (intent.type === "minimum") {
+      panel.resize(minimum);
+    } else if (intent.type === "maximum") {
+      panel.resize("55%");
+    } else {
+      panel.resize(`${workspaceDefaultLayout[side]}%`);
     }
-    if (nextLayout.right > 0 && rightPanelRef.current?.isCollapsed()) {
-      rightPanelRef.current.expand();
+    const layout = getCurrentLayout();
+    if (layout) {
+      updateHiddenSidePanels(layout);
+      rememberLayout(layout);
     }
-    panelGroupRef.current?.setLayout(nextLayout);
-    if (nextLayout.left > 0 && (leftPanelRef.current?.getSize().inPixels ?? 0) < 190) {
-      leftPanelRef.current?.resize("200px");
-    }
-    if (nextLayout.right > 0 && (rightPanelRef.current?.getSize().inPixels ?? 0) < 300) {
-      rightPanelRef.current?.resize("320px");
-    }
-    onLayoutChanged(nextLayout);
-    window.setTimeout(() => {
-      applyingLayoutRef.current = false;
-    }, 0);
   }
 
   function toggleFocusMode() {
+    setPropertiesDock(null);
     if (!focusedShell) {
-      const currentLayout = panelGroupRef.current?.getLayout();
-      if (currentLayout) {
-        lastNonFocusLayoutRef.current = {
-          left: currentLayout.left ?? 0,
-          center: currentLayout.center ?? 100,
-          right: currentLayout.right ?? 0,
-        };
-      }
+      const currentLayout = getCurrentLayout();
+      if (currentLayout) rememberLayout(currentLayout);
+      compactBeforeFocus.current = compactPanel;
       setFocusedShell(true);
-      applyShellLayout({ left: 0, center: 100, right: 0 });
       if (consoleVisible) {
         toggleConsole();
       }
@@ -2254,88 +2442,69 @@ export default function App() {
     }
 
     setFocusedShell(false);
-    applyShellLayout(
-      lastNonFocusLayoutRef.current ?? getPresetLayout(layoutPreset, shellWidth)
-    );
+    setCompactPanel(compactBeforeFocus.current);
   }
 
-  function saveCurrentLayout() {
-    const layout = panelGroupRef.current?.getLayout();
-    if (!layout) {
-      return;
-    }
-
-    localStorage.setItem(
-      getLayoutStorageKeyForDensity(LAYOUT_STORAGE_KEY, shellDensity),
-      JSON.stringify({
-        left: layout.left ?? 0,
-        center: layout.center ?? 100,
-        right: layout.right ?? 0,
-      } satisfies LayoutMap)
-    );
-    logMessage(
-      "success",
-      `[Layout] Layout atual salvo para o perfil de densidade "${shellDensity}".`
-    );
+  function saveCurrentLayout(name?: string) {
+    const layout = (!focusedShell && getCurrentLayout()) || getRememberedLayout();
+    const savedName = name?.trim().slice(0, 60) || readWorkspaceLayout(localStorage.getItem(layoutKey))?.name || "Minha disposição";
+    localStorage.setItem(layoutKey, JSON.stringify({ layout, scene: sceneDesk, name: savedName, timelinePercent: timelineShareRef.current }));
+    logMessage("success", `[Layout] ${savedName} salva para a densidade ${shellDensity}.`);
   }
 
   function restoreSavedLayout() {
-    // Perfil de densidade primeiro; chave legada como fallback para layouts antigos.
-    const raw =
-      localStorage.getItem(getLayoutStorageKeyForDensity(LAYOUT_STORAGE_KEY, shellDensity)) ??
-      localStorage.getItem(LAYOUT_STORAGE_KEY);
-    if (!raw) {
+    const saved = readWorkspaceLayout(localStorage.getItem(layoutKey))
+      ?? readWorkspaceLayout(localStorage.getItem(getLayoutStorageKeyForDensity(LAYOUT_STORAGE_KEY, shellDensity)))
+      ?? readWorkspaceLayout(localStorage.getItem(LAYOUT_STORAGE_KEY));
+    if (!saved) {
       logMessage("warn", "[Layout] Nenhum layout salvo neste host.");
       return;
     }
-
-    try {
-      const parsed = JSON.parse(raw) as Partial<LayoutMap>;
-      const nextLayout: LayoutMap = {
-        left: Number(parsed.left ?? 18),
-        center: Number(parsed.center ?? 60),
-        right: Number(parsed.right ?? 22),
-      };
-      setFocusedShell(false);
-      lastNonFocusLayoutRef.current = nextLayout;
-      applyShellLayout(nextLayout);
-      logMessage("success", "[Layout] Layout salvo restaurado.");
-    } catch {
-      logMessage("error", "[Layout] Falha ao ler layout salvo neste host.");
+    rememberLayout(saved.layout, activeWorkspace === "scene" && saved.scene.propertiesLeft);
+    if (activeWorkspace === "scene") {
+      timelineShareRef.current = saved.timelinePercent;
+      timelinePanelRef.current?.resize(`${saved.timelinePercent}%`);
+      localStorage.setItem(`${LAYOUT_STORAGE_KEY}::timeline`, String(saved.timelinePercent));
+      setSceneDesk(saved.scene);
     }
+    setFocusedShell(false);
+    applyShellLayout(saved.layout);
+    logMessage("success", `[Layout] ${saved.name || "Disposição salva"} restaurada.`);
+  }
+
+  function restoreDefaultLayout() {
+    const layout = shellConfig.panels;
+    rememberLayout(layout, false);
+    if (activeWorkspace === "scene") setSceneDesk(DEFAULT_SCENE_DESK);
+    setCompactPanel("canvas");
+    setFocusedShell(false);
+    applyShellLayout(layout);
   }
 
   useEffect(() => {
-    if (focusedShell) {
-      return;
-    }
+    localStorage.setItem(`${LAYOUT_STORAGE_KEY}::last-scene-desk`, JSON.stringify({
+      layout: { left: 0, center: 100, right: 0 }, scene: sceneDesk,
+    }));
+  }, [sceneDesk]);
 
-    // A biblioteca pode recalcular os limites depois do primeiro frame ao
-    // expandir painéis que estavam recolhidos no workspace Jogo/Lógica.
-    // Confirme a largura real e repita apenas durante esta transição.
-    const config = resolveWorkspaceShellConfig(activeWorkspace, shellWidth);
-    setLayoutPreset(config.preset);
-    let followupFrame = 0;
-    const panelNeedsRestore = () => {
-      const left = document.querySelector<HTMLElement>('[data-panel][id="left"]');
-      const right = document.querySelector<HTMLElement>('[data-panel][id="right"]');
-      return (config.showLeft && config.panels.left > 0 && (left?.getBoundingClientRect().width ?? 0) < 190) ||
-        (config.showRight && config.panels.right > 0 && (right?.getBoundingClientRect().width ?? 0) < 300);
-    };
-    const restoreIfCollapsed = () => {
-      if (panelNeedsRestore()) applyShellLayout(config.panels);
-    };
+  useEffect(() => {
+    if (compactShell) return;
+    const layout = focusedShell ? shellConfig.focusLayout : getRememberedLayout();
+    draggedLayoutRef.current = null;
+    let secondFrame = 0;
     const frame = window.requestAnimationFrame(() => {
-      applyShellLayout(config.panels);
-      followupFrame = window.requestAnimationFrame(restoreIfCollapsed);
+      applyShellLayout(layout);
+      secondFrame = window.requestAnimationFrame(() => {
+        applyShellLayout(layout);
+        settledLayoutRef.current = layoutRevision;
+      });
     });
-    const timeout = window.setTimeout(restoreIfCollapsed, 180);
     return () => {
+      settledLayoutRef.current = null;
       window.cancelAnimationFrame(frame);
-      window.cancelAnimationFrame(followupFrame);
-      window.clearTimeout(timeout);
+      window.cancelAnimationFrame(secondFrame);
     };
-  }, [activeWorkspace, shellWidth, focusedShell, showProjectWizard, activeProjectDir]);
+  }, [layoutKey, propertiesLeft, compactShell, focusedShell, showProjectWizard]);
 
   useEffect(() => {
     if (focusedShell) {
@@ -2704,29 +2873,6 @@ export default function App() {
           title: getShortcutTitle("scene.save", "Salvar cena ativa", shortcuts),
         },
         {
-          label: "Revisar projeto",
-          onClick: () => setShowDelivery(true),
-          disabled: !activeProjectDir,
-          title: "Revisar problemas, conferir a ROM no destino e exportar (Experimental)",
-          testId: "menu-action-review",
-        },
-        {
-          label: "Desfazer",
-          onClick: () => executeAppCommand("edit.undo"),
-          disabled: !activeProjectDir,
-          shortcut: getShortcutLabel("edit.undo", shortcuts),
-          title: getShortcutTitle("edit.undo", "Desfazer a ultima alteracao (inclui a selecao daquele momento)", shortcuts),
-          testId: "menu-action-undo",
-        },
-        {
-          label: "Refazer",
-          onClick: () => executeAppCommand("edit.redo"),
-          disabled: !activeProjectDir,
-          shortcut: getShortcutLabel("edit.redo", shortcuts),
-          title: getShortcutTitle("edit.redo", "Refazer a alteracao desfeita", shortcuts),
-          testId: "menu-action-redo",
-        },
-        {
           label: "Relatorio MUGEN",
           onClick: () => {
             if (activeProjectDir) void showMugenCompatibility(activeProjectDir, true);
@@ -2753,8 +2899,57 @@ export default function App() {
       ],
     },
     {
-      title: "Ferramentas",
+      title: "Editar",
       actions: [
+        {
+          label: "Desfazer",
+          onClick: () => executeAppCommand("edit.undo"),
+          disabled: !activeProjectDir,
+          shortcut: getShortcutLabel("edit.undo", shortcuts),
+          title: getShortcutTitle("edit.undo", "Desfazer a ultima alteracao (inclui a selecao daquele momento)", shortcuts),
+          testId: "menu-action-undo",
+        },
+        {
+          label: "Refazer",
+          onClick: () => executeAppCommand("edit.redo"),
+          disabled: !activeProjectDir,
+          shortcut: getShortcutLabel("edit.redo", shortcuts),
+          title: getShortcutTitle("edit.redo", "Refazer a alteracao desfeita", shortcuts),
+          testId: "menu-action-redo",
+        },
+        {
+          label: "Histórico da cena",
+          onClick: () => setShowSceneHistory(true),
+          disabled: !activeProjectDir,
+          testId: "menu-action-scene-history",
+        },
+        {
+          label: "Copiar",
+          onClick: handleCopyEntity,
+          disabled: !selectedEntityId || selectedEntityId.startsWith("layer::"),
+          shortcut: getShortcutLabel("entity.copy", shortcuts),
+          title: getShortcutTitle("entity.copy", "Copiar entidade selecionada", shortcuts),
+        },
+        {
+          label: "Colar",
+          onClick: () => void handlePasteEntity(),
+          disabled: !copiedEntity || !activeProjectDir,
+          shortcut: getShortcutLabel("entity.paste", shortcuts),
+          title: getShortcutTitle("entity.paste", "Colar entidade copiada", shortcuts),
+        },
+      ],
+    },
+    {
+      title: "Compilar, testar e entregar",
+      actions: [
+        {
+          label: "Revisar projeto",
+          onClick: () => setShowDelivery(true),
+          disabled: !activeProjectDir,
+          title: "Revisar problemas, conferir a ROM no destino e exportar (Experimental)",
+          testId: "menu-action-review",
+        },
+
         {
           label: "Abrir ROM externa…",
           onClick: () => void handleEmulatorLoadRom(),
@@ -2776,42 +2971,48 @@ export default function App() {
           shortcut: getShortcutLabel("code.generate", shortcuts),
           title: getShortcutTitle("code.generate", "Gerar codigo C para a cena ativa", shortcuts),
         },
-        {
-          label: "Copiar",
-          onClick: handleCopyEntity,
-          disabled: !selectedEntityId || selectedEntityId.startsWith("layer::"),
-          shortcut: getShortcutLabel("entity.copy", shortcuts),
-          title: getShortcutTitle("entity.copy", "Copiar entidade selecionada", shortcuts),
-        },
-        {
-          label: "Colar",
-          onClick: () => void handlePasteEntity(),
-          disabled: !copiedEntity || !activeProjectDir,
-          shortcut: getShortcutLabel("entity.paste", shortcuts),
-          title: getShortcutTitle("entity.paste", "Colar entidade copiada", shortcuts),
-        },
       ],
     },
     {
-      title: "Layout",
+      title: "Disposição",
       actions: [
+        { label: "Compor fase", onClick: () => changeSceneDesk("compose"), testId: "workspace-preset-compose" },
+        { label: "Animar", onClick: () => changeSceneDesk("animate"), testId: "workspace-preset-animate" },
+        { label: "Depurar", onClick: () => {
+          setFocusedShell(false);
+          handleWorkspaceSelect("debug");
+          if (emulatorLoaded) setActiveViewportTab("game");
+        }, testId: "workspace-preset-debug" },
+        ...(activeWorkspace === "scene" ? [{
+          label: propertiesLeft ? "Mover Propriedades para a direita" : "Mover Propriedades para a esquerda",
+          onClick: moveProperties,
+          testId: "workspace-move-properties",
+        }] : []),
         {
-          label: "Salvar layout",
-          onClick: saveCurrentLayout,
+          label: "Salvar disposição com nome…",
+          onClick: () => setLayoutNameDraft(readWorkspaceLayout(localStorage.getItem(layoutKey))?.name || "Minha disposição"),
           shortcut: getShortcutLabel("layout.save", shortcuts),
-          title: getShortcutTitle("layout.save", "Salvar layout local do workspace", shortcuts),
+          title: getShortcutTitle("layout.save", "Salvar a disposição local", shortcuts),
+          testId: "workspace-save-layout",
         },
         {
-          label: "Restaurar layout",
+          label: "Restaurar disposição salva",
           onClick: restoreSavedLayout,
           shortcut: getShortcutLabel("layout.restore", shortcuts),
-          title: getShortcutTitle("layout.restore", "Restaurar layout salvo neste host", shortcuts),
+          title: getShortcutTitle("layout.restore", "Restaurar disposição salva neste host", shortcuts),
+          testId: "workspace-restore-layout",
         },
+        { label: "Restaurar disposição padrão", onClick: restoreDefaultLayout, testId: "workspace-reset-layout" },
+      ],
+    },
+    {
+      title: "Comandos",
+      actions: [
         {
-          label: "Command Palette",
+          label: "Comandos e arquivos",
           onClick: openCommandPalette,
           shortcut: getShortcutLabel("commandPalette.open", shortcuts),
-          title: getShortcutTitle("commandPalette.open", "Buscar e executar comandos reais", shortcuts),
+          title: getShortcutTitle("commandPalette.open", "Buscar comandos e arquivos do projeto", shortcuts),
         },
         {
           label: "Atalhos",
@@ -2900,6 +3101,9 @@ export default function App() {
     }
 
     setActiveProject(projectDir, projectName);
+    const localContext = useEditorStore.getState().studio;
+    const remembered = localContext.savedScenePath === sceneData.scene_path
+      ? localContext : parseStudioContext(sceneData.studio_context_json) ?? localContext;
     setSelectedEntityId(null);
     setHwStatus(hw);
     setActiveScenePath(sceneData.scene_path);
@@ -2909,12 +3113,28 @@ export default function App() {
     if (sceneData.target === "megadrive" || sceneData.target === "snes") {
       setActiveTarget(sceneData.target);
     }
+    useEditorStore.setState({ projectFps: sceneData.project_fps || 60 });
     setActiveWorkspace("scene");
     setActiveViewportTab("scene");
     setRightPanelMode("inspector");
 
-    const focusedEntity = getPreferredSceneEntity(hydrated.resolvedScene);
+    const rememberedEntity = remembered.savedScenePath === sceneData.scene_path
+      ? hydrated.resolvedScene.entities.find((entity) => entity.entity_id === remembered.focus.entityId)
+      : null;
+    const focusedEntity = rememberedEntity ?? getPreferredSceneEntity(hydrated.resolvedScene);
     setSelectedEntityId(focusedEntity?.entity_id ?? null);
+    if (rememberedEntity) {
+      const focus = { ...remembered.focus, task: "scene" as const };
+      const animation = focus.animation ? rememberedEntity.components.sprite?.animations?.[focus.animation] : null;
+      const ids = animation?.occurrence_ids ?? animation?.frames.map((_, index) => `o${index + 1}`);
+      if (!animation) focus.animation = null;
+      if (!focus.occurrenceId || !ids?.includes(focus.occurrenceId)) focus.occurrenceId = null;
+      useEditorStore.setState((state) => ({
+        studio: { ...state.studio, focus, cameras: remembered.cameras, savedScenePath: sceneData.scene_path,
+          restoreSeq: state.studio.restoreSeq + 1 },
+        viewportZoom: remembered.cameras.scene?.zoom ?? state.viewportZoom,
+      }));
+    }
 
     const openReason =
       normalizedPreferredScene && sceneData.scene_path === normalizedPreferredScene
@@ -3992,8 +4212,17 @@ export default function App() {
       trackProductMetric({ kind: "rom_loaded" });
       logMessage("success", "ROM carregada no emulador.");
       setEmulPaused(false);
-      setActiveViewportTab("game");
-      setActiveWorkspace("game");
+      const current = useEditorStore.getState();
+      const focus = current.studio.focus;
+      const focusedActor = current.activeScene?.entities.find((entity) => entity.entity_id === focus.entityId);
+      if (current.activeWorkspace !== "game" && focus.entityId === current.selectedEntityId
+        && focus.animation && focus.occurrenceId
+        && nativeAnimationNames(focusedActor?.components.sprite, current.activeTarget, current.projectSourceKind).includes(focus.animation)) {
+        current.openStudioEditor({ focus: { ...focus, task: "test" } });
+      } else {
+        setActiveViewportTab("game");
+        setActiveWorkspace("game");
+      }
     } catch (error) {
       if (!isBuildContextCurrent()) return;
       recordBuildFailure([describeError(error)]);
@@ -4050,13 +4279,14 @@ export default function App() {
   }
 
   function handleWorkspaceSelect(workspace: EditorWorkspace) {
+    setPropertiesDock(null);
     trackProductMetric({ kind: "workspace_visit", workspace });
     setActiveWorkspace(workspace);
     const config = resolveWorkspaceShellConfig(workspace, shellWidth);
 
     if (workspace === "debug") {
       openToolsWorkspace("projectDiagnostics", "debug", true);
-      setActiveViewportTab("scene");
+      setActiveViewportTab(emulatorLoaded && useEditorStore.getState().motionTraceSession ? "game" : "scene");
       return;
     }
 
@@ -4079,9 +4309,6 @@ export default function App() {
 
     setActiveViewportTab(workspace);
 
-    if (workspace === "scene") {
-      setLeftPanelTab("scene");
-    }
   }
 
   const workspaceGuide = activeProjectDir
@@ -4178,7 +4405,7 @@ export default function App() {
             signal: sharedSignal,
             actions: [
               {
-                label: "Rodar no Emulador",
+                label: "Testar projeto",
                 onClick: () => void handleBuildAndRun(),
                 accent: "success",
                 disabled: building || liveBuildBlocked,
@@ -4216,7 +4443,7 @@ export default function App() {
                 onClick: () => void handleValidate(),
               },
               {
-                label: "Rodar no Emulador",
+                label: "Testar projeto",
                 onClick: () => void handleBuildAndRun(),
                 accent: "success",
                 disabled: building || liveBuildBlocked,
@@ -4246,7 +4473,7 @@ export default function App() {
                 onClick: () => handleWorkspaceSelect("scene"),
               },
               {
-                label: "Rodar no Emulador",
+                label: "Testar projeto",
                 onClick: () => void handleBuildAndRun(),
                 accent: "success",
                 disabled: building || liveBuildBlocked,
@@ -4313,7 +4540,7 @@ export default function App() {
               onClick: () => setRightPanelMode("inspector"),
             },
             {
-              label: "Rodar no Emulador",
+              label: "Testar projeto",
               onClick: () => void handleBuildAndRun(),
               accent: "success",
               disabled: building || liveBuildBlocked,
@@ -4925,31 +5152,34 @@ export default function App() {
   }, [automationEnabled, rightPanelMode]);
 
   const hierarchyPanelContent = shellConfig.showLeft ? (
-    <>
-      <div className="flex shrink-0 border-b border-[#313244] bg-[#11111b]">
-        <button
-          onClick={() => setLeftPanelTab("scene")}
-          className={`flex-1 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] transition-colors ${
-            leftPanelTab === "scene" ? "bg-[#313244] text-[#cdd6f4]" : "text-[#45475a] hover:text-[#a6adc8]"
-          }`}
-        >
-          {activeWorkspace === "logic" ? "Contexto" : "Cena"}
-        </button>
-        <button
-          onClick={() => setLeftPanelTab("layers")}
-          className={`flex-1 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] transition-colors ${
-            leftPanelTab === "layers" ? "bg-[#313244] text-[#cdd6f4]" : "text-[#45475a] hover:text-[#a6adc8]"
-          }`}
-        >
-          Camadas
-        </button>
+    <div className="flex h-full min-h-0 flex-col" data-testid="workspace-project-panel">
+      <WorkspaceTabs<ProjectPanelTab>
+        name="workspace-project"
+        label="Painéis do projeto"
+        tabs={[["scene", "Projeto"], ["layers", "Camadas"]]}
+        value={sceneDesk.projectTab}
+        onChange={(projectTab) => setSceneDesk((current) => ({ ...current, projectTab }))}
+      />
+      <div id="workspace-project-panel-scene" role="tabpanel" aria-labelledby="workspace-project-tab-scene"
+        className="min-h-0 flex-1 overflow-hidden" hidden={sceneDesk.projectTab !== "scene"}>
+        <HierarchyPanel onOpenProject={() => void handleOpenProject()} />
       </div>
-      <div className="min-h-0 flex-1 overflow-hidden">
-        {leftPanelTab === "layers" ? <LayerPanel /> : <HierarchyPanel onOpenProject={() => void handleOpenProject()} />}
+      <div id="workspace-project-panel-layers" role="tabpanel" aria-labelledby="workspace-project-tab-layers"
+        className="min-h-0 flex-1 overflow-hidden" hidden={sceneDesk.projectTab !== "layers"}>
+        <LayerPanel />
       </div>
-    </>
+    </div>
   ) : null;
-  const workspacePanelContent = activeWorkspace === "explorer" ? (
+  const transportAtGame = activeWorkspace === "game" && activeViewportTab === "game"
+    && (!compactShell || compactVisiblePanel === "canvas");
+  const stopSessionButton = (
+    <ToolbarButton label="Parar" icon="square" iconOnly accent="danger"
+      title={getShortcutTitle("emulator.stop", "Parar emulação", shortcuts)} testId="toolbar-emulator-stop"
+      onClick={() => void handleEmulatorStop()} disabled={!emulatorLoaded} />
+  );
+  const useMaterialDock = activeWorkspace === "scene" && !compactShell && !focusedShell
+    && !hiddenSidePanels[propertiesLeft ? "left" : "right"] && !floating.open.properties && rightPanelMode === "inspector";
+  const workspaceEditor = activeWorkspace === "explorer" ? (
     <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Explorer..." />}>
       <ExplorerWorkspace
         onSelectionChange={setExplorerBreadcrumb}
@@ -4958,16 +5188,114 @@ export default function App() {
     </Suspense>
   ) : (
     <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Workspace..." />}>
-      <ViewportPanel showWorkspaceTabs={false} />
+      <ViewportPanel showWorkspaceTabs={false} compactTools={splitTimeline} onAnimateInScene={() => changeSceneDesk("animate")}
+        materialDock={useMaterialDock ? materialDock : null} stopSessionButton={transportAtGame ? stopSessionButton : undefined} />
     </Suspense>
   );
+  const animationActor = splitTimeline || floating.open.timeline
+    ? activeScene?.entities.find((entity) => entity.entity_id === selectedEntityId) : undefined;
+  const canAnimate = nativeAnimationNames(animationActor?.components.sprite, activeTarget, projectSourceKind).length > 0;
+  const timelineContent = animationActor && canAnimate ? (
+    <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando timeline…" />}>
+      <CharacterTimelinePanel key={animationActor.entity_id} entity={animationActor} authored />
+    </Suspense>
+  ) : (
+    <div className="p-3 text-sm text-[var(--rds-text-secondary)]">Selecione no Canvas um ator com animações do projeto.</div>
+  );
+  const liveInspector = shellConfig.showRight && rightPanelMode === "inspector";
+  const workspacePanelContent = (
+    <Group orientation="vertical" id="workspace-editor" className="h-full min-h-0" data-testid="workspace-editor-stack"
+      onLayoutChanged={(layout) => {
+        const share = layout["workspace-timeline"];
+        if (!splitTimeline || !(share > 0 && share <= 71)) return;
+        timelineShareRef.current = share;
+        localStorage.setItem(`${LAYOUT_STORAGE_KEY}::timeline`, String(share));
+      }}>
+      <Panel id="workspace-primary" minSize={splitTimeline ? (compactShell ? "56%" : "29%") : 0} className="overflow-hidden">
+        {workspaceEditor}
+      </Panel>
+      {splitTimeline ? (
+        <LayoutSplitter id="workspace-timeline-divider" orientation="vertical" ariaLabel="Redimensionar Canvas e timeline"
+          onResizeIntent={(intent) => {
+            const panel = timelinePanelRef.current;
+            if (!panel) return;
+            if (intent.type === "step") panel.resize(Math.max(110, panel.getSize().inPixels - intent.delta));
+            else if (intent.type === "minimum") panel.resize(110);
+            else if (intent.type === "maximum") panel.resize(compactShell ? "44%" : "71%");
+            else panel.resize(compactShell ? "34%" : "42%");
+          }} />
+      ) : null}
+      {splitTimeline ? (
+        <Panel id="workspace-timeline" panelRef={timelinePanelRef} defaultSize={`${timelineShareRef.current}%`}
+          minSize="110px" maxSize={compactShell ? "44%" : "71%"} className="overflow-hidden">
+          <div className="flex h-full min-h-0 flex-col">
+            {isTauri() && <div className="flex shrink-0 justify-end border-b border-[#313244] px-2">
+              <button type="button" data-testid="float-timeline" className="rounded px-2 py-0.5 text-[11px]"
+                onClick={() => floating.floatPanel("timeline")}>{floating.open.timeline ? "Mostrar janela da timeline" : "Destacar timeline"}</button>
+            </div>}
+            {floating.open.timeline && <p className="rounded border border-dashed border-[var(--rds-border-strong)] p-2 text-center text-xs">
+              Encaixe da Timeline · pressione Esc na janela destacada para voltar aqui.
+            </p>}
+            <div className="min-h-0 flex-1 overflow-hidden" ref={floating.timelineDock} />
+          </div>
+        </Panel>
+      ) : null}
+    </Group>
+  );
   const inspectorPanelContent = shellConfig.showRight ? (
-    <div className="flex h-full min-h-0 flex-col bg-[#09090b]">
+    <div data-testid="workspace-properties-panel" className="flex h-full min-h-0 flex-col bg-[#09090b]">
       <div className={`flex flex-col gap-2 border-b border-[#27272a] bg-[#111827] ${compactShell ? "px-2 py-1" : "px-3 py-2"}`}>
-        <div className="min-w-0">
+        <div className="flex min-w-0 items-center justify-between gap-1">
           <div className={`${compactShell ? "sr-only" : "text-[10px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]"}`}>
             {rightPanelMode === "tools" ? "Ferramentas" : "Propriedades da seleção"}
           </div>
+          {rightPanelMode === "inspector" && isTauri() && <button type="button" data-testid="float-properties"
+            className="ml-auto rounded px-1 py-0.5 text-[11px]" onClick={() => floating.floatPanel("properties")}>
+            {floating.open.properties ? "Mostrar janela" : "Destacar"}
+          </button>}
+          {activeWorkspace === "scene" && !focusedShell && rightPanelMode === "inspector" ? (
+            <button type="button" title="Encaixar Propriedades" aria-label="Encaixar Propriedades"
+              aria-expanded={propertiesDock !== null} aria-controls="workspace-properties-dock-targets"
+              data-testid="workspace-dock-properties"
+              onClick={() => {
+                if (propertiesDropClick.current) return;
+                if (propertiesDock) closePropertiesDock();
+                else {
+                  setPropertiesDock("choose");
+                  requestAnimationFrame(() => document.getElementById(`workspace-properties-dock-${propertiesLeft ? "right" : "left"}`)?.focus());
+                }
+              }}
+              onPointerDown={(event) => {
+                if (compactShell || event.button !== 0) return;
+                propertiesDrag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
+                event.currentTarget.setPointerCapture(event.pointerId);
+              }}
+              onPointerMove={(event) => {
+                const drag = propertiesDrag.current;
+                if (!drag || drag.id !== event.pointerId || drag.moved || Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 8) return;
+                drag.moved = true;
+                setPropertiesDock("drag");
+              }}
+              onPointerUp={(event) => {
+                const drag = propertiesDrag.current;
+                if (!drag || drag.id !== event.pointerId) return;
+                propertiesDrag.current = null;
+                if (!drag.moved) return;
+                propertiesDropClick.current = true;
+                window.setTimeout(() => { propertiesDropClick.current = false; }, 0);
+                const target = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-properties-dock-side]");
+                const side = target?.getAttribute("data-properties-dock-side");
+                closePropertiesDock(side === "left" || side === "right" ? side : undefined);
+              }}
+              onLostPointerCapture={(event) => {
+                if (propertiesDrag.current?.id !== event.pointerId) return;
+                if (propertiesDrag.current.moved) closePropertiesDock();
+                propertiesDrag.current = null;
+              }}
+              className="ml-auto touch-none rounded p-1 hover:bg-[var(--rds-surface-raised)] focus-visible:ring-2 focus-visible:ring-[var(--rds-focus-ring)]">
+              <Icon name="arrows" className="h-4 w-4" />
+            </button>
+          ) : null}
         </div>
         {shellConfig.defaultRightMode !== "hidden" ? (
           <div className="flex shrink-0 flex-wrap items-center justify-center gap-1 rounded border border-[#313244] bg-[#09090b] p-0.5">
@@ -5000,6 +5328,7 @@ export default function App() {
           </div>
         ) : null}
       </div>
+      <div ref={setMaterialDock} className="rds-material-dock" />
       <div className="min-h-0 flex-1 overflow-hidden">
         {rightPanelMode === "tools" ? (
           <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Tools..." />}>
@@ -5011,20 +5340,68 @@ export default function App() {
             />
           </Suspense>
         ) : (
-          <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Inspector..." />}>
-            <InspectorPanel />
-          </Suspense>
+          <div className="h-full" ref={floating.propertiesDock} />
         )}
       </div>
     </div>
   ) : null;
 
+  function renderSidePanel(side: "left" | "right") {
+    const left = side === "left";
+    const showProperties = propertiesLeft === left;
+    const available = left ? leftAvailable : rightAvailable;
+    return (
+      <Panel key={side} id={side}
+        panelRef={left ? leftPanelRef : rightPanelRef}
+        defaultSize={`${workspaceDefaultLayout[side]}%`}
+        minSize={available && !focusedShell ? (left ? leftMinimum : rightMinimum) : 0}
+        collapsible
+        className={`overflow-hidden ${left ? "border-r" : "border-l"} border-[#313244]`}>
+        <div className="h-full min-h-0" inert={!available || focusedShell || hiddenSidePanels[side]}>
+          {showProperties ? inspectorPanelContent : hierarchyPanelContent}
+        </div>
+      </Panel>
+    );
+  }
+
   return (
     <div
       data-density={shellDensity}
       data-shell-persona={shellPersona}
+      data-testid="studio-workspace-shell"
+      data-scene-desk={sceneDesk.desk}
+      data-properties-side={propertiesLeft ? "left" : "right"}
+      data-floating-properties={floating.open.properties ? "true" : "false"}
+      data-floating-timeline={floating.open.timeline ? "true" : "false"}
       className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--rds-surface-panel-strong)] text-[var(--rds-text-primary)]"
     >
+      {(splitTimeline || floating.open.timeline) && createPortal(timelineContent, floating.hosts.timeline, "studio-timeline")}
+      {(liveInspector || floating.open.properties) && createPortal(
+        <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Inspector..." />}>
+          <InspectorPanel />
+        </Suspense>,
+        floating.hosts.properties, "studio-properties",
+      )}
+      <Dialog open={layoutNameDraft !== null} title="Salvar disposição" onClose={() => setLayoutNameDraft(null)}
+        testId="workspace-layout-name-dialog">
+        <form onSubmit={(event) => {
+          event.preventDefault();
+          if (!layoutNameDraft?.trim()) return;
+          saveCurrentLayout(layoutNameDraft);
+          setLayoutNameDraft(null);
+        }} className="flex flex-col gap-3">
+          <label className="flex flex-col gap-1 text-sm">
+            Nome da disposição
+            <input required type="text" maxLength={60} data-rds-dialog-initial-focus data-testid="workspace-layout-name"
+              value={layoutNameDraft ?? ""} onChange={(event) => setLayoutNameDraft(event.target.value)}
+              className="rounded border border-[var(--rds-border-subtle)] bg-[var(--rds-surface-panel)] px-2 py-1" />
+          </label>
+          <div className="flex justify-end gap-2">
+            <button type="button" className="rounded px-2 py-1" onClick={() => setLayoutNameDraft(null)}>Cancelar</button>
+            <button type="submit" className="rounded bg-[var(--rds-action-primary)] px-2 py-1 text-[var(--rds-on-accent)]">Salvar disposição</button>
+          </div>
+        </form>
+      </Dialog>
       {showProjectWizard && <ProjectStartWizard
         activeProject={Boolean(activeProjectDir)} busy={creatingProject} loading={templatesLoading}
         name={newProjName} target={newProjTarget} templates={projectTemplates}
@@ -5326,12 +5703,12 @@ export default function App() {
           query={commandPaletteQuery}
           shortcuts={shortcuts}
           onQueryChange={setCommandPaletteQuery}
-          onExecute={(commandId) => {
-            setShowCommandPalette(false);
-            executeAppCommand(commandId);
-          }}
-          onClose={() => setShowCommandPalette(false)}
+          onExecute={executeCommandPaletteEntry}
+          onClose={closeCommandPalette}
           isCommandDisabled={isCommandDisabled}
+          fileStatus={searchProjectAssets && activeProjectDir
+            ? !files ? "Procurando arquivos do projeto…" : files.failed ? "A busca de arquivos está indisponível." : undefined
+            : undefined}
         />
       )}
 
@@ -5346,12 +5723,13 @@ export default function App() {
         />
       )}
 
+      <CommandHint />
       <UnifiedTopBar
         appName="RetroDev Studio"
         appTagline="Workspace adaptativo para autoria, playtest e debug."
         breadcrumbs={breadcrumbItems}
         menuSections={topBarMenuSections}
-        centerContent={
+        primaryContent={
           <>
             <select
               aria-label="Target de build"
@@ -5379,11 +5757,15 @@ export default function App() {
                 "build.run",
                 liveBuildBlocked
                   ? buildDisabledReason ?? "Build & Run"
-                  : buildWarningSummary ?? "Build & Run",
+                  : buildWarningSummary ?? "Compilar a revisão atual e iniciar sua ROM",
                 shortcuts
               )}
               describedBy={liveBuildBlocked ? "build-disabled-reason" : undefined}
             />
+          </>
+        }
+        centerContent={
+          <>
             {activeScenePath && projectEntryScenePath && activeScenePath !== projectEntryScenePath ? (
               <ToolbarButton
                 icon="studio-game"
@@ -5394,35 +5776,33 @@ export default function App() {
                 title={`Compila e roda começando pela entrada de '${activeScenePath}', só nesta ROM de teste. O jogo continua começando em '${projectEntryScenePath}'.`}
               />
             ) : null}
-            <ToolbarButton
+            {!transportAtGame && <div role="group" aria-label="Sessão de emulação" className="rds-command-group">
+            <ToolbarButton icon="studio-game" iconOnly title={getShortcutTitle("emulator.play", "Abrir a sessão de teste atual", shortcuts)}
               label="Continuar teste"
               onClick={() => void handlePlay()}
               disabled={!emulatorLoaded || building}
             />
+            {stopSessionButton}
             <ToolbarButton
-              label="Parar" icon="square"
-              testId="toolbar-emulator-stop"
-              onClick={() => void handleEmulatorStop()}
-              disabled={!emulatorLoaded}
-              accent="danger"
-            />
-            <ToolbarButton
-              icon={emulPaused ? "play" : "pause"}
+              iconOnly icon={emulPaused ? "play" : "pause"}
               label={emulPaused ? "Retomar" : "Pausar"}
               testId="toolbar-emulator-pause"
               onClick={handleEmulatorPause}
               disabled={!emulatorLoaded}
             />
-            <ToolbarButton
+            </div>}
+            <div role="group" aria-label="Imagens do projeto" className="rds-command-group">
+            <ToolbarButton icon="camera" iconOnly
               label="Capturar cena"
               testId="toolbar-capture-rom-scene"
               onClick={() => void handleCaptureRomScene()}
               disabled={!emulatorLoaded || !activeProjectDir}
               title="Grava a tela atual do jogo (planos e sprites lidos do VDP) como cena do projeto"
             />
-            <ToolbarButton icon="studio-art" label="Imagem" testId="toolbar-add-image"
+            <ToolbarButton icon="studio-art" iconOnly label="Imagem" testId="toolbar-add-image"
               title="Adicionar imagem: cole com Ctrl+V ou solte uma imagem/GIF na cena"
               disabled={!activeProjectDir} onClick={() => window.dispatchEvent(new Event("rds:choose-image"))} />
+            </div>
             {activeProjectDir ? (
             <div data-testid="toolbar-build-status" className="relative shrink-0">
               <button type="button" popoverTarget="studio-build-details" data-testid="toolbar-build-details-open"
@@ -5574,7 +5954,7 @@ export default function App() {
             </div>
             ) : null}
             {activeProjectDir ? <SceneSaveStatusChip /> : null}
-            <ToolbarButton icon="save" label="Salvar" testId="toolbar-save" disabled={!activeProjectDir}
+            <ToolbarButton icon="save" iconOnly label="Salvar" testId="toolbar-save" disabled={!activeProjectDir}
               onClick={() => void handleSaveScene()} title={getShortcutTitle("scene.save", "Salvar cena ativa", shortcuts)} />
             {sceneDraftState.status === "confirmed" && sceneDraftState.savedAt && sceneDraftState.revision === sceneRevision ? (
               <span
@@ -5584,6 +5964,18 @@ export default function App() {
               >
                 Rascunho {new Date(sceneDraftState.savedAt).toLocaleTimeString()}
               </span>
+            ) : null}
+            {!showProjectWizard && !focusedShell && shellPersona !== "guiado" && workspaceGuide &&
+              activeWorkspace !== "artstudio" && activeWorkspace !== "retrofx" ? (
+              <>
+                <button type="button" popoverTarget="studio-workspace-help" data-testid="workspace-guide-open"
+                  aria-label="Guia desta área" data-tool-hint="Guia desta área" className="rds-command-icon">
+                  <Icon name="info-circle" size={18} />
+                </button>
+                <div key={workspaceMeta.id} id="studio-workspace-help" popover="auto" className="rds-guide-popover">
+                  <WorkspaceGuideCard guide={workspaceGuide} />
+                </div>
+              </>
             ) : null}
             <StudioAppearancePicker />
             <details className="relative shrink-0">
@@ -5636,12 +6028,13 @@ export default function App() {
             </div>
             </details>
             <ToolbarButton
-              label={focusedShell ? "Sair do foco" : "Focus"}
+              iconOnly icon="maximize" label={focusedShell ? "Sair do foco" : "Focus"}
               onClick={toggleFocusMode}
               title={getShortcutTitle("layout.focus", "Maximizar ou restaurar a area central", shortcuts)}
+              testId="workspace-focus"
             />
             <ToolbarButton
-              label="Console"
+              iconOnly icon="terminal" label="Console"
               onClick={toggleConsole}
               title={getShortcutTitle("console.open", "Abrir Console", shortcuts)}
             />
@@ -5732,19 +6125,10 @@ export default function App() {
           onTest={() => void handleBuildAndRun()}
         />
       ) : null}
-      {!showProjectWizard &&
-        !focusedShell &&
-        !compactShell &&
-        shellPersona !== "guiado" &&
-        workspaceGuide &&
-        activeWorkspace !== "artstudio" &&
-        activeWorkspace !== "retrofx" && (
-        <WorkspaceGuideCard key={workspaceMeta.id} guide={workspaceGuide} />
-      )}
-
       {!showProjectWizard ? <StudioContextBar compact={compactShell} /> : null}
       {showDelivery ? <DeliveryPanel onClose={() => setShowDelivery(false)} /> : null}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      {showSceneHistory && activeProjectDir ? <SceneHistoryDialog onClose={() => setShowSceneHistory(false)} /> : null}
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <aside
           data-testid="workspace-activity-bar"
           aria-label="Áreas do projeto"
@@ -5755,7 +6139,7 @@ export default function App() {
               const groupItems = WORKSPACE_ITEMS.filter(
                 (workspace) =>
                   workspace.group === group.id &&
-                  isSurfaceVisibleForPersona(workspace, shellPersona)
+                  (showAllAreas || isSurfaceVisibleForPersona(workspace, shellPersona))
               );
               if (groupItems.length === 0) {
                 return null;
@@ -5791,96 +6175,91 @@ export default function App() {
               );
             })}
           </div>
+          <div className="flex shrink-0 flex-wrap justify-center gap-1 border-t border-[var(--rds-border-subtle)] p-1.5">
+            {WORKSPACE_ITEMS.some((workspace) => !isSurfaceVisibleForPersona(workspace, shellPersona)) ? (
+              <button type="button" aria-pressed={showAllAreas} data-testid="workspace-show-all-areas"
+                onClick={() => setShowAllAreas((visible) => !visible)}
+                className="w-full rounded px-1 py-1 text-[10px] font-semibold focus-visible:ring-2 focus-visible:ring-[var(--rds-focus-ring)]">
+                {showAllAreas ? "Áreas do modo" : "Todas as áreas"}
+              </button>
+            ) : null}
+            {!compactShell && !focusedShell ? (["left", "right"] as const).map((side) => {
+              if (!(side === "left" ? leftAvailable : rightAvailable)) return null;
+              const isProperties = propertiesLeft === (side === "left");
+              const name = isProperties ? (activeWorkspace === "debug" ? "Ferramentas" : "Propriedades") : "Projeto e camadas";
+              const expanded = !hiddenSidePanels[side];
+              const label = `${expanded ? "Recolher" : "Fixar"} ${name}`;
+              return <button key={side} type="button" title={label} aria-label={label} aria-expanded={expanded} aria-controls={side}
+                data-testid={`workspace-sidebar-${side}`} onClick={() => sidebarAction(side)}
+                className="rounded p-1 text-[var(--rds-text-secondary)] hover:text-[var(--rds-text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--rds-focus-ring)]">
+                <Icon name={expanded ? "sidebar-collapse" : "sidebar-expand"} className="h-4 w-4" />
+              </button>;
+            }) : null}
+          </div>
         </aside>
 
+        {activeWorkspace === "scene" && !focusedShell && propertiesDock ? (
+          <div id="workspace-properties-dock-targets" role="group" aria-label="Destino de Propriedades"
+            onKeyDown={(event) => {
+              if (event.key !== "Escape") return;
+              event.stopPropagation();
+              closePropertiesDock();
+            }}
+            className="pointer-events-none absolute inset-x-2 top-3 z-40 ml-[88px] flex justify-between gap-2">
+            {(["left", "right"] as const).map((side) => {
+              const current = propertiesLeft === (side === "left");
+              return <button key={side} type="button" id={`workspace-properties-dock-${side}`}
+                data-properties-dock-side={side} data-current={current} aria-current={current || undefined}
+                onClick={() => closePropertiesDock(side)}
+                className="pointer-events-auto rounded-lg border-2 border-dashed border-[var(--rds-focus-ring)] bg-[var(--rds-surface-panel-strong)] px-3 py-2 text-xs font-semibold shadow-xl focus-visible:ring-2 focus-visible:ring-[var(--rds-focus-ring)]">
+                {side === "left" ? "Encaixar à esquerda" : "Encaixar à direita"}{current ? " · atual" : ""}
+              </button>;
+            })}
+          </div>
+        ) : null}
         {compactShell ? (
           <div data-testid="compact-workspace-shell" className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            <div role="tablist" aria-label="Painéis do workspace" className="flex shrink-0 overflow-x-auto border-b border-[#313244] bg-[#111827]">
-              {compactTabs.map(([panel, label], index) => (
-                <button
-                  key={panel}
-                  id={`compact-shell-tab-${panel}`}
-                  type="button"
-                  role="tab"
-                  data-testid={`compact-shell-tab-${panel}`}
-                  aria-selected={compactVisiblePanel === panel}
-                  aria-controls="compact-shell-panel"
-                  tabIndex={compactVisiblePanel === panel ? 0 : -1}
-                  onClick={() => setCompactPanel(panel)}
-                  onKeyDown={(event) => {
-                    let nextIndex: number;
-                    if (event.key === "ArrowRight") nextIndex = (index + 1) % compactTabs.length;
-                    else if (event.key === "ArrowLeft") nextIndex = (index - 1 + compactTabs.length) % compactTabs.length;
-                    else if (event.key === "Home") nextIndex = 0;
-                    else if (event.key === "End") nextIndex = compactTabs.length - 1;
-                    else return;
-                    event.preventDefault();
-                    const nextPanel = compactTabs[nextIndex][0];
-                    setCompactPanel(nextPanel);
-                    document.getElementById(`compact-shell-tab-${nextPanel}`)?.focus();
-                  }}
-                  className={`shrink-0 px-3 py-1.5 text-[11px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--rds-focus-ring)] ${
-                    compactVisiblePanel === panel ? "border-b-2 border-[var(--rds-action-primary)] text-[var(--rds-text-primary)]" : "text-[var(--rds-text-secondary)]"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div
-              id="compact-shell-panel"
-              role="tabpanel"
-              aria-labelledby={`compact-shell-tab-${compactVisiblePanel}`}
-              className="min-h-0 min-w-0 flex-1 overflow-hidden"
-            >
-              {compactVisiblePanel === "hierarchy" ? (
-                <div className="flex h-full min-h-0 flex-col">{hierarchyPanelContent}</div>
-              ) : compactVisiblePanel === "inspector" ? inspectorPanelContent : workspacePanelContent}
-            </div>
+            <WorkspaceTabs name="compact-shell" label="Painéis do workspace" tabs={compactTabs}
+              value={compactVisiblePanel} onChange={setCompactPanel} />
+            {(["canvas", "hierarchy", "inspector"] as const).map((panel) => (
+              <div key={panel} id={`compact-shell-panel-${panel}`} role="tabpanel"
+                aria-labelledby={`compact-shell-tab-${panel}`} hidden={compactVisiblePanel !== panel}
+                className="min-h-0 min-w-0 flex-1 overflow-hidden">
+                {panel === "canvas" ? workspacePanelContent : panel === "hierarchy" ? hierarchyPanelContent : inspectorPanelContent}
+              </div>
+            ))}
           </div>
         ) : (
         <Group
           id="retrodev-layout"
           orientation="horizontal"
           groupRef={panelGroupRef}
+          elementRef={panelGroupElement}
+          defaultLayout={workspaceDefaultLayout}
           className="min-w-0 flex flex-1 overflow-hidden"
-          defaultLayout={defaultLayout}
-          onLayoutChanged={(layout) => {
-            if (!focusedShell) {
-              lastNonFocusLayoutRef.current = {
-                left: layout.left ?? 0,
-                center: layout.center ?? 100,
-                right: layout.right ?? 0,
-              };
+          onPointerDownCapture={(event) => {
+            if (event.target instanceof Element && event.target.closest("[data-separator]")?.closest("[data-group]") === event.currentTarget) {
+              draggedLayoutRef.current = layoutRevision;
             }
-            onLayoutChanged(layout);
+          }}
+          onLayoutChanged={(layout) => {
+            updateHiddenSidePanels(layout);
+            if (!focusedShell && settledLayoutRef.current === layoutRevision && draggedLayoutRef.current === layoutRevision) {
+              draggedLayoutRef.current = null;
+              const next = { left: layout.left ?? 0, center: layout.center ?? 100, right: layout.right ?? 0 };
+              rememberLayout(next);
+            }
           }}
         >
-          <Panel
-            id="left"
-            panelRef={leftPanelRef}
-            defaultSize={shellConfig.panels.left}
-            minSize={shellConfig.showLeft && !focusedShell && shellWidth >= 960 ? "200px" : 0}
-            collapsible
-            className="flex flex-col overflow-hidden border-r border-[#313244]"
-          >
-            {hierarchyPanelContent}
-          </Panel>
-          <LayoutSplitter />
-          <Panel id="center" minSize={shellWidth < 960 ? 0 : 20} className="overflow-hidden">
+          {renderSidePanel("left")}
+          <LayoutSplitter key="divider-left" id="workspace-divider-left" disabled={focusedShell || !leftAvailable}
+            onResizeIntent={(intent) => sidebarAction("left", intent)} />
+          <Panel id="center" key="center" minSize="20%" className="overflow-hidden">
             {workspacePanelContent}
           </Panel>
-          <LayoutSplitter />
-          <Panel
-            id="right"
-            panelRef={rightPanelRef}
-            defaultSize={shellConfig.panels.right}
-            minSize={shellConfig.showRight && !focusedShell ? (shellWidth < 960 ? "260px" : "320px") : 0}
-            collapsible
-            className="overflow-hidden border-l border-[#313244]"
-          >
-            {inspectorPanelContent}
-          </Panel>
+          <LayoutSplitter key="divider-right" id="workspace-divider-right" disabled={focusedShell || !rightAvailable}
+            onResizeIntent={(intent) => sidebarAction("right", intent)} />
+          {renderSidePanel("right")}
         </Group>
         )}
       </div>

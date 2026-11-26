@@ -19,6 +19,7 @@ export type IconName =
   | "studio-art" | "studio-fx" | "studio-debug"
   | "cursor" | "brush" | "eraser" | "collision" | "save" | "pause" | "export"
   | "fill-color" | "color-picker" | "circle" | "crop" | "minus"
+  | "mirror-horizontal" | "mirror-vertical" | "scale-area" | "warp-area" | "rotate-area"
   | "flash"
   | "keyboard"
   | "fork"
@@ -113,6 +114,16 @@ function IconPaths({ name }: { name: IconName }) {
       return <><path d="M7 2v4m5-4v4M2 7h4m-4 5h4m1 6v4m5-4v4M18 7h4" stroke="var(--rds-workspace-debug)"/>
         <rect x="5" y="5" width="13" height="13" rx="2" fill="var(--rds-workspace-debug)" fillOpacity=".25"/>
         <circle cx="15" cy="15" r="5" fill="var(--rds-surface-panel)" stroke="var(--rds-workspace-explorer)"/><path d="m19 19 3 3M13 15h4m-2-2v4" stroke="var(--rds-workspace-explorer)"/></>;
+    case "mirror-horizontal":
+    case "mirror-vertical":
+      return <g transform={name === "mirror-vertical" ? "rotate(90 12 12)" : undefined}>
+        <path d="M12 2v20" strokeDasharray="2 2"/><path d="M3 17h6V6Z" fill="currentColor"/><path d="M21 17h-6V6Z"/></g>;
+    case "scale-area":
+      return <><path d="M3 12V3h9M3 9h6v6H3z" strokeDasharray="2 1"/><path d="M13 19h8v-8m-9-1 9 9"/></>;
+    case "warp-area":
+      return <><path d="M3 4q8 5 17 0c-5 6-5 10 0 16q-8-5-17 0c5-6 5-10 0-16Z"/><path d="M6 12h11m-6-6v12" strokeDasharray="2 1"/></>;
+    case "rotate-area":
+      return <><path d="M4 10a8 8 0 0 1 15-4l2 4m0-6v6h-6"/><path d="m6 13 5-3 4 7-5 3Z"/></>;
     case "cursor":
       return <path d="m5 2 14 12-7 1-3 7Z" fill="var(--rds-workspace-scene)"/>;
     case "brush":

@@ -12,6 +12,19 @@ on:
           - all
           - megadrive
           - snes
+          - authoring
+          - hud
+          - guides
+          - advanced-authoring
+          - linux-candidate
+      visual_comparison:
+        description: "Registrar as jornadas de autoria em Full HD com conferência em 1366 × 768"
+        type: boolean
+        default: false
+      upload_candidate:
+        description: "Guardar o executável exato deste ensaio Windows e seu SHA-256"
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       target:
@@ -26,6 +39,9 @@ on:
       - "package-lock.json"
       - "scripts/build.mjs"
       - "scripts/e2e-tauri-build-run.mjs"
+      - "scripts/qa/verify-desktop-scenarios.mjs"
+      - "scripts/qa/pose-cadence.mjs"
+      - "scripts/qa/create-pose-authoring-demo.mjs"
       - "src/**"
       - "src-tauri/**"
   pull_request:
@@ -39,6 +55,9 @@ on:
       - "package-lock.json"
       - "scripts/build.mjs"
       - "scripts/e2e-tauri-build-run.mjs"
+      - "scripts/qa/verify-desktop-scenarios.mjs"
+      - "scripts/qa/pose-cadence.mjs"
+      - "scripts/qa/create-pose-authoring-demo.mjs"
       - "src/**"
       - "src-tauri/**"
 
@@ -51,6 +70,7 @@ concurrency:
 
 jobs:
   desktop-smoke:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.target != 'linux-candidate' }}
     # Pinado em windows-2022: a imagem windows-latest (20260714) quebrou o
     # pareamento WebView2/msedgedriver e toda sessao WebDriver falha com
     # 'session not created: DevToolsActivePort file doesn't exist'.
@@ -70,6 +90,9 @@ jobs:
       RDS_E2E_UI_TIMEOUT_MS: 30000
       RDS_E2E_RUN_TIMEOUT_MS: 300000
       RDS_FORCE_TAURI_CLI_DEBUG: "1"
+      RDS_E2E_RECORD_LAYOUT: ${{ inputs.visual_comparison && contains(fromJSON('["authoring","advanced-authoring"]'), inputs.target) && '1' || '' }}
+      RDS_E2E_WINDOW_WIDTH: ${{ inputs.visual_comparison && contains(fromJSON('["authoring","advanced-authoring"]'), inputs.target) && '1920' || '' }}
+      RDS_E2E_WINDOW_HEIGHT: ${{ inputs.visual_comparison && contains(fromJSON('["authoring","advanced-authoring"]'), inputs.target) && '1080' || '' }}
       RDS_E2E_TARGET: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.target || github.event_name == 'workflow_call' && inputs.target || 'all' }}
       RDS_GITHUB_TOKEN: ${{ github.token }}
     steps:
@@ -145,7 +168,7 @@ jobs:
 
       - name: Run Mega Drive desktop smoke
         id: smoke_md
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
         run: |
           npm run test:e2e:desktop:md -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -153,7 +176,7 @@ jobs:
 
       - name: Run reference gameplay passage E2E
         id: reference_goal
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
         run: |
           npm run test:e2e:desktop:reference-platformer -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -161,7 +184,7 @@ jobs:
 
       - name: Run SNES desktop smoke
         id: smoke_snes
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes') }}
         run: |
           npm run test:e2e:desktop:snes -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -169,7 +192,7 @@ jobs:
 
       - name: Run Mega Drive live overflow desktop E2E
         id: live_overflow_md
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
         run: |
           npm run test:e2e:desktop:live-overflow:md -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -177,7 +200,7 @@ jobs:
 
       - name: Run SNES live overflow desktop E2E
         id: live_overflow_snes
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes') }}
         run: |
           npm run test:e2e:desktop:live-overflow:snes -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -185,7 +208,7 @@ jobs:
 
       - name: Run Mega Drive live VRAM overflow desktop E2E
         id: live_vram_overflow_md
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
         run: |
           npm run test:e2e:desktop:live-overflow-vram:md -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -193,7 +216,7 @@ jobs:
 
       - name: Run SNES live VRAM overflow desktop E2E
         id: live_vram_overflow_snes
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes') }}
         run: |
           npm run test:e2e:desktop:live-overflow-vram:snes -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -201,7 +224,7 @@ jobs:
 
       - name: Run Mega Drive live VRAM warning desktop E2E
         id: live_vram_warning_md
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
         run: |
           npm run test:e2e:desktop:live-warning-vram:md -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -209,7 +232,7 @@ jobs:
 
       - name: Run SNES live VRAM warning desktop E2E
         id: live_vram_warning_snes
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes') }}
         run: |
           npm run test:e2e:desktop:live-warning-vram:snes -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -217,7 +240,7 @@ jobs:
 
       - name: Run Mega Drive live sprite warning desktop E2E
         id: live_sprite_warning_md
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
         run: |
           npm run test:e2e:desktop:live-warning-sprites:md -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -225,7 +248,7 @@ jobs:
 
       - name: Run SNES live sprite warning desktop E2E
         id: live_sprite_warning_snes
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes') }}
         run: |
           npm run test:e2e:desktop:live-warning-sprites:snes -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -233,7 +256,7 @@ jobs:
 
       - name: Run Mega Drive live healthy desktop E2E
         id: live_ok_md
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
         run: |
           npm run test:e2e:desktop:live-ok:md -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -241,7 +264,7 @@ jobs:
 
       - name: Run SNES live healthy desktop E2E
         id: live_ok_snes
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes') }}
         run: |
           npm run test:e2e:desktop:live-ok:snes -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -249,7 +272,7 @@ jobs:
 
       - name: Run Mega Drive live error desktop E2E
         id: live_error_md
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
         run: |
           npm run test:e2e:desktop:live-error:md -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -257,7 +280,7 @@ jobs:
 
       - name: Run SNES live error desktop E2E
         id: live_error_snes
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes') }}
         run: |
           npm run test:e2e:desktop:live-error:snes -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -265,7 +288,7 @@ jobs:
 
       - name: Run Mega Drive live stale desktop E2E
         id: live_stale_md
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
         run: |
           npm run test:e2e:desktop:live-stale:md -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -273,11 +296,274 @@ jobs:
 
       - name: Run SNES live stale desktop E2E
         id: live_stale_snes
-        if: ${{ env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'snes') }}
         run: |
           npm run test:e2e:desktop:live-stale:snes -- --skip-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Add-Content -Path (Join-Path $env:RUNNER_TEMP 'desktop-e2e-passed.txt') -Value 'live_stale_snes'
+
+      - name: Restore a C draft and observe its applied revision in the Mega Drive core
+        id: code_draft
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
+        run: |
+          node scripts/e2e-tauri-build-run.mjs --skip-build --scenario code-draft-roundtrip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'code_draft'
+
+      - name: Verify shared and instance C edits in the desktop editor
+        id: code_scope
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
+        run: |
+          node scripts/e2e-tauri-build-run.mjs --skip-build --scenario code-instance-scope
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'code_scope'
+
+      - name: Measure both actors in the simple and dense Mega Drive scenes
+        id: pose_baseline
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
+        env:
+          RDS_POSE_PROOF: baseline
+        run: |
+          $projects = @(node scripts/qa/create-pose-authoring-demo.mjs)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($projects.Count -ne 2) { throw "Expected the two pose authoring fixtures" }
+          $failedRooms = @()
+          foreach ($project in $projects) {
+            node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+            if ($LASTEXITCODE -ne 0) { $failedRooms += $project }
+          }
+          if ($failedRooms.Count) { throw ("Pose authoring failed in " + ($failedRooms -join ", ")) }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'pose_baseline'
+
+      - name: Author the pose, reopen it, and observe the edited Mega Drive ROM in both scenes
+        id: pose_journey
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
+        env:
+          RDS_POSE_PROOF: journey
+        run: |
+          $projects = @(node scripts/qa/create-pose-authoring-demo.mjs)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($projects.Count -ne 2) { throw "Expected the two pose authoring fixtures" }
+          $failedRooms = @()
+          foreach ($project in $projects) {
+            node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+            if ($LASTEXITCODE -ne 0) { $failedRooms += $project }
+          }
+          if ($failedRooms.Count) { throw ("The edited pose failed in " + ($failedRooms -join ", ")) }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'pose_journey'
+
+      - name: Verify pose audio, hitboxes and playback in the Mega Drive core
+        id: pose_tools
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
+        run: |
+          $projects = @(node scripts/qa/create-pose-authoring-demo.mjs)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($projects.Count -ne 2) { throw "Expected the two pose authoring fixtures" }
+          $failedCases = @()
+          foreach ($proof in @('events', 'boxes', 'playback')) {
+            $env:RDS_POSE_PROOF = $proof
+            $room = Split-Path -LiteralPath $projects[0]
+            node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project $room
+            if ($LASTEXITCODE -ne 0) { $failedCases += $proof }
+          }
+          if ($failedCases.Count) { throw ("Pose tools failed: " + ($failedCases -join ", ")) }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'pose_tools'
+
+      - name: Verify authoring layouts and pending edits at both window sizes
+        id: workspace_layout
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
+        env:
+          RDS_POSE_PROOF: workspace
+        run: |
+          $projects = @(node scripts/qa/create-pose-authoring-demo.mjs)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($projects.Count -ne 2) { throw "Expected the two pose authoring fixtures" }
+          $failedCases = @()
+          foreach ($viewport in @('1366x768', '949x593')) {
+            $env:RDS_POSE_VIEWPORT = $viewport
+            foreach ($project in $projects) {
+              $room = Split-Path -LiteralPath $project
+              node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project $room
+              if ($LASTEXITCODE -ne 0) { $failedCases += "$viewport $room" }
+            }
+          }
+          if ($failedCases.Count) { throw ("Workspace layouts failed: " + ($failedCases -join ", ")) }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'workspace_layout'
+
+      - name: Compare the pillar, aperture and control pixels in the Mega Drive core
+        id: point_occlusion
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
+        run: |
+          $failedCases = @()
+          foreach ($proof in @('occlusion', 'occlusion-region', 'occlusion-motion')) {
+            $env:RDS_POSE_PROOF = $proof
+            $fixture = if ($proof -eq 'occlusion-motion') { '--composition-motion' } else { '--composition' }
+            $project = node scripts/qa/create-pose-authoring-demo.mjs $fixture
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+            if ($LASTEXITCODE -ne 0) { $failedCases += $proof }
+          }
+          if ($failedCases.Count) { throw ("Pillar pixel comparisons failed: " + ($failedCases -join ", ")) }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'point_occlusion'
+
+      - name: Verify the guide, precise position and entities with the same name
+        id: scene_guides
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive' || env.RDS_E2E_TARGET == 'guides') }}
+        env:
+          RDS_POSE_PROOF: guides
+        run: |
+          $project = node scripts/qa/create-pose-authoring-demo.mjs --guides
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'scene_guides'
+
+      - name: Reorder a linked atlas and preserve both actors in the Mega Drive core
+        id: linked_atlas
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
+        env:
+          RDS_POSE_PROOF: linked-atlas
+        run: |
+          $project = node scripts/qa/create-pose-authoring-demo.mjs --linked-atlas
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'linked_atlas'
+
+      - name: Compare indexed pose effects with control pixels in the Mega Drive core
+        id: indexed_effects
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'authoring' }}
+        run: |
+          $failedCases = @()
+          foreach ($camera in @('fixed','moving')) {
+            $fixture = @('--indexed-effects')
+            if ($camera -eq 'moving') { $fixture += '--moving-camera' }
+            $projects = @(node scripts/qa/create-pose-authoring-demo.mjs @fixture)
+            $expected = if ($camera -eq 'fixed') { 5 } else { 3 }
+            if ($LASTEXITCODE -ne 0 -or $projects.Count -ne $expected) { throw "Expected $expected indexed effect fixtures with camera $camera" }
+            foreach ($project in $projects) {
+              $room = Split-Path -LiteralPath $project
+              $env:RDS_POSE_PROOF = 'effect-' + (Split-Path -Leaf $room)
+              node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project $room
+              if ($LASTEXITCODE -ne 0) { $failedCases += "$env:RDS_POSE_PROOF ($camera)" }
+            }
+          }
+          if ($failedCases.Count) { throw ('Indexed effect comparisons failed: ' + ($failedCases -join ', ')) }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'indexed_effects'
+
+      - name: Compare lighting and atlas replacement with unchanged consumers
+        id: palette_and_atlas
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'authoring' }}
+        run: |
+          $failedCases = @()
+          foreach ($proof in @('lighting','asset-replace')) {
+            $fixture = if ($proof -eq 'lighting') { '--linked-atlas' } else { '--atlas-replacement' }
+            $project = node scripts/qa/create-pose-authoring-demo.mjs $fixture
+            if ($LASTEXITCODE -ne 0) { throw "Missing fixture for $proof" }
+            $env:RDS_POSE_PROOF = $proof
+            node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+            if ($LASTEXITCODE -ne 0) { $failedCases += $proof }
+          }
+          if ($failedCases.Count) { throw ('Palette or atlas comparison failed: ' + ($failedCases -join ', ')) }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'palette_and_atlas'
+
+      - name: Verify terrain strokes and seam editing in the Mega Drive core
+        id: terrain_and_seam
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'authoring' }}
+        run: |
+          $failedCases = @()
+          foreach ($proof in @('terrain','seam')) {
+            $project = node scripts/qa/create-pose-authoring-demo.mjs --terrain
+            if ($LASTEXITCODE -ne 0) { throw "Missing fixture for $proof" }
+            $env:RDS_POSE_PROOF = $proof
+            node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+            if ($LASTEXITCODE -ne 0) { $failedCases += $proof }
+          }
+          if ($failedCases.Count) { throw ('Terrain or seam comparison failed: ' + ($failedCases -join ', ')) }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'terrain_and_seam'
+
+      - name: Compare paused jumps and the gravity edit in the Mega Drive core
+        id: motion_trace
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'authoring' }}
+        env:
+          RDS_REFERENCE_MOTION_TRACE: "1"
+        run: |
+          node scripts/e2e-tauri-build-run.mjs --skip-build --scenario reference-platformer
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'motion_trace'
+
+      - name: Compare line scrolling with camera and foreground controls in the Mega Drive core
+        id: wave_band
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'authoring' }}
+        env:
+          RDS_POSE_PROOF: wave
+        run: |
+          $project = node scripts/qa/create-pose-authoring-demo.mjs --wave
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'wave_band'
+
+      - name: Check HUD extremes and fixed screen coordinates in the Mega Drive core
+        id: hud_extremes
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'authoring' || env.RDS_E2E_TARGET == 'hud') }}
+        env:
+          RDS_POSE_PROOF: hud
+        run: |
+          $project = node scripts/qa/create-pose-authoring-demo.mjs --hud
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'hud_extremes'
+
+      - name: Paint a linked water tile and measure the ice platform in the core
+        id: water_and_ice
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'advanced-authoring' }}
+        run: |
+          foreach ($case in @('water-tile', 'ice-path')) {
+            $env:RDS_POSE_PROOF = $case
+            $project = node scripts/qa/create-pose-authoring-demo.mjs "--$case"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'water_and_ice'
+
+      - name: Compare sockets, material and event timing in the Mega Drive core
+        id: advanced_authoring
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'advanced-authoring' }}
+        env:
+          RDS_POSE_PROOF: advanced-flash
+        run: |
+          $project = node scripts/qa/create-pose-authoring-demo.mjs --advanced-authoring --with-flash
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'advanced_authoring'
+
+      - name: Check ring contact, timed sound and palette flash in the Mega Drive core
+        id: ring_collection
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'advanced-authoring' }}
+        env:
+          RDS_POSE_PROOF: ring
+        run: |
+          $project = node scripts/qa/create-pose-authoring-demo.mjs --ring
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'ring_collection'
+
+      - name: Edit with native floating panels and restore the dock
+        id: floating_panels
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'advanced-authoring' }}
+        env:
+          RDS_POSE_PROOF: floating
+        run: |
+          $project = node scripts/qa/create-pose-authoring-demo.mjs --advanced-authoring
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'floating_panels'
 
       - name: Report step outcomes before verification
         if: always()
@@ -305,38 +591,11 @@ jobs:
       - name: Verify all E2E scenarios passed
         if: always()
         shell: pwsh
+        env:
+          RDS_E2E_STEPS: ${{ toJSON(steps) }}
         run: |
-          $scenarioOutcomes = [ordered]@{
-            smoke_md = '${{ steps.smoke_md.outcome }}'
-            reference_goal = '${{ steps.reference_goal.outcome }}'
-            smoke_snes = '${{ steps.smoke_snes.outcome }}'
-            live_overflow_md = '${{ steps.live_overflow_md.outcome }}'
-            live_overflow_snes = '${{ steps.live_overflow_snes.outcome }}'
-            live_vram_overflow_md = '${{ steps.live_vram_overflow_md.outcome }}'
-            live_vram_overflow_snes = '${{ steps.live_vram_overflow_snes.outcome }}'
-            live_vram_warning_md = '${{ steps.live_vram_warning_md.outcome }}'
-            live_vram_warning_snes = '${{ steps.live_vram_warning_snes.outcome }}'
-            live_sprite_warning_md = '${{ steps.live_sprite_warning_md.outcome }}'
-            live_sprite_warning_snes = '${{ steps.live_sprite_warning_snes.outcome }}'
-            live_ok_md = '${{ steps.live_ok_md.outcome }}'
-            live_ok_snes = '${{ steps.live_ok_snes.outcome }}'
-            live_error_md = '${{ steps.live_error_md.outcome }}'
-            live_error_snes = '${{ steps.live_error_snes.outcome }}'
-            live_stale_md = '${{ steps.live_stale_md.outcome }}'
-            live_stale_snes = '${{ steps.live_stale_snes.outcome }}'
-          }
-
-          $failed = @(
-            $scenarioOutcomes.GetEnumerator() | Where-Object {
-              $_.Value -ne 'success' -and $_.Value -ne 'skipped'
-            }
-          )
-
-          if ($failed.Count -gt 0) {
-            $labels = $failed | ForEach-Object { "$($_.Key)=$($_.Value)" }
-            Write-Host "::error::E2E scenarios failed ($($failed.Count)): $($labels -join ', ')"
-            exit 1
-          }
+          node scripts/qa/verify-desktop-scenarios.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           $ledgerPath = Join-Path $env:RUNNER_TEMP 'desktop-e2e-passed.txt'
           if (Test-Path $ledgerPath) {
@@ -361,6 +620,24 @@ jobs:
             "- Build debug: ${{ steps.build_debug.outcome }}",
             "- Smoke Mega Drive: ${{ steps.smoke_md.outcome }}",
             "- Reference gameplay passage: ${{ steps.reference_goal.outcome }}",
+            "- C draft, reopen and ROM: ${{ steps.code_draft.outcome }}",
+            "- C shared / instance scope: ${{ steps.code_scope.outcome }}",
+            "- Core cadence in both pose authoring scenes: ${{ steps.pose_baseline.outcome }}",
+            "- Pose editing, reopening and ROM in both scenes: ${{ steps.pose_journey.outcome }}",
+            "- Pose audio, hitboxes and playback in the core: ${{ steps.pose_tools.outcome }}",
+            "- Authoring layouts and pending edits at both sizes: ${{ steps.workspace_layout.outcome }}",
+            "- Scene guides and precise positioning: ${{ steps.scene_guides.outcome }}",
+            "- Indexed effect pixels: ${{ steps.indexed_effects.outcome }}",
+            "- Palette and atlas consumers: ${{ steps.palette_and_atlas.outcome }}",
+            "- Terrain and seam edits: ${{ steps.terrain_and_seam.outcome }}",
+            "- Motion trace and gravity control: ${{ steps.motion_trace.outcome }}",
+            "- Wave with camera and foreground control: ${{ steps.wave_band.outcome }}",
+            "- HUD extremes and screen-space controls: ${{ steps.hud_extremes.outcome }}",
+            "- Sockets, materials and events in the core: ${{ steps.advanced_authoring.outcome }}",
+            "- Ring collection, flash and sound: ${{ steps.ring_collection.outcome }}",
+            "- Native floating panels: ${{ steps.floating_panels.outcome }}",
+            "- Pillar, aperture and control pixel comparison: ${{ steps.point_occlusion.outcome }}",
+            "- Linked atlas copy, reordering and control comparison: ${{ steps.linked_atlas.outcome }}",
             "- Smoke SNES: ${{ steps.smoke_snes.outcome }}",
             "- Live overflow MD: ${{ steps.live_overflow_md.outcome }}",
             "- Live overflow SNES: ${{ steps.live_overflow_snes.outcome }}",
@@ -399,3 +676,85 @@ jobs:
           path: |
             src-tauri/target-test/validation/**
           if-no-files-found: ignore
+
+      - name: Prepare the exact Windows candidate
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.upload_candidate }}
+        run: |
+          $build = Get-Content -Raw -LiteralPath 'src-tauri/target-test/validation/build-report.json' | ConvertFrom-Json
+          $app = $build.modes.debug.canonicalExe
+          if (!$app -or !(Test-Path -LiteralPath $app -PathType Leaf)) { throw "Debug executable missing from build receipt" }
+          $folder = Join-Path $env:RUNNER_TEMP 'retrodevstudio-windows-candidate'
+          New-Item -ItemType Directory -Force -Path $folder | Out-Null
+          $output = Join-Path $folder 'retro-dev-studio.exe'
+          Copy-Item -LiteralPath $app -Destination $output
+          $hash = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash.ToLowerInvariant()
+          @(
+            "source: $env:GITHUB_SHA",
+            "windows-x64: $hash",
+            "run: $env:GITHUB_RUN_ID"
+          ) | Set-Content -LiteralPath (Join-Path $folder 'candidate.txt')
+          Add-Content -Path $env:GITHUB_ENV -Value "RDS_WINDOWS_CANDIDATE=$folder"
+
+      - name: Upload the exact Windows candidate
+        if: ${{ !cancelled() && env.RDS_WINDOWS_CANDIDATE != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrodevstudio-windows-x64-${{ github.sha }}
+          path: ${{ env.RDS_WINDOWS_CANDIDATE }}
+          if-no-files-found: error
+          retention-days: 7
+
+  linux-candidate:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.target == 'linux-candidate' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CARGO_BUILD_JOBS: 1
+      RDS_BUILD_JOBS: 1
+      RDS_E2E_QA_RC_MEMORY_SAFE: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Tauri Linux build substrate
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev libssl-dev libxdo-dev
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.97.0
+
+      - run: npm ci
+
+      - name: Build debug desktop app (canonical script)
+        run: npm run build:debug
+
+      - name: Record candidate identity
+        run: |
+          report=src-tauri/target-test/validation/build-report.json
+          app=$(jq -er '.modes.debug.canonicalExe' "$report")
+          out="$RUNNER_TEMP/retrodevstudio-linux-candidate"
+          mkdir -p "$out"
+          install -m 755 "$app" "$out/retro-dev-studio"
+          cp "$report" "$out/build-report.json"
+          (
+            cd "$out"
+            sha256sum retro-dev-studio > SHA256SUMS
+            printf 'source: %s\nrun: %s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" > candidate.txt
+            tar -czf "$RUNNER_TEMP/retrodevstudio-linux-x64.tar.gz" retro-dev-studio candidate.txt SHA256SUMS build-report.json
+          )
+
+      - name: Upload Linux candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrodevstudio-linux-x64-${{ github.sha }}
+          path: ${{ runner.temp }}/retrodevstudio-linux-x64.tar.gz
+          if-no-files-found: error
+          retention-days: 7

@@ -73,6 +73,32 @@ export const NODE_CATEGORIES: NodeCategory[] = [
   { id: "error_unsupported", label: "Nao suportado", color: "#f38ba8" },
 ];
 
+// Shared by the canvas legend, card headers and the event ruler.
+export const GRAPH_ROLES = {
+  event: { label: "Evento", color: "#865019", icon: "flash" },
+  condition: { label: "Condição", color: "#265885", icon: "fork" },
+  action: { label: "Ação", color: "#286446", icon: "arrows" },
+  data: { label: "Dado", color: "#206766", icon: "variable" },
+  time: { label: "Tempo", color: "#813b64", icon: "clock" },
+  visual: { label: "Visual", color: "#995519", icon: "film" },
+  sound: { label: "Som", color: "#673e85", icon: "sound" },
+  code: { label: "Código", color: "#514e69", icon: "chip" },
+  unsupported: { label: "Sem suporte", color: "#873d4e", icon: "warning-triangle" },
+} as const satisfies Record<string, { label: string; color: string; icon: NodeIconName }>;
+
+export function graphRole(node: GraphNode): keyof typeof GRAPH_ROLES {
+  const category = getNodeCategory(node.type).id;
+  if (node.type.startsWith("event_") || category === "trigger_input") return "event";
+  if (category === "error_unsupported") return "unsupported";
+  if (category === "bridge_source_mapping" || node.type === "code_block") return "code";
+  if (node.type === "timeline_sequence" || category === "timer") return "time";
+  if (category === "audio") return "sound";
+  if (node.type === "palette_swap" || node.type === "effect_parallax" || category === "vdp_dma_palette" || category === "animation") return "visual";
+  if (node.outputs.some(port => port.kind === "exec" && port.id === "true") || category === "transition") return "condition";
+  if (node.outputs.length && node.outputs.every(port => port.kind === "data")) return "data";
+  return "action";
+}
+
 export type NodeCatalogEntry = {
   type: NodeType;
   category: NodeCategoryId;
@@ -118,7 +144,7 @@ export const NODE_CATALOG: Record<NodeType, NodeCatalogEntry> = {
   camera_follow: entry("camera_follow", "camera", "Camera", "Câmera segue (legado)", "camera", "Seguimento imediato legado. Damping não é executado por este nó; para suavidade e limites, remova o nó e converta em Configurar câmera.", ["target"]),
   camera_control: entry("camera_control", "camera", "Camera", "Controlar câmera", "camera", "Câmera visual: selecionar, devolver às regiões, travar/liberar, tremor, deslocamento temporário ou reiniciar. Uma atualização após o movimento.", ["target", "action", "frames", "x", "y"]),
   authored_strike: entry("authored_strike", "collision", "Combate", "Golpe autoral", "fork", "Autoral (nao vem do CNS): quando a caixa de ataque do quadro atual do atacante encosta na caixa de corpo do alvo, tira dano uma vez por golpe.", ["attacker", "target", "damage", "health"]),
-  palette_swap: entry("palette_swap", "action", "Combate", "Trocar paleta ao sofrer golpe", "film", "A cada acerto do golpe indicado, as cores do alvo viram as da paleta escolhida por alguns quadros e depois voltam. O alcance (so o alvo ou o grupo do banco) e conferido pelo plano de paletas.", ["strike", "target", "palette", "frames", "scope"]),
+  palette_swap: entry("palette_swap", "action", "Combate", "Trocar paleta temporariamente", "film", "Aplique as cores de uma paleta do projeto por alguns quadros. O plano de paletas confere o alcance.", ["trigger_mode", "strike", "target", "palette", "frames", "scope"]),
   camera_bounds: entry("camera_bounds", "error_unsupported", "Camera", "Limites legados (indisponível)", "camera", "Este nó não tem execução. Remova-o e desenhe a área em Configurar câmera. Projetos com o nó recebem diagnóstico de compilação.", ["min_x", "max_x"]),
   timer: entry("timer", "timer", "Fluxo", "Timer", "clock", "Conta quadros e avisa a cada passo e ao terminar.", ["frames", "repeat"]),
   set_tile: entry("set_tile", "tilemap", "Tilemap", "Definir Tile", "grid", "Troca um bloco do cenario.", ["layer", "tile", "x", "y"]),
@@ -152,6 +178,7 @@ export const NODE_CATALOG: Record<NodeType, NodeCatalogEntry> = {
   rom_external_call: entry("rom_external_call", "bridge_source_mapping", "ROM recuperada", "Chamada externa", "warning-triangle", "Chamada a unha rutina que NON se recuperou: coñecense alvo e argumentos, non o corpo. Opaca, sen edicion.", ["target"]),
   rom_region_exit: entry("rom_region_exit", "bridge_source_mapping", "ROM recuperada", "Saida da rexion", "chip", "Enderezo da ROM onde remata a rutina recuperada (so lectura)."),
   mugen_state_program: entry("mugen_state_program", "bridge_source_mapping", "MUGEN", "Programa de estados (cadeia original)", "chip", "Cadeia do CMD/CNS original convertida, com mapeamento de fonte e digest (somente leitura; editar fora do produto bloqueia o build)."),
+  code_block: entry("code_block", "action", "Código", "Código C", "chip", "Trecho de C do autor sem equivalente visual (Experimental). Executa uma única vez no lugar do nó; edite na vista Código.", ["summary"]),
   bridge_unconverted_source: entry("bridge_unconverted_source", "bridge_source_mapping", "Hardware", "Bridge de Fonte", "chip", "Trecho de codigo importado que ainda nao virou no editavel (somente leitura)."),
   event_vblank: entry("event_vblank", "vdp_dma_palette", "Eventos", "Evento VBlank", "flash", "Roda no intervalo vertical do video."),
   event_hblank: entry("event_hblank", "vdp_dma_palette", "Eventos", "Evento HBlank", "flash", "Roda a cada linha horizontal do video."),
@@ -336,7 +363,7 @@ export function describeNodeAction(node: GraphNode): string {
     case "authored_strike":
       return `Se o ataque de ${num(p.attacker)} acertar ${num(p.target)}: tirar ${num(p.damage)} de vida (uma vez por golpe)`;
     case "palette_swap":
-      return `Quando o golpe acertar ${num(p.target)}: usar a paleta ${num(p.palette)} por ${num(p.frames)} quadros (${p.scope === "grupo" ? "todo o grupo do banco" : "so esta instancia"})`;
+      return `${p.trigger_mode === "flow" ? "Ao executar este nó em" : "Quando o golpe acertar"} ${num(p.target)}: usar a paleta ${num(p.palette)} por ${num(p.frames)} quadros (${p.scope === "grupo" ? "todo o grupo do banco" : "só esta instância"})`;
     case "timer":
       return `Esperar ${num(p.frames)} quadros`;
     default:
@@ -387,10 +414,10 @@ export function getPortVisualKind(port: Pick<NodePort, "id" | "kind">): PortVisu
 }
 
 export const PORT_VISUAL_COLORS: Record<PortVisualKind, string> = {
-  exec: "#e2e8f0",
-  data: "#89b4fa",
-  true: "#a6e3a1",
-  false: "#f38ba8",
+  exec: "var(--rds-text-secondary)",
+  data: "var(--rds-status-info)",
+  true: "var(--rds-status-success)",
+  false: "var(--rds-status-error)",
 };
 
 // ── Compatibilidade de conexao ────────────────────────────────────────────────

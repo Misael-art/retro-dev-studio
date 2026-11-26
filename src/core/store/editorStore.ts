@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { PixelDoc } from "../pixelEditor";
-import { entityLockScopeKey } from "../sceneComposition";
+import { entityEditLock, entityLockScopeKey } from "../sceneComposition";
+import { retileTerrain, type TerrainBrush } from "../tilemapCells";
 
 import {
   diagnosticConsoleMessage,
@@ -17,6 +18,7 @@ import type {
 } from "../ipc/sceneService";
 import type { BuildSourceMap } from "../nodegraph/buildProvenance";
 import type { RuntimeLink } from "../runtimeLink";
+import type { MotionTraceSession } from "../motionTrace";
 import type { TestAdjustment } from "../testAdjustments";
 import type { RexBridgeRequest } from "../rexBridge";
 import type {
@@ -161,10 +163,11 @@ export interface PixelEditorSession {
   layerIndex: number;
   savedPath: string | null;
   savedSource: string | null;
+  manualZoom?: number;
 }
 
 export type EditorMode = "select" | "paint" | "erase" | "collision" | "path";
-export type TilePaintTool = "pencil" | "eraser" | "picker" | "rect" | "fill" | "stamp";
+export type TilePaintTool = "pencil" | "eraser" | "picker" | "rect" | "fill" | "stamp" | "terrain" | "terrain-erase";
 
 export interface TileStampPattern {
   width: number;
@@ -186,6 +189,7 @@ export interface ActiveBrush {
   assetPath?: string;
   /** Índice do tile no tileset quando `kind === "tile"`. 0 = vazio. */
   tileIndex?: number;
+  tilesetTileCount?: number;
 }
 
 /** Observação de joypad correlacionada por sessão de emulação + sequência
@@ -288,6 +292,7 @@ export interface StoreState {
   projectSessionId: number;
   activeProjectName: string;
   activeTarget: "megadrive" | "snes";
+  projectFps: number;
   activeScenePath: string;
   emulatorLoaded: boolean;
   /** Identidade observada da ROM realmente carregada no core canônico. */
@@ -349,6 +354,7 @@ export interface StoreState {
   lastBuildTest: BuildTestReceipt | null;
   /** Ajustes temporários da sessão de teste (não são do projeto até "Aplicar ao projeto"). */
   testAdjustments: TestAdjustment[];
+  motionTraceSession: MotionTraceSession | null;
   /** Pedido para abrir o editor de perfil REX numa instância comprovada (Experimental). */
   rexBridgeRequest: RexBridgeRequest | null;
   /** Última operação de arquivo com cópia de segurança (renomear asset, aplicar ao modelo). */
@@ -442,6 +448,7 @@ export interface StoreActions {
   setLastRuntimeLink: (link: RuntimeLink | null) => void;
   setLastBuildSceneRevision: (revision: number | null) => void;
   recordBuildTestFrame: (coreEpoch: number, romSha256: string, frameIndex: number) => void;
+  updateMotionTrace: (update: (current: MotionTraceSession | null) => MotionTraceSession | null) => void;
   setTestAdjustments: (adjustments: TestAdjustment[]) => void;
   setRexBridgeRequest: (request: RexBridgeRequest | null) => void;
   setLastFileBackup: (backup: { id: string; reason: string } | null) => void;
@@ -480,7 +487,7 @@ export interface StoreActions {
    * Não empurra o undo stack — use beginHistoryCapture / commitHistoryCapture
    * ao redor do drag para criar uma entrada única de undo.
    */
-  updateCollisionMap: (tileIndex: number, value: 0 | 1) => void;
+  updateCollisionMap: (tileIndex: number, value: 0 | 1, material?: string | null) => void;
   /** Substitui o mapa inteiro dentro de uma captura de histórico externa. */
   setCollisionMap: (map: CollisionMap) => void;
   undo: () => void;
@@ -522,7 +529,8 @@ export interface StoreActions {
     entityId: string,
     col: number,
     row: number,
-    tileIndex: number
+    tileIndex: number,
+    terrain?: TerrainBrush,
   ) => void;
   /** Preenche o retângulo [c0..c1] × [r0..r1] inclusivo com `tileIndex`.
    *  Coordenadas fora do mapa são recortadas. Cria uma única entrada de undo. */
@@ -642,7 +650,9 @@ function preserveInheritedGraphRef(
 
   const resolvedGraphRef = resolvedEntity.components.logic?.graph_ref;
   const sourceGraphRef = sourceEntity.components.logic?.graph_ref;
-  if (!resolvedGraphRef || sourceGraphRef) {
+  // Referencia vazia explicita = edicao de codigo desligou esta instancia da definicao
+  // compartilhada (grafo inline); nao religar ao graph_ref herdado.
+  if (!resolvedGraphRef || sourceGraphRef || patchLogic.graph_ref === "") {
     return sourcePatch;
   }
 
@@ -772,6 +782,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   projectSessionId: 0,
   activeProjectName: "",
   activeTarget: "megadrive",
+  projectFps: 60,
   setActiveProject: (dir, name) =>
     set((state) => ({
       activeProjectDir: dir,
@@ -907,7 +918,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       };
     });
     const { activeProjectDir, studio } = get();
-    saveStudioContext(activeProjectDir, studio);
+    saveStudioContext(activeProjectDir, studio, get().activeScenePath);
   },
   returnToStudioOrigin: () => {
     const state = get();
@@ -923,7 +934,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       selectedEntityId: result.state.focus.entityId,
       ...(camera ? { viewportZoom: camera.zoom } : {}),
     });
-    saveStudioContext(state.activeProjectDir, result.state);
+    saveStudioContext(state.activeProjectDir, result.state, state.activeScenePath);
     return result;
   },
   refineStudioFocus: (patch) => {
@@ -935,10 +946,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       };
     });
     const { activeProjectDir, studio } = get();
-    saveStudioContext(activeProjectDir, studio);
+    saveStudioContext(activeProjectDir, studio, get().activeScenePath);
   },
   rememberWorkspaceCamera: (workspace, camera) =>
-    set((state) => ({ studio: rememberWorkspaceCameraState(state.studio, workspace, camera) })),
+    set((state) => {
+      const previous = state.studio.cameras[workspace];
+      if (previous?.zoom === camera.zoom && previous.panX === camera.panX && previous.panY === camera.panY
+          && previous.scenePath === camera.scenePath) return state;
+      return { studio: rememberWorkspaceCameraState(state.studio, workspace, camera) };
+    }),
 
   activeWorkspace: "scene",
   setActiveWorkspace: (workspace) => set({ activeWorkspace: workspace }),
@@ -1014,6 +1030,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   recordNativeCodeEdit: () => set((state) => ({ nativeCodeRevision: state.nativeCodeRevision + 1 })),
   setLastBuildSourceMap: (sourceMap) => set({ lastBuildSourceMap: sourceMap, lastBuildArtifact: null }),
   lastRuntimeLink: null,
+  motionTraceSession: null,
+  updateMotionTrace: (update) => set((state) => ({ motionTraceSession: update(state.motionTraceSession) })),
   setLastRuntimeLink: (link) => set({ lastRuntimeLink: link }),
   lastBuildSceneRevision: null,
   setLastBuildSceneRevision: (revision) => set({ lastBuildSceneRevision: revision }),
@@ -1286,7 +1304,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         sceneRevision: state.sceneRevision + 1,
       };
     }),
-  updateCollisionMap: (tileIndex, value) =>
+  updateCollisionMap: (tileIndex, value, material) =>
     set((state) => {
       if (!state.activeScene) return {};
 
@@ -1306,11 +1324,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
       // Guarda limites: ignora índice fora do array.
       const capacity = collisionMap.width * collisionMap.height;
-      if (tileIndex < 0 || tileIndex >= capacity) return {};
+      if (!Number.isInteger(tileIndex) || tileIndex < 0 || tileIndex >= capacity) return {};
+      if (material !== undefined && collisionMap.data[tileIndex] !== 1) return {};
+      if (typeof material === "string" && !collisionMap.materials?.some((item) => item.name === material)) return {};
 
       const newData = collisionMap.data.slice();
-      newData[tileIndex] = value;
-      const updatedCollisionMap = { ...collisionMap, data: newData };
+      if (material === undefined) newData[tileIndex] = value;
+      const materials = material !== undefined || value === 0
+        ? collisionMap.materials?.map((item) => {
+          const cells = item.cells.filter((cell) => cell !== tileIndex);
+          if (item.name === material) cells.push(tileIndex);
+          return { ...item, cells };
+        })
+        : collisionMap.materials;
+      const updatedCollisionMap = { ...collisionMap, data: newData, ...(materials ? { materials } : {}) };
 
       return {
         activeScene: {
@@ -1516,13 +1543,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   tileStampPattern: null,
   setTileStampPattern: (pattern) => set({ tileStampPattern: pattern }),
 
-  paintTilemapCell: (entityId, col, row, tileIndex) =>
+  paintTilemapCell: (entityId, col, row, tileIndex, terrain) =>
     set((state) => {
       if (!state.activeScene) return {};
       const entity = state.activeScene.entities.find((e) => e.entity_id === entityId);
       const tilemap = entity?.components?.tilemap;
       if (!entity || !tilemap) return {};
       if (col < 0 || row < 0 || col >= tilemap.map_width || row >= tilemap.map_height) return {};
+      if (terrain) {
+        const scope = entityLockScopeKey(state.activeProjectDir ?? "", state.activeScenePath ?? "");
+        if (terrain.tileset !== tilemap.tileset
+          || entityEditLock(entityId, state.activeScene.layers, state.lockedEntityIdsByScene[scope] ?? []).locked) return {};
+      }
       const total = tilemap.map_width * tilemap.map_height;
       const base =
         tilemap.cells && tilemap.cells.length === total
@@ -1530,9 +1562,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           : new Array<number>(total).fill(0);
       const idx = row * tilemap.map_width + col;
       const clamped = Math.max(0, Math.floor(tileIndex));
-      if (base[idx] === clamped) return {};
-      const cells = base.slice();
-      cells[idx] = clamped;
+      let cells = base;
+      if (terrain) cells = retileTerrain(base, tilemap.map_width, tilemap.map_height, col, row, terrain.firstTile, terrain.remove);
+      else if (base[idx] !== clamped) {
+        cells = base.slice();
+        cells[idx] = clamped;
+      }
+      if (cells === base) return {};
       const patchedEntity: Entity = {
         ...entity,
         components: {

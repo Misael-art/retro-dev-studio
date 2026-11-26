@@ -2,8 +2,8 @@
 // Uma animação MUGEN guarda dados paralelos a `frames` (`frame_durations`, `mugen_frames`,
 // `occurrence_ids`) e eventos ancorados em ocorrência + tick local. Toda operação aqui devolve
 // uma nova AnimationDef coerente — ou um diagnóstico, sem alterar nada.
-import type { AnimationDef, FrameEvent, MugenCollisionBox, SpriteAnimationHitbox } from "./ipc/sceneService";
-import { effectiveDurations, parseTicks } from "./mugenAnimationTiming";
+import type { AnimationDef, FrameEvent, MugenCollisionBox, SpriteAnimationHitbox, SpriteComponent, Transform } from "./ipc/sceneService";
+import { effectiveDurations, isMugenAnimation, parseTicks } from "./mugenAnimationTiming";
 
 export interface TimelineOccurrence {
   id: string;
@@ -33,16 +33,30 @@ export function withOccurrenceIds(def: AnimationDef): AnimationDef {
   return def.occurrence_ids ? def : { ...def, occurrence_ids: occurrenceIds(def) };
 }
 
-export function describeOccurrences(def: AnimationDef): TimelineOccurrence[] {
+export function nativeAnimationNames(sprite: SpriteComponent | null | undefined, target: string, source: string): string[] {
+  if (target !== "megadrive" || !sprite || source === "external_sgdk" || source === "imported_sgdk") return [];
+  const animations = Object.entries(sprite.animations ?? {});
+  if (animations.some(([, definition]) => isMugenAnimation(definition))) return [];
+  return animations.filter(([, definition]) => definition.frames.length > 0).map(([name]) => name).sort();
+}
+
+/** Mesmo arredondamento do compilador SGDK para animações antigas com FPS fixo. */
+export function occurrenceDurations(def: AnimationDef, projectFps = 60): number[] {
+  if (def.frame_durations || isMugenAnimation(def)) return effectiveDurations(def);
+  const ticks = def.fps > 0 ? Math.max(1, Math.floor((projectFps + Math.floor(def.fps / 2)) / def.fps)) : 0;
+  return def.frames.map(() => ticks);
+}
+
+export function describeOccurrences(def: AnimationDef, projectFps = 60): TimelineOccurrence[] {
   const ids = occurrenceIds(def);
-  const durations = effectiveDurations(def);
+  const durations = occurrenceDurations(def, projectFps);
   const events = def.frame_events ?? [];
   let cursor: number | null = 0;
   return def.frames.map((image, index) => {
     const mugen = def.mugen_frames?.[index];
     const ticks = durations[index] ?? 0;
     const startTick = cursor;
-    cursor = cursor === null || ticks === -1 ? null : cursor + ticks;
+    cursor = cursor === null || ticks <= 0 ? null : cursor + ticks;
     return {
       id: ids[index],
       index,
@@ -50,8 +64,8 @@ export function describeOccurrences(def: AnimationDef): TimelineOccurrence[] {
       source: mugen ? { group: mugen.group, image: mugen.image } : null,
       ticks,
       startTick,
-      attackBoxes: mugen?.clsn1?.length ?? 0,
-      bodyBoxes: mugen?.clsn2?.length ?? 0,
+      attackBoxes: mugen?.clsn1?.length ?? (mugen ? 0 : occurrenceBoxes(def, ids[index], "clsn1").length),
+      bodyBoxes: mugen?.clsn2?.length ?? (mugen ? 0 : occurrenceBoxes(def, ids[index], "clsn2").length),
       events: events.filter((event) => event.occurrence === ids[index]).sort((a, b) => a.tick - b.tick),
     };
   });
@@ -68,9 +82,12 @@ export function eventsOutsideDuration(def: AnimationDef, occurrence: string, tic
  * Troca a duração de UMA ocorrência (fonte canônica e espelho). Se algum evento dessa ocorrência
  * ficaria fora do novo tempo, recusa com a lista — nunca desloca evento em silêncio.
  */
-export function setOccurrenceDuration(def: AnimationDef, occurrence: string, raw: string): TimelineResult {
+export function setOccurrenceDuration(def: AnimationDef, occurrence: string, raw: string, projectFps = 60): TimelineResult {
+  const mugen = isMugenAnimation(def);
   const parsed = parseTicks(raw);
-  if (!parsed.ok) return { ok: false, message: parsed.message };
+  if (!parsed.ok || (!mugen && parsed.value < 1)) {
+    return { ok: false, message: mugen && !parsed.ok ? parsed.message : "Use uma duração inteira de 1 a 255 ticks." };
+  }
   const ids = occurrenceIds(def);
   const index = ids.indexOf(occurrence);
   if (index < 0) return { ok: false, message: `Ocorrência '${occurrence}' não existe nesta animação.` };
@@ -82,7 +99,13 @@ export function setOccurrenceDuration(def: AnimationDef, occurrence: string, raw
       conflicts: outside.map((event) => event.id),
     };
   }
-  const durations = effectiveDurations(def).map((d, i) => (i === index ? parsed.value : d));
+  const durations = occurrenceDurations(def, projectFps).map((d, i) => (i === index ? parsed.value : d));
+  if (durations.length !== def.frames.length) {
+    return { ok: false, message: "O número de durações precisa corresponder ao número de ocorrências." };
+  }
+  if (!mugen && durations.some((duration) => duration < 1 || duration > 255)) {
+    return { ok: false, message: "Ajuste o FPS da animação para que as outras ocorrências fiquem entre 1 e 255 ticks." };
+  }
   return {
     ok: true,
     def: {
@@ -91,6 +114,42 @@ export function setOccurrenceDuration(def: AnimationDef, occurrence: string, raw
       ...(def.mugen_frames
         ? { mugen_frames: def.mugen_frames.map((f, i) => (i === index ? { ...f, duration: parsed.value } : f)) }
         : {}),
+    },
+  };
+}
+
+export function alignPoseSupport(
+  def: AnimationDef,
+  reference: { id: string; anchor: Transform },
+  moving: { id: string; anchor: Transform },
+  cell: { width: number; height: number },
+): TimelineResult {
+  const ids = occurrenceIds(def);
+  if (reference.id === moving.id || !ids.includes(reference.id) || !ids.includes(moving.id)) {
+    return { ok: false, message: "Escolha duas ocorrências diferentes da animação." };
+  }
+  const inCell = ({ x, y }: Transform) =>
+    Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < cell.width && y < cell.height;
+  if (!inCell(reference.anchor) || !inCell(moving.anchor)) {
+    return { ok: false, message: "Marque os dois pontos com coordenadas inteiras dentro das células." };
+  }
+  const referenceOffset = def.pose_alignment?.[reference.id]?.offset ?? { x: 0, y: 0 };
+  const offset = {
+    x: reference.anchor.x + referenceOffset.x - moving.anchor.x,
+    y: reference.anchor.y + referenceOffset.y - moving.anchor.y,
+  };
+  if (![offset.x, offset.y].every((pixel) => Number.isSafeInteger(pixel) && Math.abs(pixel) <= BOX_LIMIT)) {
+    return { ok: false, message: `O deslocamento precisa ficar entre -${BOX_LIMIT} e ${BOX_LIMIT} px em cada eixo.` };
+  }
+  return {
+    ok: true,
+    def: {
+      ...withOccurrenceIds(def),
+      pose_alignment: {
+        ...def.pose_alignment,
+        [reference.id]: { anchor: { ...reference.anchor }, offset: { ...referenceOffset } },
+        [moving.id]: { anchor: { ...moving.anchor }, offset },
+      },
     },
   };
 }
@@ -106,9 +165,13 @@ export function retimeEventsToFit(def: AnimationDef, occurrence: string, ticks: 
   };
 }
 
+export function occurrenceSocket(def: AnimationDef, occurrence: string, name: string) {
+  return def.pose_sockets?.[occurrence]?.find((socket) => socket.name === name)?.point;
+}
+
 /**
  * Move uma ocorrência para `toIndex`, levando junto imagem, duração, quadro MUGEN (caixas, eixo,
- * flags) e identidade; eventos seguem a identidade; hitboxes autorais por índice são remapeadas.
+ * flags) e identidade. Eventos e caixas por ocorrência seguem a identidade.
  */
 export function moveOccurrence(def: AnimationDef, occurrence: string, toIndex: number): TimelineResult {
   const ids = occurrenceIds(def);
@@ -119,18 +182,12 @@ export function moveOccurrence(def: AnimationDef, occurrence: string, toIndex: n
   const order = def.frames.map((_, index) => index);
   order.splice(to, 0, ...order.splice(from, 1));
   const permute = <T,>(values: T[] | undefined) => (values ? order.map((index) => values[index]) : undefined);
-  const newIndexOf = new Map(order.map((oldIndex, newIndex) => [oldIndex, newIndex]));
-  const hitboxes: SpriteAnimationHitbox[] | undefined = def.hitboxes?.map((box) => ({
-    ...box,
-    frame: newIndexOf.get(box.frame) ?? box.frame,
-  }));
   const next: AnimationDef = {
     ...def,
     frames: order.map((index) => def.frames[index]),
     occurrence_ids: order.map((index) => ids[index]),
-    ...(def.frame_durations || def.mugen_frames ? { frame_durations: permute(effectiveDurations(def)) } : {}),
+    ...(def.frame_durations || def.mugen_frames ? { frame_durations: permute(occurrenceDurations(def)) } : {}),
     ...(def.mugen_frames ? { mugen_frames: permute(def.mugen_frames) } : {}),
-    ...(hitboxes ? { hitboxes } : {}),
   };
   return { ok: true, def: next };
 }
@@ -151,12 +208,14 @@ export function addSoundEvent(
   def: AnimationDef,
   occurrence: string,
   tick: number,
-  sound: string
+  sound: string,
+  projectFps = 60,
 ): TimelineResult {
   const index = occurrenceIds(def).indexOf(occurrence);
   if (index < 0) return { ok: false, message: `Ocorrência '${occurrence}' não existe nesta animação.` };
   if (!sound.trim()) return { ok: false, message: "Escolha um som do Audio da entidade." };
-  const ticks = effectiveDurations(def)[index];
+  const ticks = occurrenceDurations(def, projectFps)[index];
+  if (ticks === 0) return { ok: false, message: "Defina uma duração positiva para disparar o som nesta ocorrência." };
   if (!Number.isInteger(tick) || tick < 0 || (ticks === -1 ? tick !== 0 : tick >= ticks)) {
     return {
       ok: false,
@@ -184,9 +243,9 @@ export function removeEvent(def: AnimationDef, eventId: string): AnimationDef {
 }
 
 /** Ticks totais da primeira passagem (null quando há quadro parado). */
-export function totalTicks(def: AnimationDef): number | null {
-  const durations = effectiveDurations(def);
-  return durations.includes(-1) ? null : durations.reduce((sum, value) => sum + value, 0);
+export function totalTicks(def: AnimationDef, projectFps = 60): number | null {
+  const durations = occurrenceDurations(def, projectFps);
+  return durations.some((duration) => duration <= 0) ? null : durations.reduce((sum, value) => sum + value, 0);
 }
 
 // ── Caixas por ocorrência (Experimental) ──────────────────────────────────────
@@ -195,6 +254,20 @@ export function totalTicks(def: AnimationDef): number | null {
 
 export type BoxKind = "clsn1" | "clsn2";
 export const BOX_LIMIT = 511;
+
+function nativeBoxKind(kind: BoxKind): SpriteAnimationHitbox["kind"] {
+  return kind === "clsn1" ? "attack" : "hurt";
+}
+
+export function occurrenceBoxes(def: AnimationDef, occurrence: string, kind: BoxKind): MugenCollisionBox[] {
+  if (def.mugen_frames) {
+    const index = occurrenceIds(def).indexOf(occurrence);
+    return def.mugen_frames[index]?.[kind] ?? [];
+  }
+  return (def.hitboxes ?? [])
+    .filter((box) => box.occurrence_id === occurrence && box.kind === nativeBoxKind(kind))
+    .map(({ x, y, width, height }) => ({ x1: x, y1: y, x2: x + width, y2: y + height }));
+}
 
 function normalizeBox(box: MugenCollisionBox): MugenCollisionBox {
   return {
@@ -217,15 +290,23 @@ function boxProblem(box: MugenCollisionBox): string | null {
 function withBoxes(def: AnimationDef, occurrence: string, kind: BoxKind, change: (boxes: MugenCollisionBox[]) => MugenCollisionBox[] | string): TimelineResult {
   const index = occurrenceIds(def).indexOf(occurrence);
   if (index < 0) return { ok: false, message: `Ocorrência '${occurrence}' não existe nesta animação.` };
-  const frame = def.mugen_frames?.[index];
-  if (!frame) return { ok: false, message: "Só animações MUGEN têm caixas por ocorrência." };
-  const next = change([...((frame[kind] ?? []) as MugenCollisionBox[])]);
+  const next = change([...occurrenceBoxes(def, occurrence, kind)]);
   if (typeof next === "string") return { ok: false, message: next };
+  if (!def.mugen_frames) {
+    const boxKind = nativeBoxKind(kind);
+    const other = (def.hitboxes ?? []).filter((box) => box.occurrence_id !== occurrence || box.kind !== boxKind);
+    const scoped = next.map(({ x1, y1, x2, y2 }) => ({
+      frame: def.frames[index], occurrence_id: occurrence, kind: boxKind,
+      x: x1, y: y1, width: x2 - x1, height: y2 - y1,
+    }));
+    return { ok: true, def: { ...withOccurrenceIds(def), hitboxes: [...other, ...scoped] } };
+  }
+  if (!def.mugen_frames[index]) return { ok: false, message: "Quadro AIR ausente nesta ocorrência." };
   return {
     ok: true,
     def: {
       ...withOccurrenceIds(def),
-      mugen_frames: def.mugen_frames!.map((f, i) => (i === index ? { ...f, [kind]: next, clsn_edited: true } : f)),
+      mugen_frames: def.mugen_frames.map((f, i) => (i === index ? { ...f, [kind]: next, clsn_edited: true } : f)),
     },
   };
 }

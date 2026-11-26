@@ -57,6 +57,11 @@
 - QA nativo da entrada de imagens: o roteiro Tauri existente usa `scripts/image-clipboard-fixture.py` como produtor GTK3/PyGObject de clipboard e arraste do host Linux, com ImageMagick para uma representação HTML+PNG. Receita versionada, sem dependência Python/ImageMagick no aplicativo e sem um segundo harness de produto; imagens, projetos, ROMs e evidências permanecem no runtime privado.
 - `tree-sitter` 0.25 + `tree-sitter-c` 0.24 (aprovado pelo operador em 2026-10-27) para o grafo C sem perdas de projetos SGDK importados (`core/sgdk_c_graph.rs`, Experimental): parser C real, round-trip byte-a-byte e build do C editado nos nodes
 
+### Editor de codigo C/SGDK (Experimental, em execucao desde 2026-11-10)
+
+- **Incremento 1 (vinculos e sincronizacao): nenhuma dependencia nova.** Reutiliza `tree-sitter`/`tree-sitter-c` ja aprovados (checagem de texto completo), `serde_json`, o emissor SGDK e o `editorStore`. O source map de build passou ao schema 2 (vinculos por instancia), lendo mapas e delimitadores v1; o arquivo continua `rds-node-source-map.v1.json`.
+- **Incremento 2 (pendente, ainda NAO instalado): Monaco Editor e clangd.** So entram com versao fixada no lock npm, `npm run security:licenses`/`security:audit` verdes, workers empacotados localmente sob a CSP atual (`script-src 'self'`, sem CDN) e clangd provisionado pelo host-manager via `toolchains/host-requirements.lock.json` (pin + SHA-256), nunca baixado ad hoc. O editor deve continuar utilizavel sem clangd.
+
 ### Entrada de ROM compactada (Experimental, 2026-10-31)
 
 `tools/reverse/rom_input.rs` adapta arquivo bruto/ZIP/7z para o loader e InspectionPanel existentes, sem outro recuperador ou crate. Reutiliza o `7z` já exigido pelo host lock/host-manager, instalado no sistema (QA Linux: pacote7zip26.03-1, executável SHA256 `f802383f13b8331aabaf779def00a356c8d2b8148255170b75b03028f4d23ad4`), chamado por argumentos, sem shell, stdin fechado, um thread e limite de memória64MiB (`-smemx64m`). É opcional: sem ferramenta compatível, mensagem orienta selecionar ROM descompactada; não há download automático. Windows ainda não qualificado e requer `7z` no PATH.

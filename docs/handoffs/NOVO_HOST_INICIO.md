@@ -1,3 +1,169 @@
+## Recertificação Full do Deck em 26/11/2026
+
+
+<a id="conferir-respostas-compartilhadas"></a>
+
+### Conferir respostas compartilhadas, cores e Ondular
+
+A sala reproduzível é gerada por `node scripts/qa/create-pose-authoring-demo.mjs --ring`. No aplicativo, selecione o Anel e abra Lógica → Nós → Compositor. O enquadramento mostra disparo, condições e respostas. Os cartões e a régua usam os papéis da legenda no canto inferior do canvas. A régua mantém um único tempo por saída, inclusive quando há dois destinos.
+
+No workflow desktop, `target=advanced-authoring` com `visual_comparison=true` exercita a coleta original e uma cópia com duas respostas. O relatório `ring` registra o enquadramento, a marca na RAM e o PCM da mesma ROM. `target=authoring` compara a ondulação com a câmera, o primeiro plano e as linhas de controle. No Deck, a sessão de conferência desta correção é `/home/deck/RetroDevStudio-work/sessions/compositor-uq67aI/`. Consulte o diagnóstico e o Fôlego antes da certificação Full. O ensaio do Tauri em `606f1b4` passou na atribuição A=4/B=7 e nas duas ações. A avaliação com participantes continua aberta.
+
+O Fôlego admitiu a rodada de `a1087af`. O resultado da certificação com os sete gates é `$RDS_WORK_ROOT/sessions/deformacao-sprites-9T6MGyQm/certificacao-local.json`. A sessão também guarda o executável de `881a7cf` e os ensaios de transformação de sprites nas ROMs. O binário de `1b3f4b4` repetiu arraste, ajuste numérico e Desfazer em Cena. Os hashes, o pacote portátil, a galeria e a receita de reprodução estão na [jornada de autoria](../studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#transformar-sprites-e-recertificar-o-deck).
+
+<a id="qualificacao-autoria-20261124"></a>
+
+## Qualificação da autoria no BigLinux restaurado — 24/11/2026
+
+O checkout registrado na coleção começou em `b434ede`. A revisão
+`a37a0b1` acrescentou as referências visuais no mesmo checkout. Os 12 PNGs,
+a prancha, a galeria e o ZIP conferiram com o manifesto. O plano inicial do
+launcher encontrou Node ausente. O primeiro diagnóstico do perfil Full
+registrou `DRIFTED` no BigLinux x64.
+
+Os dez artefatos Linux x64 ou comuns do lock estão em
+`toolchains/.cache/artifacts/`, verificados por tamanho e SHA-256.
+Nove vieram do cartão de recuperação. O ZIP do Ghidra 12.1 veio da URL
+oficial do lock. O launcher usa Node 24.18.0 e Rust 1.97.0. O Bison 3.8.2-8
+do repositório da distribuição foi conferido por hash e assinatura e gerou um
+parser de teste. O binário e seus dados residem no cache de bootstrap deste
+host. Os comandos do launcher neste ambiente usam estas variáveis de sessão.
+
+```bash
+export PATH="$HOME/.cache/retrodevstudio/bootstrap/bison-3.8.2-8/usr/bin:$HOME/.cargo/bin:$PATH"
+export BISON_PKGDATADIR="$HOME/.cache/retrodevstudio/bootstrap/bison-3.8.2-8/usr/share/bison"
+export RDS_BUILD_JOBS=1
+```
+
+O provisionamento usa o launcher sob o Fôlego. O monitor da operação grava em
+`$HOME/RetroDevStudio-work/sessions/full-provision-20261125T003251Z-303717.jsonl`
+(data do arquivo em UTC). Consulte a última amostra e a sessão ativa antes
+de iniciar outra carga. Houve suspensão da compilação por temperatura durante
+uma auditoria npm concorrente. Em outra pausa, a suíte externa consumiu mais
+de 7 GiB e a memória disponível caiu abaixo de 1 GiB. O supervisor preservou
+o processo do GCC em seu próprio grupo. A retomada verifica também o pico
+restante da tarefa e a reserva de 4 GiB.
+
+O [Windows institucional da revisão inicial](https://github.com/Misael-art/retro-dev-studio/actions/runs/45515665354)
+produziu host `READY`, smoke MD/SNES e a fase de referência com o executável
+`f0f3674167beeabe3bb16951fcb986dea7cc14453cd609a0ba197040eeb42785`.
+Os dois cenários específicos do editor C têm aceite próprio. A receita para
+preparar as salas de autoria e as medições a fazer com participantes estão
+no [roteiro de uso](../studio_grafico/ROTEIRO_VALIDACAO_HUMANA.md#autoria-de-uma-fase-mega-drive).
+
+Após o build debug, com um display de QA, a prova `pose-cadence` recebe o
+diretório que contém o `project.rds` de cada sala. Em uma sala recém-gerada,
+rode o comando abaixo substituindo o caminho pelo diretório impresso pela
+receita. Repita com a sala densa.
+
+```bash
+RDS_POSE_PROOF=baseline bash scripts/new-host.sh --run node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project "/caminho/para/simples"
+```
+
+O cenário clona a entrada, aciona Build & Run, pausa e avança o core quadro a
+quadro. O recibo `pose-cadence-*-report.json` em
+`src-tauri/target-test/validation/` contém as identidades do app, da cena, da
+ROM e do core, os 48 quadros consecutivos e os hashes dos recortes do ator,
+do controle e de uma região do fundo. Depois da edição do pé e dos quatro
+ticks, o mesmo comando aceita `RDS_POSE_PROOF=aligned-4` para conferir a
+cadência esperada da revisão salva. A sonda procura o desenho do pé no
+framebuffer e registra a coordenada nas ocorrências 1, 2 e 4 dos dois atores.
+Na linha de base, o percurso Canvas → Arte → cena registra as vistas, a
+disponibilidade de o2, a seleção, a revisão e o histórico. Os tempos desse
+percurso são da automação. O Xvfb 21.1.26-1 do Manjaro passou na verificação
+de hash e assinatura e respondeu a `xdpyinfo` em 1366×768 antes do Tauri.
+
+As ações, as áreas de controle e os resultados por sistema ficam na
+[conferência dos 38 itens](../studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#conferência-por-item-da-autoria-de-fase).
+
+**Recebimento do primeiro ensaio Windows do editor C e da sala simples.**
+A revisão `74672bf` obteve Full READY. O aplicativo usado nos dois cenários C
+tem SHA-256 `ee0fd39fd13caecab36123e669f35036d897e8c3bf7868c6b0232703c85a2aa6`.
+O rascunho foi reaberto, descartado com Undo/Redo e editado no código e
+nos Nós. Na ROM `5c531b3704b39b6de88af80a4562fe7a024bbb48086c575c390c4200274f941a`
+o contador ficou em 13 nos quadros 51 e 196. A sonda da sala simples leu
+a ROM `06908ff8f37ac666f56410eb857f7963541479b7bfdecc1a564c71a859ec9af5`
+com o core `15728f5192f36e81dd8cd4908d65deecd3a72309a926cc57bdf5e19d9630566c`.
+Os recibos e capturas desta tentativa ficam em
+`$HOME/RetroDevStudio-work/sessions/win-74672bf-kalhNHI9/`.
+A matriz registra as duas falhas de interação. [Execução Windows](https://github.com/Misael-art/retro-dev-studio/actions/runs/45523347244)
+
+Em `064f3cd`, o Tauri Windows selecionou os dois atores no Canvas, abriu a
+arte do ator principal e voltou à cena com seleção, zoom, revisão e Undo
+conservados, em 1366×768 CSS px. A segunda ocorrência ainda não aparece na
+timeline deste ator autoral. O core reproduziu a cadência e as posições
+de apoio iniciais nas duas salas. O executável de referência tem SHA-256
+`a541e1442045d504b7e6b9a0b5f740264b1b28d0c25fb822b32a4335db86db9c`.
+A ROM densa tem SHA-256
+`b0be2449e51400a49499492a70613e14d025d806640a8890b5eb333bd2810d69`.
+O seletor de instância estava dentro de Comportamentos recolhido.
+[Windows em 064f3cd](https://github.com/Misael-art/retro-dev-studio/actions/runs/45526894666)
+
+O Tauri Windows de `8f57b4d5c847045282dee07e4f5d948e87bbb9dc` abriu
+Comportamentos antes de selecionar a instância. Passou a troca 7→19 nos
+dois usos da definição, seguida de 19→31 em apenas uma instância. Passaram
+também o rascunho C e as duas salas no core. O app tem SHA-256
+`09032182eb3c6e9adf603b1c33f07aed2d65bd793f6a7d02430f27e3bb7794ec`.
+Os recibos ficam em `$HOME/RetroDevStudio-work/sessions/win-8f57b4d-iN3Nqe02/`.
+[Repetição da prova C no Windows](https://github.com/Misael-art/retro-dev-studio/actions/runs/45571084492)
+
+Em 25/11, o provisionamento Linux terminou e o diagnóstico completo deu
+`READY`, com fingerprint
+`f2a865e69b9ea5c9569b847afdf116de6dd08a46ee3d46eec9991b4256a21390`.
+O recibo do launcher está em
+`$HOME/RetroDevStudio-work/sessions/2026-11-25T02-35-45-526Z-303720/receipt.json`.
+O aplicativo Linux da linha de base foi compilado em `8f57b4d`, com SHA-256
+`9dfcfe93425ca4c57932ec3cbf32e7b903f4614a865ed68a747c89e6579f5b47`.
+O binário e os registros ficam em
+`$HOME/RetroDevStudio-work/sessions/native-c-K0yQzh3J/`. O Tauri isolado
+confirmou a edição C compartilhada e por instância. A cadência de 5/3/7/2,
+o pé de apoio e o retorno da Arte passaram nas salas simples e densa.
+O cenário de rascunho salvou e reabriu o texto. Após pedir a restauração do
+código do modelo, a projeção esperada não apareceu no campo dentro do prazo
+do teste. Repetir a ação no campo específico com o recibo registrado. As
+ROMs simples e densa têm, respectivamente, os SHA-256
+`dd78de3d4edd6ec1a9ff79ae31d68bbb1edac5e5a1ee5bc82c1a99257d59210f` e
+`5a9d8c6121564bab911cb0fdb4fbd87a50e61db63e38f4121e5391480b965ad8`.
+
+## Retomada após formatação — 2026-11-22
+
+O checkout oficial é [Misael-art/retro-dev-studio](https://github.com/Misael-art/retro-dev-studio),
+branch `codex/new-host-cohesion-20261024`. Use o SHA do
+[PR #113](https://github.com/Misael-art/retro-dev-studio/pull/113) como referência
+e mantenha uma única raiz. O checkpoint inclui a correção de rascunho do editor
+C/SGDK e as mudanças de provisionamento Windows que ainda estavam locais em
+`f74e5026`. Os patches de 12 e 18 de novembro ficam como evidência histórica.
+Em um checkout sobrevivente com alterações, compare o diff com a branch antes
+de aplicar patches ou incorporar os commits.
+
+1. Em disco novo, instale o Git oficial e faça o clone da seção 1. Leia este
+   roteiro, o [Memory Bank](../06_AI_MEMORY_BANK.md) e as instruções da raiz.
+   Refaça a autenticação no GitHub e no agente pelo fluxo oficial.
+2. Execute o plano somente leitura da seção 2. Use um job e confirme a margem
+   de memória, disco e temperatura antes de instalar, certificar ou compilar.
+   O lock fixa Node 24.18.0, npm 11.16.0, Rust 1.97.0 e as dependências do
+   produto. Os arquivos oficiais já baixados podem ser reutilizados depois de
+   comparar tamanho e SHA-256 com o lock. Transfira manualmente os downloads
+   maiores que 70 MB.
+   Use o modo de instalação para preparar o host. O lock atualizado em
+   24/11 corrigiu os dois alertas RustSec da CI do checkpoint. A comparação
+   de auditorias está no [Memory Bank](../06_AI_MEMORY_BANK.md). Execute
+   a certificação e os gates com o lock do candidato neste sistema.
+3. No Windows, confira os pré-requisitos nativos e o pareamento
+   WebView2/Edge WebDriver da seção de 18/11. Ao retomar nesse sistema, obtenha
+   um novo `READY` e compile pelo launcher. Rode `code-draft-roundtrip` e
+   `code-instance-scope` em série no Tauri real, conforme o
+   [roteiro do editor](PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md).
+   Guarde os recibos do executável, da ROM e do core. A prova Linux de 12/11
+   é histórica. A qualificação Windows e os casos em aberto do incremento 1
+   precedem Monaco e clangd.
+4. Restaure projetos e evidências pelo pacote privado de continuidade
+   `RetroDevStudio-Recovery-20261122`. Leia `STATE.txt` e
+   `LEIA-ME-ANTES-DE-FORMATAR.md` e confira `SHA256SUMS` antes de restaurar.
+   Use staging e confira referências para assets externos antes de abrir um
+   projeto migrado. O operador fornece o corpus BYOR e os demais insumos
+   privados requeridos por cada jornada.
+
 ## Trava de sessão — continuidade de 2026-11-05
 
 O launcher publica o registro do dono já gravado e sincronizado, sob seu mutex. Uma interrupção antes desse ponto não deve deixar uma trava de tamanho zero. Na abertura seguinte, registros de outro boot só são arquivados se tiverem formato e dono reconhecidos. O erro `development_lock_unreadable` preserva a evidência. Confira boot, recibo, PID e filhos; se o dono continuar incerto, solicite confirmação do operador antes de mover a trava. O estado e as provas no KDE estão na [fila de correções](REAVALIACAO_PRODUTO_2026-10-24.md#fila-de-execução-de-2026-11-05).
@@ -59,6 +225,103 @@ Próxima observação humana: pedir ao iniciante para encontrar cenário, person
 ---
 
 # Novo host: instalação, diagnóstico e continuidade do produto
+
+## Retomada Windows do editor C/SGDK — 2026-11-18
+
+O diagnóstico lê a versão instalada do WebView2 Evergreen pelo registro. Prepare
+o [Microsoft Edge WebDriver x64](https://developer.microsoft.com/en-us/microsoft-edge/tools/webdriver/)
+para os três primeiros componentes dessa versão. Confira a versão retornada
+por `msedgedriver.exe --version`, a assinatura Authenticode Microsoft e o SHA-256.
+Use o caminho verificado em `RDS_EDGE_DRIVER_PATH` no processo do launcher. A
+abertura de uma sessão WebDriver com o EXE ainda é parte do aceite.
+
+No checkout Windows, o Edge WebDriver x64 157.0.4341.60 já está em
+`toolchains/webdriver/msedgedriver.exe`. O diagnóstico marcou o driver e o
+WebView2 da mesma versão como `ready`. O recibo conserva origem, assinatura
+Microsoft e SHA-256. Ao reinstalar ou após atualização do WebView2, reconfira o
+pareamento para a versão então instalada.
+
+Temurin e Libretro para Windows foram conferidos no cache oficial
+`toolchains/.cache/artifacts/` em 18/11. Para restabelecer o cache em outro host,
+use o SHA-256 sem extensão como nome final. Confira tamanho e hash com
+`Get-Item` e `Get-FileHash -Algorithm SHA256` antes de colocar cada arquivo no
+cache. O [lock](../../toolchains/host-requirements.lock.json) registra as origens
+imutáveis e os hashes completos.
+
+| Pacote Windows x64 | Bytes | SHA-256 e nome no cache |
+| --- | ---: | --- |
+| [Temurin 21.0.11+10](https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.11%2B10/OpenJDK21U-jdk_x64_windows_hotspot_21.0.11_10.zip) | 205073954 | `d3625e7cadf23787ea540229544b6e2ab494b3b54da1801879e583e1dfee0a64` |
+| [Libretro cores 1.22.2](https://buildbot.libretro.com/stable/1.22.2/windows/x86_64/RetroArch_cores.7z) | 229761684 | `86b871e11b9b4772ac644b40a38f2c8e9449da1f355eae7da08aa061148547b0` |
+
+O cache já contém os pacotes Windows Node 24.18.0, SGDK 2.11 e PVSnesLib
+4.5.0, verificados pelo lock, além do arquivo existente do Ghidra 12.1.
+O substrato precisa de Visual Studio
+Build Tools 2022 com `Microsoft.VisualStudio.Workload.VCTools`, MSVC x64 e
+Windows SDK. Use o instalador oficial para as transferências acima do limite
+manual. Confirme a margem de memória, paginação, I/O e temperatura antes de
+instalar ou extrair. O cache nativo, target e temporários do launcher ficam em
+NTFS. O volume Btrfs do checkout também precisa passar pela prova de
+persistência e recuperação.
+
+Com os pré-requisitos preparados e margem medida, a primeira invocação de
+provisionamento fica isolada do build e da certificação.
+
+```powershell
+$env:RDS_BUILD_JOBS = '1'
+$env:RDS_EDGE_DRIVER_PATH = Join-Path $PWD 'toolchains\webdriver\msedgedriver.exe'
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\new-host.ps1 -Mode Install
+```
+
+Após READY, rode os gates em série e gere o debug pelo launcher antes de
+executar `code-draft-roundtrip` e `code-instance-scope`. Registre identidade do
+binário, core, ROM e cena nos recibos. A certificação, instalação MSI/portable
+e execução nessas distribuições permanecem como passos da qualificação.
+
+```powershell
+& .\scripts\new-host.ps1 -Mode Run -CommandArgs @('npm.cmd', 'run', 'build:debug')
+& .\scripts\new-host.ps1 -Mode Run -CommandArgs @('node', 'scripts/e2e-tauri-build-run.mjs', '--skip-build', '--scenario', 'code-draft-roundtrip')
+& .\scripts\new-host.ps1 -Mode Run -CommandArgs @('node', 'scripts/e2e-tauri-build-run.mjs', '--skip-build', '--scenario', 'code-instance-scope')
+```
+
+Confirme o sucesso de cada etapa antes de passar à próxima. Se o volume
+Windows que guarda o backup ficar abaixo da margem de instalação, mantenha o
+backup no cartão e use disco nativo com espaço para checkout, cache do host
+e pasta de trabalho.
+
+## Observabilidade e bloqueio de capacidade — 2026-11-18
+
+Foi adicionado `npm run host:monitor` (`scripts/host-resource-monitor.mjs`),
+sonda local/read-only de CPU, memória, paginação/pagefile, I/O, espaço persistente
+e temporário, sensores/trip points e processos por RSS. Comando e argumentos de
+processos são opt-in; a coleta redige padrões comuns de segredo. Cada execução
+aceita até 360 amostras, exige cadência de 15–30 s em coletas múltiplas, escreve
+JSONL fora do checkout e não remove recibos antigos. Sem `RDS_WORK_ROOT` nem
+`--out`, a saída vai somente para stdout. A sonda informa headroom e nunca muda
+nem substitui o verdict de `host:diagnose`.
+
+No host Jupiter, a coleta de confirmação às 21:52:26Z observou CPU 43%, 5.11
+GiB disponíveis, pagefile 5% (pico 7%), 11 páginas de entrada/s, fila 1 e 1.36
+MB/s. A sonda térmica falhou com `thermal_sensors: wmi_access_denied`; sem
+temperatura/trip atuais, estimativa de pico do job e recibo persistido, a
+capacidade fica `INCOMPLETE`. São amostras pontuais, não evidência de pressão
+sustentada. Não iniciar provisionamento/build com base nelas.
+
+`npm run host:diagnose` sem variável de driver também marcou WebDriver ausente,
+embora `toolchains/webdriver/msedgedriver.exe` exista e esteja verificado. Ao
+definir `RDS_EDGE_DRIVER_PATH` para esse caminho somente no processo do launcher,
+WebDriver/WebView2 ficaram `ready`; o diagnóstico continuou `BLOCKED` por
+`rustc`, `cargo`, `jdk21`, `ghidra`, `sgdk`, `pvsneslib`, `libretro_md`,
+`libretro_snes` e `tauri_driver`. Lock digest
+`dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377`; a
+qualificação Build → ROM → Emulação continua pendente. A leitura local teve
+`node --check`, `npm run check:tree` e `git diff --check` PASS; nenhuma suíte,
+certificação ou build foi executado. Checkout em `f74e5026d39844a2385cd523cdf4b6565af1f9dd`,
+alterações ainda não commitadas.
+
+Próximo passo: restabelecer leitura térmica e medir o plano real de instalação;
+manter `RDS_EDGE_DRIVER_PATH` no launcher; quando houver margem comprovada,
+usar `scripts/new-host.ps1 -Mode Install`, refazer `host:diagnose`, certificar e
+seguir os gates seriais antes de retomar a jornada desktop.
 
 ## Continuidade 2026-10-29 — ciclo de Nalu e aparência do modelo, Experimental
 
@@ -157,7 +420,7 @@ Entrada operacional da retomada de 2026-10-24. Leia também o Memory Bank, o roa
 
 - Repositório: https://github.com/Misael-art/retro-dev-studio . A ponta `main` não contém automaticamente o Studio recuperado.
 - Base pública de recuperação: `recovery/studio-preformat-20261021`, checkpoint `95d5ef237e9cbef321b13162f8b7f6823d094203`.
-- Esta entrega acrescenta os launchers e a continuidade em `codex/new-host-cohesion-20261024`, com PR contra a base de recuperação. Enquanto não integrada, **clone esta branch**, não apenas `main`. Confira o SHA real no GitHub/PR; não presuma que um nome de branch é imutável.
+- Branch vigente `codex/new-host-cohesion-20261024`, com o [PR #113](https://github.com/Misael-art/retro-dev-studio/pull/113) em rascunho contra `main`. **Clone esta branch** para continuar o editor C/SGDK. Confira o SHA do PR antes de iniciar.
 - Fonte do Studio preservada: `a8550af0`; produção histórica `ae0d66cd`; binário histórico 016 SHA-256 `d37779583a4cf25dbc7a4dc22200c48d7bed900fcd65d1ee79e573aa37b782b8`. Binário e READY antigos não certificam o novo OS.
 - Pesquisas separadas: REA `ee8c581f`, recuperação comercial `40a17169` e integração `03ddc59d` continuam no backup de histórico. Não integrar todas as branches nem substituir esta base por uma pesquisa isolada.
 

@@ -15,6 +15,7 @@
  *   de mapear execucao real para nodes.
  */
 
+import { idleExecutionOutput } from "./eventSchedule";
 import type {
   GraphNode,
   NodeEdge,
@@ -69,7 +70,7 @@ export const PLATFORM_UNSUPPORTED_NODES: Record<string, Partial<Record<string, s
   snes: {
     condition_on_ground: "o estado de apoio no chao so existe na fisica do Mega Drive",
     condition_crushed: "o sinal de esmagamento por plataforma so existe na fisica do Mega Drive",
-    authored_strike: "o teste de caixas usa o runtime MUGEN, que so existe no Mega Drive",
+    authored_strike: "o teste de caixas por pose está disponível no Mega Drive",
   },
 };
 
@@ -618,7 +619,7 @@ export function validateNodeGraph(
       const connectedOutputs = outgoingExecByNodePort.get(node.id) ?? new Set();
       const missingOutputs = node.outputs
         .filter((port) => port.kind === "exec")
-        .filter((port) => !connectedOutputs.has(port.id));
+        .filter((port) => !connectedOutputs.has(port.id) && !idleExecutionOutput(node, port.id, connectedOutputs));
       if (missingOutputs.length > 0) {
         issues.push({
           severity: "warning",

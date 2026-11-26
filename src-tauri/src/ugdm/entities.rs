@@ -96,12 +96,29 @@ pub struct RetroFXRasterLine {
     pub enabled: bool,
 }
 
+/// Mega Drive horizontal scroll band in screen space. Y bounds are inclusive.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RetroFXWaveBand {
+    pub entity_id: String,
+    pub first_line: u16,
+    pub last_line: u16,
+    pub amplitude: u8,
+    pub wavelength: u16,
+    pub speed: i8,
+    pub phase: u8,
+}
+
+pub const RETROFX_WAVE_LINES: u16 = 224;
+pub const RETROFX_WAVE_DMA_BYTES: u32 = RETROFX_WAVE_LINES as u32 * 2 * 2;
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct RetroFXConfig {
     #[serde(default)]
     pub parallax_layers: Vec<RetroFXParallaxLayer>,
     #[serde(default)]
     pub raster_lines: Vec<RetroFXRasterLine>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wave: Option<RetroFXWaveBand>,
 }
 
 // ── Collision Map (grid-based, tile-aligned) ───────────────────────────────────
@@ -127,6 +144,19 @@ pub struct CollisionMap {
     /// Dados do mapa: 0 = livre, 1 = sólido. Tamanho esperado = width * height.
     #[serde(default)]
     pub data: Vec<u8>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub materials: Vec<SurfaceMaterial>,
+}
+
+/// Material compartilhado pelas células sólidas que o usam nesta cena.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SurfaceMaterial {
+    pub name: String,
+    pub friction: u8,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub step_sound: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cells: Vec<u32>,
 }
 
 fn default_tile_size() -> u8 {
@@ -143,6 +173,7 @@ impl CollisionMap {
             width,
             height,
             data: vec![0u8; (width * height) as usize],
+            materials: Vec::new(),
         }
     }
 

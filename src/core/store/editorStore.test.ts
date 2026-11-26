@@ -910,6 +910,32 @@ function makeTilemapEntity(
 }
 
 describe("paintTilemapCell", () => {
+  it("updates terrain corners in the canonical cells, leaves the control and undoes the whole gesture", () => {
+    const initial = [0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0];
+    const map = makeTilemapEntity("tm1", 4, 3, initial);
+    const scene = { ...EMPTY_SCENE, entities: [map] };
+    useEditorStore.setState({ activeScene: scene, activeSceneSource: scene });
+    const brush = { firstTile: 17, tileset: map.components.tilemap!.tileset, remove: false };
+    const state = useEditorStore.getState();
+    state.beginHistoryCapture();
+    state.paintTilemapCell("tm1", 1, 1, 17, brush);
+    state.paintTilemapCell("tm1", 2, 1, 17, brush);
+    state.paintTilemapCell("tm1", 2, 0, 17, brush);
+    state.commitHistoryCapture();
+    const painted = [0, 0, 21, 12, 0, 19, 26, 0, 0, 0, 0, 0];
+    const cells = () => useEditorStore.getState().activeSceneSource!.entities[0].components.tilemap!.cells;
+    expect(cells()).toEqual(painted);
+    expect(useEditorStore.getState().undoStack.length).toBe(state.undoStack.length + 1);
+    state.undo();
+    expect(cells()).toEqual(initial);
+    state.redo();
+    expect(cells()).toEqual(painted);
+    state.paintTilemapCell("tm1", 3, 0, 17, { ...brush, remove: true });
+    expect(cells()).toEqual(painted);
+    state.paintTilemapCell("tm1", 2, 1, 17, { ...brush, remove: true });
+    expect(cells()).toEqual([0, 0, 17, 12, 0, 17, 0, 0, 0, 0, 0, 0]);
+  });
+
   it("materializa cells[] sob demanda e pinta a célula correta (row-major)", () => {
     const tm = makeTilemapEntity("tm1", 4, 3);
     useEditorStore.setState({

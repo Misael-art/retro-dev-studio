@@ -406,8 +406,7 @@ function collectLogicVariables(graph: NodeGraph): string[] {
       vars.add("fsm_state");
     }
     if (node.type === "timeline_sequence") {
-      const timelineName = sanitizeIdentifier(String(node.params.timeline_name ?? node.id));
-      vars.add(`timeline_${timelineName}`);
+      vars.add(timelineCounter(node));
     }
     if (node.type === "timer") {
       vars.add(`timer_${sanitizeIdentifier(node.id)}`);
@@ -545,7 +544,7 @@ function emitLinearNodeC(node: GraphNode, graph: NodeGraph, target: "megadrive" 
 
     case "palette_swap":
       // Previa: banco, cores e alcance vem do plano de paletas (compiler/palette_plan.rs).
-      return `    // troca de paleta ${p.palette} em ${p.target} a cada acerto de ${p.strike} (${p.frames} quadros)\n`;
+      return `    // troca de paleta ${p.palette} em ${p.target} ${p.trigger_mode === "flow" ? "ao executar este nó" : "a cada acerto de " + p.strike} (${p.frames} quadros)\n`;
 
     case "var_set":
       return `    logic_var_${p.var_name} = ${resolveMathInput(graph, node.id, "value")};\n`;
@@ -658,8 +657,13 @@ type TimelineSlotDef = {
   nextNode?: GraphNode;
 };
 
+function timelineCounter(node: GraphNode): string {
+  const id = node.params.run_mode === "event" ? "event_" + node.id : String(node.params.timeline_name ?? node.id);
+  return "timeline_" + sanitizeIdentifier(id);
+}
+
 function collectTimelineSlots(graph: NodeGraph, node: GraphNode): TimelineSlotDef[] {
-  return [0, 1, 2]
+  return [0, 1, 2, 3]
     .map((index) => {
       const nextEdge = findOutgoingExecEdge(graph, node.id, `slot_${index}`);
       return {
@@ -917,8 +921,11 @@ function emitExecChainFromNode(
   }
 
   if (node.type === "timeline_sequence") {
-    const timelineName = sanitizeIdentifier(String(node.params.timeline_name ?? node.id));
-    const counterName = `logic_var_timeline_${timelineName}`;
+    const name = timelineCounter(node);
+    if (node.params.run_mode === "event") {
+      return target === "megadrive" ? `${indentStr}rds_${name}_request = 1;\n` : `${indentStr}// Resposta a eventos exige Mega Drive.\n`;
+    }
+    const counterName = "logic_var_" + name;
     const slots = collectTimelineSlots(graph, node);
 
     let out = `${indentStr}${counterName}++;\n`;
@@ -962,6 +969,8 @@ export function compileGraphToC(
   const fsmStates = collectFsmStates(graph);
   const hardwareEvents = collectHardwareEventNodes(graph);
   const inputCommandNodes = collectInputCommandNodes(graph);
+  const responses = target === "megadrive" ? graph.nodes.filter((node) =>
+    node.type === "timeline_sequence" && node.params.run_mode === "event") : [];
 
   if (startNodes.length === 0 && updateNodes.length === 0 && hardwareEvents.length === 0) {
     return out + "// No event_start node found in graph.\n";
@@ -997,6 +1006,10 @@ export function compileGraphToC(
     }
     out += `static int logic_var_${v};\n`;
   });
+  for (const node of responses) {
+    const name = timelineCounter(node);
+    out += `static unsigned char rds_${name}_request, rds_${name}_previous, rds_${name}_running;\n`;
+  }
   if (fsmStates.length > 0) {
     out += "enum {\n";
     fsmStates.forEach((state) => {
@@ -1049,6 +1062,20 @@ export function compileGraphToC(
     }
     for (const updateNode of updateNodes) {
       out += emitExecChainFromNode(graph, updateNode, target);
+    }
+    out += "        SPR_update();\n        SYS_doVBlankProcess();\n    }\n";
+    for (const node of responses) {
+      const name = timelineCounter(node);
+      const slots = collectTimelineSlots(graph, node);
+      out += `        if (rds_${name}_request && !rds_${name}_previous) { rds_${name}_running = 1; logic_var_${name} = 0; }\n`;
+      out += `        rds_${name}_previous = rds_${name}_request; rds_${name}_request = 0;\n`;
+      out += `        if (rds_${name}_running) {\n`;
+      for (const slot of slots) {
+        out += `            if (logic_var_${name} == ${slot.delay}) {\n`;
+        if (slot.nextNode) out += emitExecChainFromNode(graph, slot.nextNode, target, new Set([node.id]), 16);
+        out += "            }\n";
+      }
+      out += `            if (logic_var_${name}++ >= ${slots[slots.length - 1]?.delay ?? 0}) rds_${name}_running = 0;\n        }\n`;
     }
     out += "        SPR_update();\n        SYS_doVBlankProcess();\n    }\n";
   }

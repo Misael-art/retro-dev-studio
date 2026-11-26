@@ -47,6 +47,8 @@ import {
 import { serializeNodeGraph } from "../../core/nodegraph/nodeTypes";
 import { deserializeNodeGraph } from "../../core/nodegraph/nodeDefinitions";
 import { getEntityDisplayName } from "../../core/entityDisplay";
+import { nativeAnimationNames } from "../../core/characterTimeline";
+import PoseDurationField from "../artstudio/PoseDurationField";
 import { resolveSceneWorkspaceContext } from "../../core/sceneWorkspaceContext";
 import { buildTilemapAuthoringBrush } from "../../core/entityAuthoring";
 import { openProjectSourcePath } from "../../core/ipc/projectService";
@@ -715,21 +717,23 @@ function LogicVariableSlider({ varName, variable, onChange }: LogicVariableSlide
 function BuildProvenancePanel({
   sourceMap,
   serializedGraph,
+  instanceId,
 }: {
   sourceMap: BuildSourceMap | null;
   serializedGraph: string | null | undefined;
+  instanceId: string;
 }) {
   const [resolution, setResolution] = useState<BuildProvenanceResolution | null>(null);
 
   useEffect(() => {
     let active = true;
-    void resolveBuildProvenanceForGraph(sourceMap, serializedGraph).then((next) => {
+    void resolveBuildProvenanceForGraph(sourceMap, serializedGraph, instanceId).then((next) => {
       if (active) setResolution(next);
     });
     return () => {
       active = false;
     };
-  }, [serializedGraph, sourceMap]);
+  }, [instanceId, serializedGraph, sourceMap]);
 
   if (!sourceMap && resolution?.status === "missing") return null;
 
@@ -803,6 +807,7 @@ export default function InspectorPanel() {
     setActiveBrush,
     lastBuildSourceMap,
     openStudioEditor,
+    studio,
   } = useEditorStore();
 
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "error">("idle");
@@ -828,6 +833,7 @@ export default function InspectorPanel() {
   const layer = isLayer
     ? activeScene?.background_layers.find((item) => `layer::${item.layer_id}` === selectedEntityId) ?? null
     : null;
+  const nativeAnimations = nativeAnimationNames(entity?.components.sprite, activeTarget, projectSourceKind);
   const entityLogicSummary = useMemo(() => {
     const logic = entity?.components.logic;
     if (!logic) {
@@ -1341,7 +1347,7 @@ export default function InspectorPanel() {
                 <p className="truncate font-mono text-[11px] font-semibold text-[#cdd6f4]" title={getEntityDisplayName(entity)}>
                   {getEntityDisplayName(entity)}
                 </p>
-                <p className="truncate text-[9px] text-[#7f849c]" title={entity.entity_id}>
+                <p data-testid="inspector-entity-id" className="truncate text-[9px] text-[#7f849c]" title={entity.entity_id}>
                   id: {entity.entity_id}
                 </p>
                 {entity.prefab && (
@@ -1355,12 +1361,23 @@ export default function InspectorPanel() {
                     <button
                       type="button"
                       data-testid="inspector-open-character"
-                      onClick={() => openStudioEditor({ focus: { task: "character", entityId: entity.entity_id } })}
+                      onClick={() => openStudioEditor({ focus: {
+                        task: "character", entityId: entity.entity_id,
+                        ...(nativeAnimations.length > 0 ? { animation: null, occurrenceId: null } : {}),
+                      } })}
                       className="rounded border border-[#89b4fa]/50 px-2 py-0.5 text-[9px] text-[#89b4fa] hover:bg-[#89b4fa]/10"
                       title="Editar o sprite e as animações deste objeto na Arte"
                     >
                       Abrir na Arte
                     </button>
+                    {nativeAnimations.length > 0 ? (
+                      <button type="button" data-testid="inspector-open-animation"
+                        onClick={() => openStudioEditor({ focus: { task: "character", entityId: entity.entity_id,
+                          animation: nativeAnimations.includes(studio.focus.animation ?? "") ? studio.focus.animation : nativeAnimations[0] } })}
+                        className="rounded border border-[#89b4fa]/50 px-2 py-0.5 text-[10px] text-[#89b4fa] hover:bg-[#89b4fa]/10">
+                        Animar
+                      </button>
+                    ) : null}
                     <AssetRenameControl asset={entity.components.sprite.asset} />
                     <button
                       type="button"
@@ -1373,6 +1390,7 @@ export default function InspectorPanel() {
                     </button>
                   </div>
                 ) : null}
+                <PoseDurationField testId="inspector-pose-duration" />
                 {entity.components.sprite ? (
                   <EntitySpriteCodeLink entityId={entity.entity_id} asset={entity.components.sprite.asset} />
                 ) : null}
@@ -1590,7 +1608,7 @@ export default function InspectorPanel() {
                 </div>
               </div>
             ) : null}
-            {entity.components.hud ? <HudTextInspector entity={entity} /> : null}
+            {entity.components.hud ? <HudTextInspector key={JSON.stringify([activeProjectDir, activeScenePath, entity.entity_id])} entity={entity} /> : null}
             {entity.components.camera ? <div className="p-3"><CameraConfigurator entityId={entity.entity_id} /></div> : null}
             {entity.components.sprite &&
             Object.values(entity.components.sprite.animations ?? {}).some((def) => isMugenAnimation(def)) ? (
@@ -1973,6 +1991,8 @@ export default function InspectorPanel() {
                 ) : null}
                 {section.id === "tilemap" && (() => {
                   const tm = entity.components.tilemap!;
+                  const lock = entityEditLock(entity.entity_id, activeScene?.layers,
+                    useEditorStore.getState().lockedEntityIdsByScene[entityLockScopeKey(activeProjectDir, activeScenePath)] ?? []);
                   const total = tm.map_width * tm.map_height;
                   const cells = tm.cells ?? [];
                   const filled = cells.reduce(
@@ -1996,9 +2016,10 @@ export default function InspectorPanel() {
                       <TilemapPlaneControls
                         key={JSON.stringify([activeProjectDir, activeScenePath, entity.entity_id])}
                         tilemap={tm} entities={activeScene?.entities ?? []} entityId={entity.entity_id}
-                        blockedReason={activeTarget !== "megadrive" ? "Planos/prioridade de tilemap disponíveis somente no Mega Drive (Experimental)." : null}
+                        blockedReason={lock.locked ? describeEntityEditLock(lock) : activeTarget !== "megadrive" ? "Planos/prioridade de tilemap disponíveis somente no Mega Drive (Experimental)." : null}
                         implicitPlane={resolvedTilemapPlanes((activeScene?.entities ?? []).map((item) => item.entity_id === entity.entity_id ? { ...item, components: { ...item.components, tilemap: { ...tm, plane: null } } } : item)).find((item) => item.entityId === entity.entity_id)?.plane ?? "desconhecido"}
                         onChange={(patch) => {
+                          if (lock.locked) return;
                           updateEntity(entity.entity_id, buildEntityPatch(entity, ["components", "tilemap"], { ...tm, ...patch }));
                           scheduleAutoSave();
                         }}
@@ -2251,6 +2272,7 @@ export default function InspectorPanel() {
                 <BuildProvenancePanel
                   sourceMap={lastBuildSourceMap}
                   serializedGraph={entity.components.logic.graph}
+                  instanceId={entity.entity_id}
                 />
                 <table className="w-full table-fixed text-xs">
                   <tbody>

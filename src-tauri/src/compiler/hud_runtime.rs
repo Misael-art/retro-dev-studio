@@ -1,13 +1,13 @@
 //! Texto de interface autoral (Experimental, REQ-15) para Mega Drive/SGDK.
 //!
 //! Cada `HudText` desenha `label` na grade de texto (tiles de 8 px) ao iniciar e, se houver valor
-//! ligado, escreve o numero logo depois do rotulo, redesenhando so quando o valor muda.
+//! ligado, escreve o número ou a barra depois do rótulo e redesenha quando o valor muda.
 //! `rds_hud_<id>_shown` guarda o ultimo valor desenhado (observavel na RAM). Limites do destino
 //! validados no build: grade H40 de 40x28, fonte padrao SGDK so com ASCII imprimivel.
 
 use std::collections::BTreeSet;
 
-use super::ast_generator::{AstNode, AstOutput, LogicOp};
+use super::ast_generator::{AstNode, AstOutput};
 
 pub const TEXT_COLUMNS: u32 = 40;
 pub const TEXT_ROWS: u32 = 28;
@@ -21,6 +21,7 @@ pub struct HudSpec {
     pub label: String,
     pub binding: Option<(String, String)>,
     pub digits: u8,
+    pub bar_tiles: Option<u8>,
 }
 
 fn sanitize(id: &str) -> String {
@@ -46,6 +47,7 @@ pub fn collect_huds(ast: &AstOutput) -> Vec<HudSpec> {
                 label,
                 binding,
                 digits,
+                bar_tiles,
             } => Some(HudSpec {
                 id: sanitize(entity_id),
                 entity_id: entity_id.clone(),
@@ -54,38 +56,32 @@ pub fn collect_huds(ast: &AstOutput) -> Vec<HudSpec> {
                 label: label.clone(),
                 binding: binding.clone(),
                 digits: *digits,
+                bar_tiles: *bar_tiles,
             }),
             _ => None,
         })
         .collect()
 }
 
-fn strike_ids(ast: &AstOutput) -> BTreeSet<String> {
-    let mut out = BTreeSet::new();
-    fn walk(ops: &[LogicOp], out: &mut BTreeSet<String>) {
-        for op in ops {
-            match op {
-                LogicOp::AuthoredStrike { strike_id, .. } => {
-                    out.insert(strike_id.clone());
-                }
-                LogicOp::SourceMapped { op, .. } => walk(std::slice::from_ref(op.as_ref()), out),
-                LogicOp::ConditionOverlap {
-                    if_true, if_false, ..
-                }
-                | LogicOp::ConditionBool {
-                    if_true, if_false, ..
-                } => {
-                    walk(if_true, out);
-                    walk(if_false, out);
-                }
-                _ => {}
-            }
+fn strike_health(ast: &AstOutput, source: &str) -> Option<u16> {
+    let id = sanitize(source);
+    super::mugen_runtime::collect_strikes(ast)
+        .into_iter()
+        .find_map(|(candidate, _, _, _, health)| (candidate == id).then_some(health))
+}
+
+pub fn hud_value_columns(hud: &HudSpec, ast: &AstOutput) -> u32 {
+    if let Some(tiles) = hud.bar_tiles {
+        return u32::from(tiles);
+    }
+    let digits = u32::from(hud.digits);
+    match &hud.binding {
+        Some((kind, source)) if kind == "strike_hp" => {
+            digits.max(strike_health(ast, source).map_or(1, |health| health.max(1).ilog10() + 1))
         }
+        Some(_) => digits.max(5),
+        None => 0,
     }
-    for script in &ast.logic_scripts {
-        walk(&script.ops, &mut out);
-    }
-    out
 }
 
 /// Motivo de recusa (bloqueia o build) ou expressao C do valor ligado.
@@ -106,13 +102,17 @@ pub fn validate(
             hud.entity_id, hud.digits
         ));
     }
-    let width = hud.label.chars().count() as u32
-        + if hud.binding.is_some() {
-            hud.digits as u32
-        } else {
-            0
-        };
-    if hud.row >= TEXT_ROWS || hud.column + width > TEXT_COLUMNS {
+    if hud.bar_tiles.is_some_and(|tiles| {
+        !(1..=16).contains(&tiles)
+            || !matches!(&hud.binding, Some((kind, _)) if kind == "strike_hp")
+    }) {
+        return Err(format!(
+            "barra '{}': use 1 a 16 blocos e vincule à vida de um golpe",
+            hud.entity_id
+        ));
+    }
+    let width = hud.label.chars().count() as u32 + hud_value_columns(hud, ast);
+    if hud.row >= TEXT_ROWS || hud.column.saturating_add(width) > TEXT_COLUMNS {
         return Err(format!(
             "texto '{}' em ({}, {}) com {width} caracteres sai da grade {TEXT_COLUMNS}x{TEXT_ROWS}",
             hud.entity_id, hud.column, hud.row
@@ -122,7 +122,7 @@ pub fn validate(
         None => Ok(None),
         Some((kind, source)) if kind == "strike_hp" => {
             let id = sanitize(source);
-            if strike_ids(ast).contains(&id) {
+            if strike_health(ast, source).is_some() {
                 Ok(Some(format!("rds_strike_{id}_hp")))
             } else {
                 Err(format!(
@@ -158,8 +158,8 @@ pub fn render_decls(ast: &AstOutput, logic_vars: &BTreeSet<String>) -> String {
                 why.replace('"', "'")
             )),
             Ok(Some(_)) => out.push_str(&format!(
-                "static volatile u16 rds_hud_{}_shown = 0xFFFF;\n",
-                hud.id
+                "static volatile u16 rds_hud_{id}_shown;\nstatic bool rds_hud_{id}_initialized;\n",
+                id = hud.id
             )),
             Ok(None) => {}
         }
@@ -212,10 +212,21 @@ pub fn render_updates(ast: &AstOutput, logic_vars: &BTreeSet<String>, indent: us
             continue;
         };
         let column = hud.column + hud.label.chars().count() as u32;
+        let columns = hud_value_columns(&hud, ast);
+        let contents = if let Some(tiles) = hud.bar_tiles {
+            let maximum = hud
+                .binding
+                .as_ref()
+                .and_then(|(_, source)| strike_health(ast, source))
+                .unwrap_or(1)
+                .max(1);
+            format!("const u16 fill = (u32)v * {tiles} / {maximum}; for (u16 i = 0; i < {tiles}; i++) b[i] = i < fill ? '#' : '-'; b[{tiles}] = 0;")
+        } else {
+            format!("u16 len = uintToStr(v, b, {}); while (len < {columns}) b[len++] = ' '; b[len] = 0;", hud.digits)
+        };
         out.push_str(&format!(
-            "{pad}{{ const u16 v = {expr}; if (v != rds_hud_{id}_shown) {{ char b[8]; uintToStr(v, b, {digits}); VDP_drawText(b, {column}, {row}); rds_hud_{id}_shown = v; }} }}\n",
+            "{pad}{{ const u16 v = {expr}; if (!rds_hud_{id}_initialized || v != rds_hud_{id}_shown) {{ char b[17]; {contents} VDP_drawText(b, {column}, {row}); rds_hud_{id}_shown = v; rds_hud_{id}_initialized = TRUE; }} }}\n",
             id = hud.id,
-            digits = hud.digits,
             row = hud.row
         ));
     }

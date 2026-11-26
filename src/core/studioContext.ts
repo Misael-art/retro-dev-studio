@@ -8,13 +8,14 @@
 import type { Scene } from "./ipc/sceneService";
 import type { EditorWorkspace } from "./store/editorStore";
 
-export type StudioTask = "scene" | "files" | "character" | "actions" | "interface" | "test" | "delivery";
+export type StudioTask = "scene" | "files" | "character" | "pixels" | "actions" | "interface" | "test" | "delivery";
 
 /** Tarefa → workspace canônico existente. */
 export const STUDIO_TASK_WORKSPACE: Record<StudioTask, EditorWorkspace> = {
   scene: "scene",
   files: "explorer",
   character: "artstudio",
+  pixels: "artstudio",
   actions: "logic",
   interface: "scene",
   test: "game",
@@ -25,6 +26,7 @@ export const STUDIO_TASK_LABEL: Record<StudioTask, string> = {
   scene: "Cena",
   files: "Arquivos",
   character: "Arte",
+  pixels: "Editor de pixels",
   actions: "Lógica",
   interface: "Interface",
   test: "Teste",
@@ -46,6 +48,7 @@ export interface StudioFocus {
 
 export interface WorkspaceCamera {
   zoom: number;
+  scenePath?: string;
   /** Deslocamento da câmera do editor (pan), em pixels de tela. */
   panX: number;
   panY: number;
@@ -65,6 +68,7 @@ export interface StudioContextState {
   cameras: Partial<Record<EditorWorkspace, WorkspaceCamera>>;
   /** Incrementa a cada retorno; editores reaplicam a câmera lembrada quando muda. */
   restoreSeq: number;
+  savedScenePath?: string | null;
 }
 
 export const STUDIO_RETURN_STACK_LIMIT = 16;
@@ -180,13 +184,17 @@ export function rememberWorkspaceCamera(
 
 const STORAGE_PREFIX = "rds.studioContext.v1:";
 
+export function serializeStudioContext(state: StudioContextState, scenePath?: string | null): string {
+  return JSON.stringify({ schema: 1, focus: state.focus, cameras: state.cameras, scenePath });
+}
+
 /** Serialização por projeto (conveniência do usuário; falha silenciosa sem armazenamento). */
-export function saveStudioContext(projectDir: string, state: StudioContextState): void {
+export function saveStudioContext(projectDir: string, state: StudioContextState, scenePath?: string | null): void {
   if (!projectDir) return;
   try {
     globalThis.localStorage?.setItem(
       STORAGE_PREFIX + projectDir,
-      JSON.stringify({ schema: 1, focus: state.focus, cameras: state.cameras })
+      serializeStudioContext(state, scenePath)
     );
   } catch {
     // armazenamento indisponível: contexto continua só em memória
@@ -194,21 +202,28 @@ export function saveStudioContext(projectDir: string, state: StudioContextState)
 }
 
 export function loadStudioContext(projectDir: string): StudioContextState {
-  const fallback = initialStudioContext();
-  if (!projectDir) return fallback;
+  if (!projectDir) return initialStudioContext();
   try {
-    const raw = globalThis.localStorage?.getItem(STORAGE_PREFIX + projectDir);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw) as { schema?: number; focus?: Partial<StudioFocus>; cameras?: StudioContextState["cameras"] };
-    if (parsed.schema !== 1 || !parsed.focus) return fallback;
+    return parseStudioContext(globalThis.localStorage?.getItem(STORAGE_PREFIX + projectDir)) ?? initialStudioContext();
+  } catch {
+    return initialStudioContext();
+  }
+}
+
+export function parseStudioContext(raw?: string | null): StudioContextState | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { schema?: number; focus?: Partial<StudioFocus>; cameras?: StudioContextState["cameras"]; scenePath?: unknown };
+    if (!parsed || parsed.schema !== 1 || !parsed.focus) return null;
     const task = parsed.focus.task && parsed.focus.task in STUDIO_TASK_LABEL ? parsed.focus.task : "scene";
     return {
       focus: { ...emptyStudioFocus(task), ...parsed.focus, task },
       returnStack: [],
       cameras: parsed.cameras ?? {},
       restoreSeq: 0,
+      ...(typeof parsed.scenePath === "string" ? { savedScenePath: parsed.scenePath } : {}),
     };
   } catch {
-    return fallback;
+    return null;
   }
 }

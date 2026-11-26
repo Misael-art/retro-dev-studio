@@ -11,6 +11,7 @@ import {
   cloneGraph,
   isNodeEdge,
   isBehaviorInstance,
+  isCodeRegionDraft,
   isNodeGraphGroup,
   isNodePort,
   isNodeType,
@@ -366,18 +367,20 @@ export const NODE_DEFS: Record<NodeType, Omit<GraphNode, "id" | "x" | "y">> = {
     params: { var_name: "i", count: 4 },
   },
   timeline_sequence: {
-    type: "timeline_sequence", label: "Timeline",
+    type: "timeline_sequence", label: "Sequência de eventos",
     inputs: [{ id: "exec", label: "▶", kind: "exec" }],
     outputs: [
       { id: "slot_0", label: "Slot 1 ▶", kind: "exec" },
       { id: "slot_1", label: "Slot 2 ▶", kind: "exec" },
       { id: "slot_2", label: "Slot 3 ▶", kind: "exec" },
+      { id: "slot_3", label: "Slot 4 ▶", kind: "exec" },
     ],
     params: {
       timeline_name: "cutscene",
       slot_0_delay: 30,
       slot_1_delay: 60,
       slot_2_delay: 90,
+      slot_3_delay: -1,
     },
   },
   hardware_budget_check: {
@@ -430,6 +433,12 @@ export const NODE_DEFS: Record<NodeType, Omit<GraphNode, "id" | "x" | "y">> = {
     inputs: [],
     outputs: [],
     params: { target: "", profile: "mugen.original_chain.v1", program_sha256: "", program_json: "" },
+  },
+  code_block: {
+    type: "code_block", label: "Código C",
+    inputs: [{ id: "exec", label: "▶", kind: "exec" }],
+    outputs: [{ id: "exec", label: "▶", kind: "exec" }],
+    params: { code: "", summary: "", replaced_type: "" },
   },
   bridge_unconverted_source: {
     type: "bridge_unconverted_source", label: "Source Bridge",
@@ -653,6 +662,14 @@ export function deserializeNodeGraph(serialized?: string | null): NodeGraph {
     }
 
     const nodeById = new Map(hydratedNodes.map((node) => [node.id, node]));
+    for (const edge of rawEdges) {
+      const source = nodeById.get(edge.fromNode);
+      if ((source?.type === "input_pressed" || source?.type === "input_held" || source?.type === "input_command")
+          && (edge.fromPort === "true" || edge.fromPort === "false")
+          && !source.outputs.some((port) => port.id === edge.fromPort)) {
+        source.outputs.push({ id: edge.fromPort, label: edge.fromPort === "true" ? "Sim" : "Não", kind: "exec" });
+      }
+    }
     const validEdges = rawEdges.filter((edge) => edgeConnectsValidPorts(edge, nodeById));
     const groups = (Array.isArray(parsed.groups) ? parsed.groups : [])
       .filter(isNodeGraphGroup)
@@ -660,12 +677,16 @@ export function deserializeNodeGraph(serialized?: string | null): NodeGraph {
       .filter((group) => group.nodeIds.length > 0);
 
     const behaviors = (Array.isArray(parsed.behaviors) ? parsed.behaviors : []).filter(isBehaviorInstance);
+    const codeDrafts = (Array.isArray(parsed.codeDrafts) ? parsed.codeDrafts : [])
+      .filter(isCodeRegionDraft)
+      .filter((draft) => nodeById.has(draft.nodeId));
 
     return cloneGraph({
       nodes: hydratedNodes,
       edges: validEdges,
       ...(groups.length > 0 ? { groups } : {}),
       ...(behaviors.length > 0 ? { behaviors } : {}),
+      ...(codeDrafts.length > 0 ? { codeDrafts } : {}),
     });
   } catch {
     return cloneGraph(EMPTY_GRAPH);

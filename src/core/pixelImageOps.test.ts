@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addFrame, addLayer, analyzeHardware, analyzeTileReuse, compositeFrame, createPixelDoc, flipCel, floodFill, pixelCss, removePixelBackground, serializePixelDoc } from "./pixelEditor";
-import { addPixelBorder, applyPixelEffect, collagePixelDoc, cropPixelDoc, duplicatePixelLayer, erasePixelRegion, mergePixelLayerDown, PIXEL_EFFECTS, rotatePixelDoc, scalePixelDoc, unifyPixelPalettes, fitPixelDoc, enablePixelPalette, disablePixelPalette, clearUnusedPixelColors } from "./pixelImageOps";
+import { addPixelBorder, applyPixelEffect, collagePixelDoc, cropPixelDoc, ditherTransparency, duplicatePixelLayer, erasePixelRegion, makeColorTransparent, mergePixelLayerDown, PIXEL_EFFECTS, rotateIndexedSelection, rotatePixelDoc, scalePixelDoc, unifyPixelPalettes, fitPixelDoc, enablePixelPalette, disablePixelPalette, clearUnusedPixelColors } from "./pixelImageOps";
 
 function artwork() {
   let doc = createPixelDoc(16, 8);
@@ -12,6 +12,38 @@ function artwork() {
 }
 
 describe("indexed image operations preserve the editing contract", () => {
+  it("makes only the requested colors and checkerboard phase transparent", () => {
+    const doc = artwork();
+    doc.frames[0].cels[0][3] = 1;
+    const scope = { frame: 0, layer: 0, allFrames: false, rect: { x: 0, y: 0, w: 3, h: 1 } };
+    const ghost = ditherTransparency(doc, scope, 0);
+    const threshold = makeColorTransparent(doc, scope, 1);
+    expect([...ghost.frames[0].cels[0].slice(0, 4)]).toEqual([0, 1, 0, 1]);
+    expect([...threshold.frames[0].cels[0].slice(0, 4)]).toEqual([0, 0, 2, 1]);
+    for (const candidate of [ghost, threshold]) {
+      expect(candidate.palettes).toBe(doc.palettes);
+      expect(candidate.frames[1]).toBe(doc.frames[1]);
+      expect(candidate.frames[0].cels[1]).toBe(doc.frames[0].cels[1]);
+    }
+    expect([...doc.frames[0].cels[0].slice(0, 4)]).toEqual([1, 1, 2, 1]);
+    expect(makeColorTransparent(doc, scope, 0)).toBe(doc);
+    expect(makeColorTransparent(doc, { ...scope, color: 2 }, 1)).toBe(doc);
+  });
+
+  it("rotates indexed pixels around the numeric pivot within the selected area", () => {
+    const doc = artwork();
+    doc.frames[0].cels[0][3] = 2;
+    const scope = { frame: 0, layer: 0, allFrames: false, rect: { x: 0, y: 0, w: 3, h: 3 } };
+    const pivot = { x: 1, y: 1 };
+    const rotated = rotateIndexedSelection(doc, scope, 90, pivot);
+    const cel = rotated.frames[0].cels[0];
+    expect([cel[0], cel[1], cel[2], cel[3], cel[18], cel[34]]).toEqual([0, 0, 1, 2, 1, 2]);
+    expect(rotated.frames[1]).toBe(doc.frames[1]);
+    expect(rotated.frames[0].cels[1]).toBe(doc.frames[0].cels[1]);
+    expect(rotated.palettes).toBe(doc.palettes);
+    expect(rotateIndexedSelection(doc, scope, 360, pivot)).toBe(doc);
+  });
+
   it("fits every cel inside a smaller frame and keeps sparse and hidden content recoverable", () => {
     const doc = createPixelDoc(64, 56, { frames: 53 });
     doc.originalSource = "original.gif";

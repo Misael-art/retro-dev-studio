@@ -1,22 +1,23 @@
 import { CanvasAuthoringBar, type CanvasPathTool } from "./CanvasAuthoringBar";
 import { entityLockScopeKey } from "../../core/sceneComposition";
-import { loadSceneArtworkAsset, drawRepeatedAsset, drawTilemapArtwork, type ViewportAssetCacheEntry } from "./sceneArtworkRenderer";
+import { loadSceneArtworkAsset, drawRepeatedAsset, drawTilemapArtworkBand, sampleSceneArtwork, type SceneArtworkOrigin, type SceneArtworkPass, type ViewportAssetCacheEntry } from "./sceneArtworkRenderer";
 import Icon, { type IconName } from "../common/Icon";
 import Dialog from "../common/Dialog";
 import Button from "../common/Button";
 import CameraConfigurator from "../inspector/CameraConfigurator";
 import { hudBand } from "../../core/hudText";
 import { loadShellPersona } from "../../core/surfaceRegistry";
-import { cellsOnLine } from "../../core/tilemapCells";
+import { cellsOnLine, terrainFromBrush, type TerrainBrush } from "../../core/tilemapCells";
 import { defaultPath, dropOffset, ellipsePath, hitPathHandleOrControl, pathBlockedReason, pathIssue, pathWorldPoints, removePoint, sampleSegment, withPoint } from "../../core/objectPath";
-import { describeEntityEditLock, entityEditLock, escapeExitsIsolation, layerCompositionEntities, restoreTemplateEntityPositions, translateCollisionMap, type TemplatePositionChange } from "../../core/sceneComposition";
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { describeEntityEditLock, entityEditLock, escapeExitsIsolation, layerCompositionEntities, resolvedTilemapPlanes, restoreTemplateEntityPositions, translateCollisionMap, tilePriorityBands, priorityRegionBetween, type TemplatePositionChange } from "../../core/sceneComposition";
+import { type ReactNode, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tabs from "../common/Tabs";
 import { useEditorStore } from "../../core/store/editorStore";
 import {
   JOYPAD_DEFAULT,
   acceptsFrame,
   emulatorLoadState,
+  emulatorObserve,
   emulatorPlayReplay,
   emulatorRewindStep,
   emulatorSaveState,
@@ -36,7 +37,7 @@ import {
   type JoypadState,
 } from "../../core/ipc/emulatorService";
 import { listenToProjectAssetChanges } from "../../core/ipc/projectWatcherService";
-import { getReferenceTemplateComposition, type CollisionMap, type Entity, type PathComponent, type Scene } from "../../core/ipc/sceneService";
+import { getReferenceTemplateComposition, type CollisionMap, type Entity, type PathComponent, type Scene, type TilePriorityRegion } from "../../core/ipc/sceneService";
 import { persistActiveScene } from "../../core/scenePersistence";
 import { constrainSpriteFrameSize, ONBOARDING_SPRITE_SIZE } from "../../core/sceneConstraints";
 import {
@@ -46,6 +47,7 @@ import {
 } from "../../core/assetVisualState";
 import { createSpriteEntityFromAsset } from "../../core/editorEntityFactory";
 import { getEntityDisplayName } from "../../core/entityDisplay";
+import { nativeAnimationNames, occurrenceIds, occurrenceSocket } from "../../core/characterTimeline";
 import { resolveImportedEntityContext } from "../../core/importedEntityContext";
 import { resolveProjectAssetPath } from "../../core/pathUtils";
 import { summarizeSceneAssetHealth } from "../../core/sceneAssetHealth";
@@ -65,19 +67,27 @@ import {
   clampViewportPan,
   getSceneEntityBounds,
   getViewportPanForWorldPoint,
+  megadriveArtworkRank,
   resolveSceneWorldMetrics,
   sceneArtworkEntities,
 } from "../../core/sceneWorldModel";
 import SceneAssetHealthBadge from "./SceneAssetHealthBadge";
 import SceneAttentionPanel from "./SceneAttentionPanel";
-import { useSceneAttentionStore } from "../../core/sceneAttentionStore";
+import { requestAppCommand, useSceneAttentionStore } from "../../core/sceneAttentionStore";
 import { TilePalette } from "../tools/ContextualPalette";
 import { getGameViewportScale } from "./gameViewportScale";
 import { paintGameFrame } from "./gameFramePresentation";
 import RuntimeInspectOverlay from "./RuntimeInspectOverlay";
+import MotionTracePanel from "./MotionTracePanel";
 import { gameMayTakeKeyDown } from "../../core/keyboardFocus";
+import { HudExtremes } from "../inspector/HudTextInspector";
 import TestAdjustPanel from "./TestAdjustPanel";
+import PoseDurationField from "../artstudio/PoseDurationField";
+import ScenePointInspector, { type ScenePointProbe, type SceneProbePoint } from "./ScenePointInspector";
+import SceneGuideControls, { type SceneGuide, type SceneGuideOrientation } from "./SceneGuideControls";
+import MaterialBrushPanel from "./MaterialBrushPanel";
 const GameCodeLogic = lazy(() => import("../nodegraph/GameCodeLogic").then((m) => ({ default: m.GameCodeLogic })));
+const LogicAuthoringWorkspace = lazy(() => import("../nodegraph/LogicAuthoringWorkspace"));
 import { bankLetter, entityPaletteMarks } from "../../core/palettePlan";
 import { layoutTags } from "./viewportTagLayout";
 import { useCodeFocusStore } from "../../core/codeFocusStore";
@@ -111,7 +121,6 @@ const GUIDE_SCREEN_TOLERANCE = 6;
 const GAME_VIEWPORT_PADDING = 24;
 
 type ResizeHandle = "nw" | "ne" | "sw" | "se";
-type SceneGuideOrientation = "horizontal" | "vertical";
 
 type EntityBounds = {
   x: number;
@@ -128,18 +137,7 @@ type QueuedAudioChunk = {
 };
 
 
-type SceneGuide = {
-  id: string;
-  orientation: SceneGuideOrientation;
-  position: number;
-};
-
-type GuideDragState = {
-  id: string;
-  orientation: SceneGuideOrientation;
-  position: number;
-  creating: boolean;
-};
+type GuideDragState = SceneGuide & { storageKey: string };
 
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -339,8 +337,16 @@ function drawResizeHandle(
 
 export default function ViewportPanel({
   showWorkspaceTabs = true,
+  compactTools = false,
+  onAnimateInScene,
+  stopSessionButton,
+  materialDock,
 }: {
   showWorkspaceTabs?: boolean;
+  compactTools?: boolean;
+  onAnimateInScene?: () => void;
+  stopSessionButton?: ReactNode;
+  materialDock?: HTMLElement | null;
 }) {
   const {
     activeViewportTab,
@@ -353,6 +359,7 @@ export default function ViewportPanel({
     projectSessionId,
     hwStatus,
     emulatorLoaded,
+    coreEpoch,
     setEmulatorLoaded,
     emulatorRomIdentity,
     lastBuildArtifact,
@@ -400,7 +407,13 @@ export default function ViewportPanel({
   const gameViewportStageRef = useRef<HTMLDivElement>(null);
   const sceneStageRef = useRef<HTMLDivElement>(null);
   const sceneCanvasRef = useRef<HTMLCanvasElement>(null);
+  const artworkPasses = useRef<SceneArtworkPass[]>([]);
+  const [sceneProbe, setSceneProbe] = useState<ScenePointProbe | null>(null);
+  const [sceneProbeArmed, setSceneProbeArmed] = useState(false);
   const sceneOverlayCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [priorityBrush, setPriorityBrush] = useState<{ scope: string; high: boolean } | null>(null);
+  const [priorityPreview, setPriorityPreview] = useState<TilePriorityRegion | null>(null);
+  const priorityDrag = useRef<{ start: { x: number; y: number }; area: TilePriorityRegion } | null>(null);
   /** Ciclo Alt+clique em sprites sobrepostos (cena densa). */
   const densePickRef = useRef<{ mx: number; my: number; ids: string[]; idx: number } | null>(null);
   const lastLockedHitRef = useRef<Entity | null>(null);
@@ -476,6 +489,8 @@ export default function ViewportPanel({
     paintedInDrag: boolean;
     /** 1 = paint solid, 0 = erase */
     value: 0 | 1;
+    material?: string | null;
+    pointerFrame: ReturnType<typeof canvasPointerFrame>;
   } | null>(null);
   const tileDragRef = useRef<{
     entityId: string;
@@ -486,6 +501,8 @@ export default function ViewportPanel({
     rectOrigin: { col: number; row: number } | null;
     /** Tile a ser aplicado (0 = apaga). */
     tileIndex: number;
+    terrain?: TerrainBrush;
+    pointerFrame: ReturnType<typeof canvasPointerFrame>;
     paintedInDrag: boolean;
   } | null>(null);
 
@@ -495,6 +512,8 @@ export default function ViewportPanel({
   const [moveScope, setMoveScope] = useState<"entity" | "layer">("entity");
   const [moveGlobalCollisionMap, setMoveGlobalCollisionMap] = useState(false);
   const [collisionPaintValue, setCollisionPaintValue] = useState<0 | 1>(1);
+  const [showMaterialBrush, setShowMaterialBrush] = useState(false);
+  const [materialBrush, setMaterialBrush] = useState<string | null>();
   const [tilePaletteCollapsed, setTilePaletteCollapsed] = useState(false);
   const [templateCompositionBaseline, setTemplateCompositionBaseline] = useState<Scene | null>(null);
   const [templateCompositionPreview, setTemplateCompositionPreview] = useState<{
@@ -520,8 +539,14 @@ export default function ViewportPanel({
     setMoveScope("entity");
     setMoveGlobalCollisionMap(false);
     setCollisionPaintValue(1);
+    setShowMaterialBrush(false);
+    setMaterialBrush(undefined);
   }, [activeProjectDir, activeScenePath]);
   useEffect(() => setMoveGlobalCollisionMap(false), [activeLayerId]);
+  useEffect(() => {
+    setSceneProbe(null);
+    setSceneProbeArmed(false);
+  }, [activeProjectDir, activeScenePath, activeViewportTab]);
   const [showGrid, setShowGrid] = useState(false);
   const [showSubGrid, setShowSubGrid] = useState(false);
   const [showBackground, setShowBackground] = useState(true);
@@ -548,7 +573,9 @@ export default function ViewportPanel({
   const [showCollisionOverlay, setShowCollisionOverlay] = useState(false);
   const [showCameraOverlay, setShowCameraOverlay] = useState(true);
   const [showEntityBounds, setShowEntityBounds] = useState(true);
-  const [showEntityLabels, setShowEntityLabels] = useState(true);
+  const [entityLabelPreference, setEntityLabelPreference] = useState<boolean | null>(null);
+  const showEntityLabels = entityLabelPreference ?? !compactTools;
+  const labelFocusedEntity = compactTools && entityLabelPreference === null;
   const [showStagingOverlay, setShowStagingOverlay] = useState(false);
   const [showViewportWarnings, setShowViewportWarnings] = useState(false);
   const [showSceneNavigator, setShowSceneNavigator] = useState(false);
@@ -557,8 +584,7 @@ export default function ViewportPanel({
   const [showKeyColor, setShowKeyColor] = useState(false);
   const [guideSnap, setGuideSnap] = useState(true);
   const [gameViewLight, setGameViewLight] = useState(false);
-  const [sceneGuides, setSceneGuides] = useState<SceneGuide[]>([]);
-  const [guideDrag, setGuideDrag] = useState<GuideDragState | null>(null);
+  const [guideDragState, setGuideDrag] = useState<GuideDragState | null>(null);
   const [saveStateBusy, setSaveStateBusy] = useState(false);
   const [loadStateBusy, setLoadStateBusy] = useState(false);
   const [rewindBusy, setRewindBusy] = useState(false);
@@ -573,15 +599,36 @@ export default function ViewportPanel({
   const [showPerformanceOverlay, setShowPerformanceOverlay] = useState(true);
   const [assetCacheVersion, setAssetCacheVersion] = useState(0);
   const [sceneMousePos, setSceneMousePos] = useState<{ x: number; y: number } | null>(null);
-  const [viewportPan, setViewportPan] = useState({ x: 0, y: 0 });
-  // Câmera do editor de cena faz parte do contexto compartilhado: lembrada ao sair e
-  // reaplicada quando o usuário volta à origem (REQ-02).
+  const rememberedSceneCamera = studio.cameras.scene;
+  const canResumeSceneView = rememberedSceneCamera && activeScenePath
+    && (rememberedSceneCamera.scenePath ?? studio.savedScenePath) === activeScenePath;
+  const sceneViewKey = `${activeProjectDir}:${activeScenePath}:${activeScene?.scene_id ?? ""}`;
+  const [viewportPan, setViewportPan] = useState(() => canResumeSceneView
+    ? { x: rememberedSceneCamera.panX, y: rememberedSceneCamera.panY }
+    : { x: 0, y: 0 });
+  const latestSceneCamera = useRef({ zoom: viewportZoom, panX: viewportPan.x, panY: viewportPan.y });
+  if (activeViewportTab === "scene") latestSceneCamera.current = { zoom: viewportZoom, panX: viewportPan.x, panY: viewportPan.y };
+  // Debounce panning while the scene is visible. Flush the latest pose of the
+  // editor camera when another workspace replaces the viewport.
   useEffect(() => {
-    const handle = window.setTimeout(() => {
-      rememberWorkspaceCamera("scene", { zoom: viewportZoom, panX: viewportPan.x, panY: viewportPan.y });
-    }, 120);
+    if (activeViewportTab !== "scene" || !activeScenePath) return;
+    const handle = window.setTimeout(() => rememberWorkspaceCamera("scene", {
+      scenePath: activeScenePath, zoom: viewportZoom, panX: viewportPan.x, panY: viewportPan.y,
+    }), 120);
     return () => window.clearTimeout(handle);
-  }, [rememberWorkspaceCamera, viewportPan.x, viewportPan.y, viewportZoom]);
+  }, [activeScenePath, activeViewportTab, rememberWorkspaceCamera, viewportPan.x, viewportPan.y, viewportZoom]);
+  useEffect(() => {
+    if (activeViewportTab !== "scene" || !activeScenePath) return;
+    return () => {
+      const state = useEditorStore.getState();
+      if (state.activeProjectDir === activeProjectDir && state.activeScenePath === activeScenePath
+          && state.studio.restoreSeq === studio.restoreSeq) {
+        rememberWorkspaceCamera("scene", { scenePath: activeScenePath, ...latestSceneCamera.current });
+      }
+    };
+  }, [activeProjectDir, activeScenePath, activeViewportTab, rememberWorkspaceCamera, studio.restoreSeq]);
+  const initialSceneFocusRef = useRef<string | null>(canResumeSceneView ? sceneViewKey : null);
+  const autoFitRef = useRef<{ zoom: number; width: number; height: number; touched: boolean } | null>(null);
   const lastAppliedRestoreSeq = useRef(studio.restoreSeq);
   useEffect(() => {
     if (lastAppliedRestoreSeq.current === studio.restoreSeq) {
@@ -590,9 +637,11 @@ export default function ViewportPanel({
     lastAppliedRestoreSeq.current = studio.restoreSeq;
     const camera = studio.cameras.scene;
     if (camera) {
+      initialSceneFocusRef.current = sceneViewKey;
+      autoFitRef.current = null;
       setViewportPan({ x: camera.panX, y: camera.panY });
     }
-  }, [studio.cameras.scene, studio.restoreSeq]);
+  }, [sceneViewKey, studio.cameras.scene, studio.restoreSeq]);
   const [clampViewportToWorld, setClampViewportToWorld] = useState(true);
   const [spacePressed, setSpacePressed] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
@@ -621,6 +670,18 @@ export default function ViewportPanel({
     selectedEntityId && !selectedEntityId.startsWith("layer::")
       ? activeScene?.entities.find((entity) => entity.entity_id === selectedEntityId) ?? null
       : null;
+  const priorityScope = JSON.stringify([projectSessionId, activeScenePath, selectedEntityId, useEditorStore.getState().sceneRevision]);
+  const drawingPriority = priorityBrush?.scope === priorityScope && editorMode === "select"
+    && activeTarget === "megadrive" && activeViewportTab === "scene";
+
+  function cancelPriorityDrawing() {
+    priorityDrag.current = null;
+    setPriorityPreview(null);
+    setPriorityBrush(null);
+  }
+  const nativeAnimations = nativeAnimationNames(selectedEntity?.components.sprite, activeTarget, projectSourceKind);
+  const showNativePoses = studio.focus.entityId === selectedEntityId
+    && nativeAnimations.includes(studio.focus.animation ?? "");
   const compositionLayer = activeScene?.layers?.find((layer) => layer.id === activeLayerId) ?? null;
   const compositionMembers = compositionLayer && activeScene
     ? layerCompositionEntities(compositionLayer, activeScene.entities)
@@ -724,6 +785,36 @@ export default function ViewportPanel({
     activeProjectDir,
     activeScenePath || activeScene?.scene_id || null
   );
+  const guideDrag = guideDragState?.storageKey === sceneGuideStorageKey ? guideDragState : null;
+  const [guideState, setGuideState] = useState(() => ({
+    storageKey: sceneGuideStorageKey,
+    guides: loadSceneGuides(sceneGuideStorageKey),
+  }));
+  const guideBounds = useMemo(() => ({
+    vertical: { min: Math.ceil(sceneWorldMinX), max: Math.floor(sceneWorldMaxX) },
+    horizontal: { min: Math.ceil(sceneWorldMinY), max: Math.floor(sceneWorldMaxY) },
+  }), [sceneWorldMaxX, sceneWorldMaxY, sceneWorldMinX, sceneWorldMinY]);
+  const sceneGuides = useMemo(() => {
+    if (guideState.storageKey !== sceneGuideStorageKey) return [];
+    return guideState.guides
+      .map((guide) => ({
+        ...guide,
+        position: clamp(guide.position, guideBounds[guide.orientation].min, guideBounds[guide.orientation].max),
+      }))
+      .sort((left, right) => left.position - right.position);
+  }, [guideBounds, guideState, sceneGuideStorageKey]);
+  const updateSceneGuides = useCallback((update: (guides: SceneGuide[]) => SceneGuide[]) => {
+    setGuideState((current) => current.storageKey === sceneGuideStorageKey
+      ? { ...current, guides: update(current.guides) }
+      : current);
+  }, [sceneGuideStorageKey]);
+  const saveSceneGuide = useCallback((id: string | null, orientation: SceneGuideOrientation, position: number) => {
+    const guide = { id: id ?? createSceneGuideId(), orientation, position };
+    updateSceneGuides((current) => [...current.filter((item) => item.id !== guide.id), guide]);
+  }, [updateSceneGuides]);
+  const removeSceneGuide = useCallback((id: string) => {
+    updateSceneGuides((current) => current.filter((item) => item.id !== id));
+  }, [updateSceneGuides]);
   const sceneDensityStatus = useMemo(() => buildSceneDensityStatus(activeScene), [activeScene]);
   const activeTilemapEntityForPalette = useMemo(() => {
     if (!activeScene) {
@@ -1194,7 +1285,6 @@ export default function ViewportPanel({
 
   useEffect(() => {
     if (activeViewportTab !== "scene") {
-      setViewportPan({ x: 0, y: 0 });
       panDragRef.current = null;
       setIsPanning(false);
     }
@@ -1229,49 +1319,37 @@ export default function ViewportPanel({
     });
   }, [clampPanToStage]);
 
-  const initialSceneFocusRef = useRef<string | null>(null);
-  const autoFitRef = useRef<{ zoom: number; width: number; height: number; touched: boolean } | null>(null);
   const viewportZoomRef = useRef(viewportZoom);
   viewportZoomRef.current = viewportZoom;
   useEffect(() => {
     if (activeViewportTab !== "scene" || !activeScene?.scene_id || !sceneStageSize.width || !sceneStageSize.height) {
       return;
     }
-    const key = `${activeProjectDir}:${activeScenePath}:${activeScene.scene_id}`;
     // O painel pode mudar de tamanho depois do primeiro enquadramento (layout reaplicado ao
     // abrir o projeto); reenquadra so ate a primeira interacao na cena, para nao mover o que o usuario mira.
     const fit = autoFitRef.current;
-    if (initialSceneFocusRef.current === key) {
+    if (initialSceneFocusRef.current === sceneViewKey) {
       if (!fit || fit.touched || fit.zoom !== viewportZoomRef.current) return;
       if (Math.abs(fit.width - sceneStageSize.width) < 2 && Math.abs(fit.height - sceneStageSize.height) < 2) return;
     }
-    initialSceneFocusRef.current = key;
+    initialSceneFocusRef.current = sceneViewKey;
     const zoom = resetSceneView();
     autoFitRef.current = zoom === null ? null : { zoom, width: sceneStageSize.width, height: sceneStageSize.height, touched: false };
-  }, [activeProjectDir, activeScene?.scene_id, activeScenePath, activeViewportTab, resetSceneView, sceneStageSize]);
+  }, [activeScene?.scene_id, activeViewportTab, resetSceneView, sceneStageSize, sceneViewKey]);
 
   useEffect(() => {
-    setSceneGuides(loadSceneGuides(sceneGuideStorageKey));
+    setGuideState({ storageKey: sceneGuideStorageKey, guides: loadSceneGuides(sceneGuideStorageKey) });
   }, [sceneGuideStorageKey]);
 
   useEffect(() => {
-    setSceneGuides((current) =>
-      current
-        .map((guide) => ({
-          ...guide,
-          position: clamp(
-            guide.position,
-            0,
-            guide.orientation === "vertical" ? sceneWidth : sceneHeight
-          ),
-        }))
-        .sort((left, right) => left.position - right.position)
-    );
-  }, [sceneHeight, sceneWidth]);
+    setGuideDrag(null);
+  }, [activeViewportTab, gameViewLight, sceneGuideStorageKey]);
 
   useEffect(() => {
-    saveSceneGuides(sceneGuideStorageKey, sceneGuides);
-  }, [sceneGuideStorageKey, sceneGuides]);
+    if (guideState.storageKey === sceneGuideStorageKey) {
+      saveSceneGuides(sceneGuideStorageKey, guideState.guides);
+    }
+  }, [guideState, sceneGuideStorageKey]);
 
   useEffect(() => {
     if (gameViewLight) {
@@ -1461,25 +1539,24 @@ export default function ViewportPanel({
   );
 
   const startGuideDrag = useCallback(
-    (orientation: SceneGuideOrientation, clientX: number, clientY: number, guideId?: string) => {
+    (orientation: SceneGuideOrientation, clientX: number, clientY: number) => {
       const coords = getSceneCoordsFromClient(clientX, clientY);
-      if (!coords) {
+      if (!coords || !sceneGuideStorageKey) {
         return;
       }
 
-      const axisLimit = orientation === "vertical" ? sceneWidth : sceneHeight;
+      const { min, max } = guideBounds[orientation];
       const axisValue = orientation === "vertical" ? coords.x : coords.y;
       const snapStep = getGuideSnapStep();
       const snapped = guideSnap ? snapToGrid(axisValue, snapStep) : axisValue;
-      const clamped = clamp(Math.round(snapped), 0, axisLimit);
       setGuideDrag({
-        id: guideId ?? createSceneGuideId(),
+        id: createSceneGuideId(),
         orientation,
-        position: clamped,
-        creating: !guideId,
+        position: clamp(Math.round(snapped), min, max),
+        storageKey: sceneGuideStorageKey,
       });
     },
-    [getGuideSnapStep, getSceneCoordsFromClient, guideSnap, sceneHeight, sceneWidth]
+    [getGuideSnapStep, getSceneCoordsFromClient, guideBounds, guideSnap, sceneGuideStorageKey]
   );
 
   const getGuideHit = useCallback(
@@ -1504,6 +1581,7 @@ export default function ViewportPanel({
   );
 
   const lastPresentedFrameRef = useRef<FramePresentation | null>(null);
+  const paintedEpochs = useRef(new WeakMap<HTMLCanvasElement, number>());
   const renderFrame = useCallback((payload: FramePayload) => {
     const current = useEditorStore.getState();
     if (!acceptsFrame(payload, current.joypadSessionHold ? null : current.coreEpoch, current.emulatorRomIdentity?.sha256, lastPresentedFrameRef.current)) return;
@@ -1511,6 +1589,7 @@ export default function ViewportPanel({
     if (!canvas) return;
 
     if (!paintGameFrame(canvas, payload)) return;
+    paintedEpochs.current.set(canvas, payload.core_epoch!);
     current.recordBuildTestFrame(payload.core_epoch!, payload.rom_sha256!, payload.frame_index ?? 0);
     setGameFrameSize((current) => current.width === payload.width && current.height === payload.height
       ? current : { width: payload.width, height: payload.height });
@@ -1538,6 +1617,30 @@ export default function ViewportPanel({
       timing.frames = 1;
     }
   }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const sha = emulatorRomIdentity?.sha256;
+    if (!canvas || activeViewportTab !== "game" || !emulatorLoaded || !emulPaused
+      || !sha || coreEpoch === null || paintedEpochs.current.get(canvas) === coreEpoch) return;
+    let cancelled = false;
+    // Reopening Test recreates its canvas. Read the paused core without advancing it.
+    void emulatorObserve().then((snapshot) => {
+      const current = useEditorStore.getState();
+      if (cancelled || canvasRef.current !== canvas || !current.emulPaused || current.joypadSessionHold
+        || current.coreEpoch !== coreEpoch || current.emulatorRomIdentity?.sha256 !== sha
+        || paintedEpochs.current.get(canvas) === coreEpoch || !snapshot.ok || snapshot.rom_sha256 !== sha) return;
+      const width = snapshot.framebuffer_width;
+      const height = snapshot.framebuffer_height;
+      if (paintGameFrame(canvas, { width, height, rgba: snapshot.framebuffer_rgba })) {
+        paintedEpochs.current.set(canvas, coreEpoch);
+        setGameFrameSize({ width, height });
+      }
+    }).catch((error: unknown) => {
+      if (!cancelled) console.error("Falha ao recuperar o quadro pausado", error);
+    });
+    return () => { cancelled = true; };
+  }, [activeViewportTab, coreEpoch, emulatorLoaded, emulatorRomIdentity?.sha256, emulPaused]);
 
   useEffect(() => {
     let disposed = false;
@@ -1979,6 +2082,24 @@ export default function ViewportPanel({
   }, [detachViewportRuntime]);
 
   useEffect(() => {
+    if (activeViewportTab !== "game" || !hasEmulatorSession) return;
+    const transportKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey
+        || !gameMayTakeKeyDown(event)) return;
+      if (event.key === "F8") {
+        event.preventDefault();
+        if (emulPaused) handleResume();
+        else handlePause();
+      } else if (event.key === "F10" && emulPaused && !stepBusy) {
+        event.preventDefault();
+        void handleStepFrame();
+      }
+    };
+    window.addEventListener("keydown", transportKey);
+    return () => window.removeEventListener("keydown", transportKey);
+  }, [activeViewportTab, emulPaused, handlePause, handleResume, handleStepFrame, hasEmulatorSession, stepBusy]);
+
+  useEffect(() => {
     if (activeViewportTab !== "game") return;
 
     // A confirmação só é registrada quando o backend responde `ok: true`.
@@ -2033,14 +2154,15 @@ export default function ViewportPanel({
       );
     }
 
+    const gameKeys = new Set<string>();
     function onKeyDown(event: KeyboardEvent) {
+      if (event.defaultPrevented || !gameMayTakeKeyDown(event)) return;
       if (
         !event.repeat &&
         !event.ctrlKey &&
         !event.metaKey &&
         !event.altKey &&
         !event.shiftKey &&
-        !isEditableTarget(event.target) &&
         event.code === "KeyR"
       ) {
         event.preventDefault();
@@ -2048,17 +2170,17 @@ export default function ViewportPanel({
         return;
       }
 
-      // Digitando num campo: a tecla é do campo, não do jogo (e não pode ser bloqueada).
-      if (!gameMayTakeKeyDown(event)) return;
       const updated = keyToJoypad(joypadRef.current, event.code, true, joypadPlatformRef.current);
       if (!updated) return;
 
       event.preventDefault();
+      gameKeys.add(event.code);
       joypadRef.current = updated;
       sendJoypad(updated);
     }
 
     function onKeyUp(event: KeyboardEvent) {
+      if (!gameKeys.delete(event.code)) return;
       const updated = keyToJoypad(joypadRef.current, event.code, false, joypadPlatformRef.current);
       if (!updated) return;
 
@@ -2373,7 +2495,7 @@ export default function ViewportPanel({
         return;
       }
 
-      const axisLimit = activeGuideDrag.orientation === "vertical" ? sceneWidth : sceneHeight;
+      const { min, max } = guideBounds[activeGuideDrag.orientation];
       const axisValue = activeGuideDrag.orientation === "vertical" ? coords.x : coords.y;
       const snapStep = getGuideSnapStep();
       const snapped = guideSnap ? snapToGrid(axisValue, snapStep) : axisValue;
@@ -2381,41 +2503,47 @@ export default function ViewportPanel({
         current
           ? {
               ...current,
-              position: clamp(Math.round(snapped), 0, axisLimit),
+              position: clamp(Math.round(snapped), min, max),
             }
           : current
       );
     }
 
     function onGuideUp() {
-      setSceneGuides((current) => {
-        const activeGuide = activeGuideDrag;
-        const nextGuide: SceneGuide = {
-          id: activeGuide.id,
-          orientation: activeGuide.orientation,
-          position: activeGuide.position,
-        };
+      saveSceneGuide(activeGuideDrag.id, activeGuideDrag.orientation, activeGuideDrag.position);
+      cancelGuideDrag();
+    }
 
-        const remaining = current.filter((guide) => guide.id !== activeGuide.id);
-        return [...remaining, nextGuide].sort((left, right) => left.position - right.position);
-      });
+    function cancelGuideDrag() {
       setGuideDrag(null);
+    }
+
+    function onGuideKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        cancelGuideDrag();
+      }
     }
 
     window.addEventListener("mousemove", onGuideMove);
     window.addEventListener("mouseup", onGuideUp);
+    window.addEventListener("blur", cancelGuideDrag);
+    window.addEventListener("keydown", onGuideKeyDown, true);
     return () => {
       window.removeEventListener("mousemove", onGuideMove);
       window.removeEventListener("mouseup", onGuideUp);
+      window.removeEventListener("blur", cancelGuideDrag);
+      window.removeEventListener("keydown", onGuideKeyDown, true);
     };
   }, [
     activeViewportTab,
     getGuideSnapStep,
     getSceneCoordsFromClient,
+    guideBounds,
     guideDrag,
     guideSnap,
-    sceneHeight,
-    sceneWidth,
+    saveSceneGuide,
   ]);
 
   useEffect(() => {
@@ -2423,6 +2551,7 @@ export default function ViewportPanel({
 
     const canvas = sceneCanvasRef.current;
     if (!canvas) return;
+    artworkPasses.current = [];
 
     canvas.width = sceneWidth;
     canvas.height = sceneHeight;
@@ -2444,9 +2573,11 @@ export default function ViewportPanel({
 
     const compositionHiddenByLayer = new Set<string>();
     const compositionLayerDepthByEntityId = new Map<string, number>();
+    const compositionLayerIdByEntityId = new Map<string, string>();
     for (const sceneLayer of activeScene.layers ?? []) {
       for (const entityId of sceneLayer.entity_ids) {
         compositionLayerDepthByEntityId.set(entityId, sceneLayer.depth ?? 0);
+        compositionLayerIdByEntityId.set(entityId, sceneLayer.id);
       }
       if (!sceneLayer.visible) {
         for (const entityId of sceneLayer.entity_ids) {
@@ -2470,6 +2601,8 @@ export default function ViewportPanel({
         return (artworkRank.get(left.entity.entity_id) ?? left.index) - (artworkRank.get(right.entity.entity_id) ?? right.index);
       });
 
+    const passes = artworkPasses.current;
+    const planes = new Map(resolvedTilemapPlanes(activeScene.entities).map(({ entityId, plane }) => [entityId, plane]));
     if (showBackground) {
       [...activeScene.background_layers]
         .sort((left, right) => left.depth - right.depth)
@@ -2479,69 +2612,88 @@ export default function ViewportPanel({
             return;
           }
 
-          context.save();
-          context.globalAlpha = 0.92;
-          drawRepeatedAsset(
-            context,
-            backgroundAsset,
-            0,
-            0,
-            sceneWidth,
-            sceneHeight,
-            layer.scroll_speed?.x ?? 0,
-            layer.scroll_speed?.y ?? 0
-          );
-          context.restore();
+          passes.push({
+            id: `background-${layer.layer_id}`, name: layer.layer_id, kind: "background",
+            path: layer.tilemap ?? layer.tileset,
+            bounds: { x: sceneWorldMinX, y: sceneWorldMinY, width: sceneWidth, height: sceneHeight },
+            draw: (surface) => {
+              surface.save();
+              surface.globalAlpha = 0.92;
+              drawRepeatedAsset(surface, backgroundAsset, 0, 0, sceneWidth, sceneHeight, layer.scroll_speed?.x, layer.scroll_speed?.y);
+              surface.restore();
+            },
+          });
         });
     }
 
-    if (showTilemaps) {
-      compositionEntities
-        .filter(({ entity }) => Boolean(entity.components?.tilemap))
-        .forEach(({ entity }) => {
-          const tilemap = entity.components?.tilemap;
-          if (!tilemap) {
-            return;
-          }
+    for (const { entity } of compositionEntities) {
+      const { entity_id: id, components } = entity;
+      const tilemap = showTilemaps ? components.tilemap : null;
+      const sprite = showSprites ? components.sprite : null;
+      if (!tilemap && !sprite) continue;
+      let bounds = getEntityBounds(entity, activeTarget, activeScene.entities);
+      if (sprite && activeTarget === "megadrive" && components.pose_attachment) {
+        const link = components.pose_attachment;
+        const parent = compositionEntities.find((item) => item.entity.entity_id === link.actor)?.entity;
+        const clips = parent?.components.sprite?.animations ?? {};
+        const selected = studio.focus.entityId === parent?.entity_id;
+        const clip = clips[(selected ? studio.focus.animation : null) ?? Object.keys(clips).sort()[0]];
+        if (!parent || !clip) continue;
+        const ids = occurrenceIds(clip);
+        const occurrence = selected && ids.includes(studio.focus.occurrenceId ?? "") ? studio.focus.occurrenceId! : ids[0];
+        const point = occurrenceSocket(clip, occurrence, link.socket);
+        if (!point) continue;
+        const alignment = clip.pose_alignment?.[occurrence]?.offset;
+        bounds = { ...bounds,
+          x: parent.transform.x + point.x + (alignment?.x ?? 0) + link.offset.x - (sprite.pivot?.x ?? 0),
+          y: parent.transform.y + point.y + (alignment?.y ?? 0) + link.offset.y - (sprite.pivot?.y ?? 0),
+        };
+      }
+      const name = getEntityDisplayName(entity);
+      const layerId = compositionLayerIdByEntityId.get(id);
+      const tilemapAsset = tilemap ? getViewportAsset(tilemap.tileset) : null;
+      if (tilemap && tilemapAsset?.status === "loaded" && tilemapAsset.source) {
+        const plane = activeTarget === "megadrive" ? planes.get(id) : undefined;
+        const bands = plane ? tilePriorityBands(tilemap) : null;
+        const addTilemapPass = (high: boolean, band?: TilePriorityRegion[]) => {
+          if (band?.length === 0) return;
+          passes.push({ id: `tilemap-${id}`, entityId: id, name, layerId, kind: "tilemap", path: tilemap.tileset, plane, bounds,
+            priorityRank: plane ? megadriveArtworkRank("tilemap", high, plane) : undefined,
+            draw: (surface) => drawTilemapArtworkBand(surface, tilemapAsset, tilemap, bounds.x, bounds.y, band) });
+        };
+        if (bands) {
+          addTilemapPass(false, bands.low);
+          addTilemapPass(true, bands.high);
+        } else addTilemapPass(Boolean(tilemap.priority));
+      }
 
-          const tilemapAsset = getViewportAsset(tilemap.tileset);
-          if (tilemapAsset?.status !== "loaded" || !tilemapAsset.source) {
-            return;
-          }
-
-          const bounds = getEntityBounds(entity, activeTarget, activeScene.entities);
-          drawTilemapArtwork(context, tilemapAsset, tilemap, bounds.x, bounds.y);
-
-        });
+      const spriteAsset = sprite ? getViewportAsset(sprite.asset) : null;
+      const source = spriteAsset?.source;
+      if (!sprite || !source || spriteAsset?.status !== "loaded") continue;
+      const { frame_width: frameWidth, frame_height: frameHeight } = sprite;
+      const sheetWidth = spriteAsset.width ?? frameWidth;
+      const sheetHeight = spriteAsset.height ?? frameHeight;
+      const definition = showNativePoses && id === studio.focus.entityId && studio.focus.animation
+        ? sprite.animations?.[studio.focus.animation] : null;
+      const occurrence = studio.focus.occurrenceId;
+      const index = definition ? Math.max(0, occurrenceIds(definition).indexOf(occurrence ?? "")) : 0;
+      const columns = Math.max(1, Math.ceil(sheetWidth / frameWidth));
+      const imageIndex = definition?.frames[index] ?? 0;
+      const sourceX = imageIndex % columns * frameWidth;
+      const sourceY = Math.floor(imageIndex / columns) * frameHeight;
+      if (sourceX >= sheetWidth || sourceY >= sheetHeight) continue;
+      const sourceWidth = Math.min(frameWidth, sheetWidth - sourceX);
+      const sourceHeight = Math.min(frameHeight, sheetHeight - sourceY);
+      const offset = occurrence ? definition?.pose_alignment?.[occurrence]?.offset : null;
+      const poseBounds = { ...bounds, x: bounds.x + (offset?.x ?? 0), y: bounds.y + (offset?.y ?? 0) };
+      passes.push({ id: `sprite-${id}`, entityId: id, name, layerId, kind: "sprite", path: sprite.asset, bounds: poseBounds,
+        priorityRank: megadriveArtworkRank("sprite", sprite.priority !== "background"),
+        draw: (surface) => surface.drawImage(source, sourceX, sourceY, sourceWidth, sourceHeight,
+          poseBounds.x, poseBounds.y, poseBounds.width, poseBounds.height) });
     }
 
-    if (showSprites) {
-      compositionEntities
-        .filter(({ entity }) => Boolean(entity.components?.sprite))
-        .forEach(({ entity }) => {
-          const sprite = entity.components?.sprite;
-          const spriteAsset = getViewportAsset(sprite?.asset);
-          if (!sprite || spriteAsset?.status !== "loaded" || !spriteAsset.source) {
-            return;
-          }
-
-          const bounds = getEntityBounds(entity, activeTarget, activeScene.entities);
-          const sourceWidth = Math.min(sprite.frame_width, spriteAsset.width ?? sprite.frame_width);
-          const sourceHeight = Math.min(sprite.frame_height, spriteAsset.height ?? sprite.frame_height);
-          context.drawImage(
-            spriteAsset.source,
-            0,
-            0,
-            sourceWidth,
-            sourceHeight,
-            bounds.x,
-            bounds.y,
-            bounds.width,
-            bounds.height
-          );
-        });
-    }
-
+    if (activeTarget === "megadrive") passes.sort((left, right) => (left.priorityRank ?? -1) - (right.priorityRank ?? -1));
+    for (const pass of passes) pass.draw(context);
     context.restore();
     return;
 
@@ -2813,6 +2965,8 @@ export default function ViewportPanel({
     showBackground,
     showSprites,
     showTilemaps,
+    showNativePoses,
+    studio.focus,
     paletteFilteredOut,
   ]);
 
@@ -2923,6 +3077,19 @@ export default function ViewportPanel({
       }
     }
 
+    if (editorMode === "collision" && showMaterialBrush && activeScene.collision_map) {
+      const map = activeScene.collision_map;
+      context.save();
+      for (const [index, material] of (map.materials ?? []).entries()) {
+        context.fillStyle = "hsla(" + (176 + 47 * index) + ", 85%, 62%, 0.52)";
+        for (const cell of material.cells) {
+          context.fillRect(worldToSceneCanvasX((cell % map.width) * map.tile_width),
+            worldToSceneCanvasY(Math.floor(cell / map.width) * map.tile_height),
+            scaleSceneDimension(map.tile_width), scaleSceneDimension(map.tile_height));
+        }
+      }
+      context.restore();
+    }
     if (showCollisionOverlay && activeScene.collision_map) {
       const collisionMap = activeScene.collision_map;
       const tileWidth = collisionMap.tile_width;
@@ -2973,6 +3140,7 @@ export default function ViewportPanel({
       });
       const isDensePreview = focusTreatment === "preview" && !isSelected;
       const isSoloFocus = focusTreatment === "solo";
+      const showLabel = showEntityLabels || (labelFocusedEntity && (isSelected || isDensePreview || isSoloFocus));
       const color = entity.components?.tilemap
         ? "#94e2d5"
         : entity.components?.camera
@@ -2995,7 +3163,7 @@ export default function ViewportPanel({
         context.setLineDash([]);
         context.fillStyle = isSelected || isDensePreview ? "#f9e2af" : "rgba(249,226,175,0.8)";
         context.font = "10px monospace";
-        if (showEntityLabels) {
+        if (showLabel) {
           context.fillText(`CAM ${entityDisplayLabel(entity)}`.slice(0, 22), x + 6, y + 14);
         }
         context.restore();
@@ -3015,7 +3183,7 @@ export default function ViewportPanel({
         if (showEntityBounds || isSelected || isDensePreview || isSoloFocus) {
           context.strokeRect(x + 0.5, y + 0.5, width, height);
         }
-        if (showEntityLabels) {
+        if (showLabel) {
           context.fillStyle = "#94e2d5";
           context.font = "10px monospace";
           context.fillText(`TM ${entityDisplayLabel(entity)}`.slice(0, 22), x + 6, y + 14);
@@ -3037,10 +3205,10 @@ export default function ViewportPanel({
           entityId: entity.entity_id,
           x,
           y,
-          text: showEntityLabels ? entityDisplayLabel(entity) : "",
+          text: showLabel ? entityDisplayLabel(entity) : "",
           color: isSelected || isSoloFocus ? "#ffffff" : isDensePreview ? "#f9e2af" : color,
           priority: isSelected ? 2 : isSoloFocus || isDensePreview ? 1 : 0,
-          pill: showEntityLabels && posCtx.positionMode ? posCtx.positionMode : null,
+          pill: showLabel && posCtx.positionMode ? posCtx.positionMode : null,
         });
         if (isSelected) {
           context.save();
@@ -3068,7 +3236,7 @@ export default function ViewportPanel({
         entityId: entity.entity_id,
         x,
         y,
-        text: showEntityLabels ? entityDisplayLabel(entity) : "",
+        text: showLabel ? entityDisplayLabel(entity) : "",
         color: "#cdd6f4",
         priority: isSelected ? 2 : 0,
         pill: null,
@@ -3265,7 +3433,7 @@ export default function ViewportPanel({
         const screenX = worldToSceneCanvasX(ghostX);
         const screenY = worldToSceneCanvasY(ghostY);
         const screenSize = scaleSceneDimension(tileSize);
-        const isEraser = tilePaintTool === "eraser";
+        const isEraser = tilePaintTool === "eraser" || tilePaintTool === "terrain-erase";
         context.save();
         context.globalAlpha = isEraser ? 0.18 : 0.3;
         context.fillStyle = isEraser ? "#f38ba8" : "#a6e3a1";
@@ -3461,9 +3629,11 @@ export default function ViewportPanel({
     soloEntityId,
     attentionFocus,
     showCollisionOverlay,
+    showMaterialBrush,
     showCameraOverlay,
     showEntityBounds,
     showEntityLabels,
+    labelFocusedEntity,
     showGrid,
     showStagingOverlay,
     showSprites,
@@ -3604,14 +3774,65 @@ export default function ViewportPanel({
     void context.resume().catch(() => {});
   }, [activeViewportTab, clearAudioQueue, emulPaused]);
 
-  function canvasCoords(event: Pick<MouseEvent, "clientX" | "clientY">) {
+  function canvasPointerFrame() {
     const rect = sceneOverlayCanvasRef.current?.getBoundingClientRect() ?? { left: 0, top: 0, width: 1, height: 1 };
-    const scaleX = sceneWidth / Math.max(rect.width, 1);
-    const scaleY = sceneHeight / Math.max(rect.height, 1);
+    return { left: rect.left, top: rect.top, minX: sceneWorldMinX, minY: sceneWorldMinY,
+      scaleX: sceneWidth / Math.max(rect.width, 1), scaleY: sceneHeight / Math.max(rect.height, 1) };
+  }
+
+  function canvasCoords(event: Pick<MouseEvent, "clientX" | "clientY">, frame = canvasPointerFrame()) {
     return {
-      mx: sceneWorldMinX + (event.clientX - rect.left) * scaleX,
-      my: sceneWorldMinY + (event.clientY - rect.top) * scaleY,
+      mx: frame.minX + (event.clientX - frame.left) * frame.scaleX,
+      my: frame.minY + (event.clientY - frame.top) * frame.scaleY,
     };
+  }
+
+  function inspectScenePoint(point: SceneProbePoint) {
+    const normalized = { x: Math.floor(point.x), y: Math.floor(point.y) };
+    setSceneProbeArmed(false);
+    if (!Number.isFinite(normalized.x) || !Number.isFinite(normalized.y)
+      || normalized.x < sceneWorldMinX || normalized.x >= sceneWorldMinX + sceneWidth
+      || normalized.y < sceneWorldMinY || normalized.y >= sceneWorldMinY + sceneHeight) {
+      setSceneProbe({ point, samples: [], error: "A coordenada está fora dos limites do mundo." });
+      return;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+    const surface = canvas.getContext("2d", { willReadFrequently: true });
+    try {
+      if (!surface) throw new Error("canvas indisponível");
+      setSceneProbe({ point: normalized, samples: sampleSceneArtwork(surface, artworkPasses.current, normalized) });
+    } catch {
+      setSceneProbe({ point: normalized, samples: [], error: "O Canvas não conseguiu ler a origem desse pixel." });
+    }
+  }
+
+  function openScenePointOrigin(origin: SceneArtworkOrigin, target: "asset" | "logic" | "layer" | "palette") {
+    if (!sceneProbe) return;
+    const { point } = sceneProbe;
+    const state = useEditorStore.getState();
+    const pan = clampPanToStage(getViewportPanForWorldPoint({
+      pointX: point.x, pointY: point.y, zoom: viewportZoom,
+      worldBounds: sceneWorld.bounds, worldWidth: sceneWidth, worldHeight: sceneHeight, contentOffset: sceneChromeOffset,
+    }));
+    setViewportPan(pan);
+    const camera = { scenePath: activeScenePath, zoom: viewportZoom, panX: pan.x, panY: pan.y };
+    latestSceneCamera.current = camera;
+    rememberWorkspaceCamera("scene", camera);
+    setSceneProbe(null);
+    if (target === "asset") {
+      state.setExplorerAssetPath(origin.path);
+      openStudioEditor({ focus: { task: "files", entityId: origin.entityId } });
+    } else if (target === "logic" && origin.entityId) {
+      openStudioEditor({ focus: { task: "actions", entityId: origin.entityId } });
+    } else if (target === "layer" && origin.layerId) {
+      state.setActiveLayerId(origin.layerId);
+      if (origin.entityId) state.setSelectedEntityId(origin.entityId);
+    } else if (target === "palette" && origin.entityId) {
+      state.setSelectedEntityId(origin.entityId);
+      requestAppCommand("tools.palette");
+    }
   }
 
   function collectEntitiesUnderPoint(mx: number, my: number): Entity[] {
@@ -3763,23 +3984,34 @@ export default function ViewportPanel({
       return;
     }
 
+    if (sceneProbeArmed && activeScene && event.button === 0) {
+      const { mx, my } = canvasCoords(event);
+      inspectScenePoint({ x: mx, y: my });
+      return;
+    }
     if (gameViewLight) {
       return;
     }
 
     if (!activeScene) return;
 
-    const { mx, my } = canvasCoords(event);
+    const pointerFrame = canvasPointerFrame();
+    const { mx, my } = canvasCoords(event, pointerFrame);
+
+    if (drawingPriority && priorityBrush && selectedEntity?.components.tilemap && event.button === 0) {
+      const start = { x: mx, y: my };
+      const area = priorityRegionBetween(selectedEntity, start, start, priorityBrush.high);
+      if (area) {
+        priorityDrag.current = { start, area };
+        setPriorityPreview(area);
+      }
+      return;
+    }
 
     const guideHit = getGuideHit(mx, my);
-    if (guideHit && editorMode === "select") {
+    if (guideHit && sceneGuideStorageKey && editorMode === "select") {
       event.preventDefault();
-      setGuideDrag({
-        id: guideHit.id,
-        orientation: guideHit.orientation,
-        position: guideHit.position,
-        creating: false,
-      });
+      setGuideDrag({ ...guideHit, storageKey: sceneGuideStorageKey });
       return;
     }
 
@@ -3792,6 +4024,9 @@ export default function ViewportPanel({
         return;
       }
       const tileIndex = activeBrush.tileIndex ?? 0;
+      const terrainTool = tilePaintTool === "terrain" || tilePaintTool === "terrain-erase";
+      const terrain = terrainTool ? terrainFromBrush(activeBrush, tilePaintTool === "terrain-erase") : null;
+      if (terrainTool && (event.button !== 0 || !terrain || tilePaintSize !== 8)) return;
 
       if (tilePaintTool === "picker") {
         const tm = target.entity.components.tilemap!;
@@ -3828,6 +4063,7 @@ export default function ViewportPanel({
           lastCellKey: null,
           rectOrigin: { col: target.col, row: target.row },
           tileIndex,
+          pointerFrame,
           paintedInDrag: false,
         };
         setTilePaintRectPreview({
@@ -3842,15 +4078,18 @@ export default function ViewportPanel({
 
       // pencil / eraser (eraser = tileIndex 0)
       const effectiveIndex = tilePaintTool === "eraser" ? 0 : tileIndex;
+      const previousRevision = useEditorStore.getState().sceneRevision;
       beginHistoryCapture();
-      paintTilemapCell(target.entity.entity_id, target.col, target.row, effectiveIndex);
+      paintTilemapCell(target.entity.entity_id, target.col, target.row, effectiveIndex, terrain ?? undefined);
       tileDragRef.current = {
         entityId: target.entity.entity_id,
         tool: tilePaintTool === "eraser" ? "eraser" : "pencil",
         lastCellKey: `${target.col},${target.row}`,
         rectOrigin: null,
         tileIndex: effectiveIndex,
-        paintedInDrag: true,
+        terrain: terrain ?? undefined,
+        pointerFrame,
+        paintedInDrag: !terrain || useEditorStore.getState().sceneRevision !== previousRevision,
       };
       setActiveTilemapId(target.entity.entity_id);
       return;
@@ -3913,13 +4152,19 @@ export default function ViewportPanel({
       const mapW = cmap?.width ?? (activeTarget === "snes" ? 32 : 40);
       const tileX = Math.floor(mx / tw);
       const tileY = Math.floor(my / th);
+      if (tileX < 0 || tileY < 0 || tileX >= mapW || tileY >= (cmap?.height ?? 28)) return;
       const tileIndex = tileY * mapW + tileX;
       // Right click remains a shortcut; the toolbar also makes erasure
       // available with the primary pointer and keyboard navigation.
       const tileValue: 0 | 1 = event.button === 2 ? 0 : collisionPaintValue;
       beginHistoryCapture();
-      updateCollisionMap(tileIndex, tileValue);
-      collisionDragRef.current = { lastPaintTile: tileIndex, paintedInDrag: true, value: tileValue };
+      const material = showMaterialBrush && materialBrush !== undefined
+        ? (event.button === 2 ? null : materialBrush)
+        : undefined;
+      const revision = useEditorStore.getState().sceneRevision;
+      updateCollisionMap(tileIndex, tileValue, material);
+      collisionDragRef.current = { lastPaintTile: tileIndex,
+        paintedInDrag: useEditorStore.getState().sceneRevision !== revision, value: tileValue, material, pointerFrame };
       return;
     }
 
@@ -4078,6 +4323,16 @@ export default function ViewportPanel({
   function handleMouseMove(event: Pick<MouseEvent, "clientX" | "clientY" | "buttons">) {
     const { mx, my } = canvasCoords(event);
 
+    if (drawingPriority && priorityBrush && selectedEntity && priorityDrag.current) {
+      const drag = priorityDrag.current;
+      const area = priorityRegionBetween(selectedEntity, drag.start, { x: mx, y: my }, priorityBrush.high);
+      if (area && (area.x !== drag.area.x || area.y !== drag.area.y || area.width !== drag.area.width || area.height !== drag.area.height)) {
+        drag.area = area;
+        setPriorityPreview(area);
+      }
+      return;
+    }
+
     if (gameViewLight || guideDrag) {
       return;
     }
@@ -4097,7 +4352,9 @@ export default function ViewportPanel({
       event.buttons === 1
     ) {
       const drag = tileDragRef.current;
-      const target = resolveTilemapTarget(mx, my);
+      // The first edit can change the height of live diagnostics. Keep the gesture's original grid.
+      const point = canvasCoords(event, drag.pointerFrame);
+      const target = resolveTilemapTarget(point.mx, point.my);
       if (!target || target.entity.entity_id !== drag.entityId) {
         return;
       }
@@ -4113,13 +4370,14 @@ export default function ViewportPanel({
       const cellKey = `${target.col},${target.row}`;
       if (cellKey !== drag.lastCellKey) {
         // Interpola desde a última célula: traço rápido não pula células.
+        const previousRevision = useEditorStore.getState().sceneRevision;
         const [lc, lr] = (drag.lastCellKey ?? cellKey).split(",").map(Number);
         for (const cell of cellsOnLine(lc, lr, target.col, target.row)) {
           if (`${cell.col},${cell.row}` === drag.lastCellKey) continue;
-          paintTilemapCell(drag.entityId, cell.col, cell.row, drag.tileIndex);
+          paintTilemapCell(drag.entityId, cell.col, cell.row, drag.tileIndex, drag.terrain);
         }
         drag.lastCellKey = cellKey;
-        drag.paintedInDrag = true;
+        drag.paintedInDrag ||= !drag.terrain || useEditorStore.getState().sceneRevision !== previousRevision;
       }
       return;
     }
@@ -4166,22 +4424,26 @@ export default function ViewportPanel({
     }
 
     // Collision drag — paint/erase tiles along mouse path with cell dedup
-    if (editorMode === "collision" && collisionDragRef.current && event.buttons !== 0) {
+    const collisionDrag = collisionDragRef.current;
+    if (editorMode === "collision" && collisionDrag && event.buttons !== 0) {
       const latestCmap = useEditorStore.getState().activeScene?.collision_map;
       const tw = latestCmap?.tile_width ?? GRID_SNAP_SIZE;
       const th = latestCmap?.tile_height ?? GRID_SNAP_SIZE;
       const mapW = latestCmap?.width ?? (activeTarget === "snes" ? 32 : 40);
-      const tileX = Math.floor(mx / tw);
-      const tileY = Math.floor(my / th);
+      const point = canvasCoords(event, collisionDrag.pointerFrame);
+      const tileX = Math.floor(point.mx / tw);
+      const tileY = Math.floor(point.my / th);
+      if (tileX < 0 || tileY < 0 || tileX >= mapW || tileY >= (latestCmap?.height ?? 28)) return;
       const tileIndex = tileY * mapW + tileX;
-      if (tileIndex !== collisionDragRef.current.lastPaintTile) {
-        const last = collisionDragRef.current.lastPaintTile;
+      if (tileIndex !== collisionDrag.lastPaintTile) {
+        const last = collisionDrag.lastPaintTile;
+        const revision = useEditorStore.getState().sceneRevision;
         for (const cell of cellsOnLine(last % mapW, Math.floor(last / mapW), tileX, tileY)) {
           const index = cell.row * mapW + cell.col;
-          if (index !== last) updateCollisionMap(index, collisionDragRef.current.value);
+          if (index !== last) updateCollisionMap(index, collisionDrag.value, collisionDrag.material);
         }
-        collisionDragRef.current.lastPaintTile = tileIndex;
-        collisionDragRef.current.paintedInDrag = true;
+        collisionDrag.lastPaintTile = tileIndex;
+        collisionDrag.paintedInDrag ||= useEditorStore.getState().sceneRevision !== revision;
       }
       return;
     }
@@ -4352,6 +4614,22 @@ export default function ViewportPanel({
   }
 
   async function handleMouseUp() {
+    const selection = priorityDrag.current;
+    if (selection) {
+      cancelPriorityDrawing();
+      const state = useEditorStore.getState();
+      const entity = state.activeScene?.entities.find((item) => item.entity_id === state.selectedEntityId);
+      const tilemap = entity?.components.tilemap;
+      const scope = JSON.stringify([state.projectSessionId, state.activeScenePath, state.selectedEntityId, state.sceneRevision]);
+      if (!drawingPriority || priorityBrush?.scope !== scope || !entity || !tilemap ||
+          entityEditLock(entity.entity_id, state.activeScene?.layers, state.lockedEntityIdsByScene[entityLockScopeKey(state.activeProjectDir, state.activeScenePath)] ?? []).locked) return;
+      state.updateEntity(entity.entity_id, { components: { tilemap: {
+        ...tilemap, priority_regions: [...(tilemap.priority_regions ?? []), selection.area],
+      } } });
+      try { await persistActiveScene(state.activeProjectDir, "Viewport", "Região de prioridade aplicada."); }
+      catch (error) { state.logMessage("error", `[Viewport] ${describeError(error)}`); }
+      return;
+    }
     const pathDrag = pathDragRef.current;
     if (pathDrag) {
       pathDragRef.current = null;
@@ -4553,7 +4831,8 @@ export default function ViewportPanel({
   });
 
   function handleMouseLeave() {
-    if (!pathDragRef.current) void handleMouseUp();
+    if (priorityDrag.current) cancelPriorityDrawing();
+    else if (!pathDragRef.current) void handleMouseUp();
     setSceneMousePos(null);
   }
 
@@ -4565,7 +4844,7 @@ export default function ViewportPanel({
     const { mx, my } = canvasCoords(event);
     const guideHit = getGuideHit(mx, my);
     if (guideHit) {
-      setSceneGuides((current) => current.filter((guide) => guide.id !== guideHit.id));
+      removeSceneGuide(guideHit.id);
       return;
     }
 
@@ -4700,6 +4979,12 @@ export default function ViewportPanel({
 
   return (
     <div className="flex h-full flex-col bg-[#1e1e2e]">
+      <ScenePointInspector probe={sceneProbe} onClose={() => setSceneProbe(null)} onRead={inspectScenePoint} onOpen={openScenePointOrigin}
+        onPick={() => {
+          setSceneProbe(null);
+          setSceneProbeArmed(true);
+          window.requestAnimationFrame(() => sceneOverlayCanvasRef.current?.focus());
+        }} />
       {templateCompositionPreview && activeViewportTab === "scene" ? (
         <Dialog
           open
@@ -4895,7 +5180,7 @@ export default function ViewportPanel({
             {/* Toolbar horizontal dedicada (V, B, E, C, G, Zoom) */}
             <div
               data-testid="viewport-scene-toolbar"
-              className="flex min-w-0 shrink-0 flex-wrap items-center gap-1 border-b border-[#313244] bg-[#181825] px-2 py-1.5 [&>button]:shrink-0 [&>div]:shrink-0 [&>span]:shrink-0"
+              className={`flex min-w-0 shrink-0 items-center gap-1 border-b border-[#313244] bg-[#181825] px-2 py-1.5 [&>button]:shrink-0 [&>div]:shrink-0 [&>span]:shrink-0 ${compactTools ? "overflow-x-auto whitespace-nowrap" : "flex-wrap"}`}
             >
               {([
                 { id: "select" as const, icon: "cursor" as IconName, label: "Selecionar (V)", activeColor: "bg-[#89b4fa]" },
@@ -4915,16 +5200,22 @@ export default function ViewportPanel({
                       ? `${tool.activeColor} text-[#11111b]`
                       : "text-[#7f849c] hover:bg-[#313244] hover:text-[#cdd6f4]"
                   }`}
+                  data-tool-hint={tool.label}
                   title={tool.label}
                 >
-                  <Icon name={tool.icon} size={19} /> {tool.label.split(" (")[0]}
+                  <Icon name={tool.icon} size={19} />
                 </button>
               ))}
               {editorMode === "collision" && (
                 <div role="group" aria-label="Valor da colisão" className="flex items-center gap-1">
-                  <button type="button" data-testid="viewport-collision-solid" aria-pressed={collisionPaintValue === 1} onClick={() => setCollisionPaintValue(1)} className={`rounded border px-2 py-1 text-[10px] font-semibold ${collisionPaintValue === 1 ? "border-[#f38ba8] text-[#f38ba8]" : "border-[#313244] text-[#a6adc8]"}`}>Sólido</button>
-                  <button type="button" data-testid="viewport-collision-free" aria-pressed={collisionPaintValue === 0} onClick={() => setCollisionPaintValue(0)} className={`rounded border px-2 py-1 text-[10px] font-semibold ${collisionPaintValue === 0 ? "border-[#a6e3a1] text-[#a6e3a1]" : "border-[#313244] text-[#a6adc8]"}`}>Livre</button>
+                  <button type="button" data-testid="viewport-collision-solid" aria-pressed={collisionPaintValue === 1 && materialBrush === undefined} onClick={() => { setMaterialBrush(undefined); setCollisionPaintValue(1); }} className={`rounded border px-2 py-1 text-[10px] font-semibold ${collisionPaintValue === 1 ? "border-[#f38ba8] text-[#f38ba8]" : "border-[#313244] text-[#a6adc8]"}`}>Sólido</button>
+                  <button type="button" data-testid="viewport-collision-free" aria-pressed={collisionPaintValue === 0 && materialBrush === undefined} onClick={() => { setMaterialBrush(undefined); setCollisionPaintValue(0); }} className={`rounded border px-2 py-1 text-[10px] font-semibold ${collisionPaintValue === 0 ? "border-[#a6e3a1] text-[#a6e3a1]" : "border-[#313244] text-[#a6adc8]"}`}>Livre</button>
                 </div>
+              )}
+              {editorMode === "collision" && activeTarget === "megadrive" && activeScene?.collision_map && (
+                <button type="button" data-testid="viewport-material-brush" aria-expanded={showMaterialBrush}
+                  className="rounded border border-[#313244] px-2 py-1 text-[10px] font-semibold"
+                  onClick={() => { setShowMaterialBrush(!showMaterialBrush); setMaterialBrush(undefined); }}>Materiais</button>
               )}
               <div className="mx-1 w-px bg-[#313244] self-stretch" />
               <button
@@ -4937,6 +5228,15 @@ export default function ViewportPanel({
               >
                 Mover objeto
               </button>
+              {selectedEntity && nativeAnimations.length > 0 ? (
+                <button type="button" data-testid="viewport-open-animation"
+                  className="rounded border border-[#89b4fa]/50 px-2 py-1 text-[10px] font-semibold text-[#89b4fa]"
+                  onClick={() => openStudioEditor({ focus: { task: "character", entityId: selectedEntity.entity_id,
+                    animation: showNativePoses ? studio.focus.animation : nativeAnimations[0] } })}>
+                  Animar
+                </button>
+              ) : null}
+              {editorMode === "select" && showNativePoses ? <PoseDurationField testId="canvas-pose-duration" canvas /> : null}
               <button
                 type="button"
                 data-testid="viewport-move-layer"
@@ -4969,134 +5269,32 @@ export default function ViewportPanel({
                 </button>
               ) : null}
               <div className="mx-1 w-px bg-[#313244] self-stretch" />
-              <button
-                type="button"
-                onClick={focusSelectedEntity}
-                disabled={!selectedEntity}
-                className="rounded border border-[#313244] bg-[#11111b] px-2 py-1 text-[10px] font-semibold text-[#cdd6f4] transition-colors hover:border-[#89b4fa] hover:text-[#89b4fa] disabled:cursor-not-allowed disabled:opacity-40"
-                title="Centralizar entidade selecionada"
-              >
-                Foco
-              </button>
-              <button
-                type="button"
-                data-testid="viewport-entity-solo-toggle"
-                aria-pressed={Boolean(selectedEntity && soloEntityId === selectedEntity.entity_id)}
-                onClick={toggleSelectedEntitySolo}
-                disabled={!selectedEntity}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                  selectedEntity && soloEntityId === selectedEntity.entity_id
-                    ? "border-[#f9e2af] bg-[#f9e2af]/15 text-[#f9e2af]"
-                    : "border-[#313244] bg-[#11111b] text-[#a6adc8] hover:border-[#f9e2af] hover:text-[#f9e2af]"
-                }`}
-                title="Isolar visualmente a entidade selecionada sem alterar a cena"
-              >
-                Solo
-              </button>
-              {soloEntityId ? (
-                <span
-                  data-testid="viewport-isolation-chip"
-                  role="status"
-                  className="inline-flex items-center gap-1 rounded border border-[#f9e2af]/60 px-2 py-0.5 text-[10px] font-semibold text-[#f9e2af]"
-                >
-                  Atenuado · isolamento: {(() => { const e = activeScene?.entities.find((c) => c.entity_id === soloEntityId); return e ? getEntityDisplayName(e) : soloEntityId; })()}
-                  <button
-                    type="button"
-                    data-testid="viewport-isolation-exit"
-                    onClick={() => setSoloEntityId(null)}
-                    aria-label="Sair do isolamento (Esc)"
-                    title="Sair do isolamento (Esc) — não altera a cena"
-                    className="rounded px-1 hover:bg-[#313244] focus:outline-none focus-visible:ring-1 focus-visible:ring-[#89b4fa]"
-                  >
-                    ×
-                  </button>
-                </span>
-              ) : null}
-              <button
-                type="button"
-                onClick={centerViewportOnCamera}
-                className="rounded border border-[#313244] bg-[#11111b] px-2 py-1 text-[10px] font-semibold text-[#f9e2af] transition-colors hover:border-[#f9e2af]"
-                title="Enquadrar a janela do jogador no editor"
-              >
-                Enquadrar câmera
-              </button>
-              <CameraConfigurator entityId={sceneWorld.camera?.entityId} />
-              <button
-                type="button"
-                onClick={resetSceneView}
-                className="rounded border border-[#313244] bg-[#11111b] px-2 py-1 text-[10px] font-semibold text-[#a6adc8] transition-colors hover:text-[#cdd6f4]"
-                title="Resetar vista (zoom + pan)"
-              >
-                Enquadrar cena
-              </button>
-              <button
-                type="button"
-                onClick={() => setClampViewportToWorld((current) => !current)}
-                aria-pressed={clampViewportToWorld}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  clampViewportToWorld
-                    ? "border-[#a6e3a1]/40 bg-[#a6e3a1]/10 text-[#a6e3a1]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Travar pan nos limites do mundo"
-              >
-                Clamp
-              </button>
-              {sceneDensityStatus.shouldSuggestStaging ? (
-                <button
-                  type="button"
-                  onClick={applyAuthoringStagingLayout}
-                  className="rounded border border-[#fab387]/35 bg-[#fab387]/10 px-2 py-1 text-[10px] font-semibold text-[#fab387] transition-colors hover:bg-[#fab387]/20"
-                  title="Distribuir cena densa em staging de autoria sem perder auditabilidade"
-                >
-                  Normalizar Cena
-                </button>
-              ) : null}
-              <span
-                className="hidden max-w-[10rem] truncate text-[9px] text-[#6c7086] xl:inline"
-                title="Shift+clique na pilha abre lista; Alt+clique cicla"
-              >
-                Shift=lista · Alt=ciclo
-              </span>
-              <div className="mx-1 w-px bg-[#313244] self-stretch" />
-              <button
-                type="button"
-                onClick={() => setViewportZoom(Math.max(ZOOM_MIN, viewportZoom - ZOOM_STEP))}
-                data-testid="viewport-zoom-out"
-                aria-label="Diminuir zoom"
-                className="rounded border border-[#313244] bg-[#11111b] px-1.5 py-0.5 text-[10px] font-semibold text-[#6c7086] transition-colors hover:text-[#a6adc8] disabled:opacity-30"
-                disabled={viewportZoom <= ZOOM_MIN}
-                title="Zoom out (Ctrl+-)"
-              >
-                −
-              </button>
-              <button
-                type="button"
-                onClick={() => resetViewportZoom()}
-                data-testid="viewport-zoom-reset"
-                aria-label="Restaurar zoom"
-                className="min-w-[40px] rounded border border-[#313244] bg-[#11111b] px-1.5 py-0.5 text-center text-[10px] font-semibold text-[#6c7086] transition-colors hover:text-[#a6adc8]"
-                title="Reset zoom (Ctrl+0)"
-              >
-                {Math.round(viewportZoom * 100)}%
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewportZoom(Math.min(ZOOM_MAX, viewportZoom + ZOOM_STEP))}
-                data-testid="viewport-zoom-in"
-                aria-label="Aumentar zoom"
-                className="rounded border border-[#313244] bg-[#11111b] px-1.5 py-0.5 text-[10px] font-semibold text-[#6c7086] transition-colors hover:text-[#a6adc8] disabled:opacity-30"
-                disabled={viewportZoom >= ZOOM_MAX}
-                title="Zoom in (Ctrl+=)"
-              >
-                +
-              </button>
             </div>
 
-            <CanvasAuthoringBar pathTool={pathTool} onPathToolChange={(tool) => { pathDragRef.current = null; setPathPreview(null); setPathTool(tool); }} />
+            <CanvasAuthoringBar compact={compactTools} pathTool={pathTool} onPathToolChange={(tool) => { cancelPriorityDrawing(); pathDragRef.current = null; setPathPreview(null); setPathTool(tool); }}
+              onDrawPriorityRegion={(high) => {
+                setSceneProbeArmed(false);
+                setSceneProbe(null);
+                setPriorityBrush({ scope: priorityScope, high });
+                sceneOverlayCanvasRef.current?.focus();
+              }}
+              choosingPoint={sceneProbeArmed} onInspectPoint={activeScene ? () => {
+                cancelPriorityDrawing();
+                if (sceneProbeArmed) setSceneProbeArmed(false);
+                else inspectScenePoint(sceneMousePos ?? { x: sceneWorld.centerX, y: sceneWorld.centerY });
+              } : undefined} />
+            {drawingPriority ? <div role="status" className="flex shrink-0 items-center gap-2 px-3 text-[11px] text-[#a6adc8]">
+              Arraste no tilemap para marcar prioridade {priorityBrush.high ? "alta" : "baixa"}.
+              <button type="button" className="rounded border border-[#45475a] px-1 focus-visible:outline focus-visible:outline-[#89b4fa]" onClick={cancelPriorityDrawing}>Cancelar</button>
+            </div> : null}
             {editorMode === "path" ? <p role="status" aria-live="polite" className="shrink-0 px-3 text-[11px] text-[#a6adc8]">{activePathHandle ? `${activePathHandle.kind === "control" ? "Controle da curva" : "Ponto"} ${activePathHandle.index}` : "Alça inicial: ponto 1"} · colchetes escolhem ponto · setas movem · Shift: 8 px</p> : null}
-            <details data-testid="viewport-view-options" className="shrink-0 border-b border-[#313244] bg-[#181825] text-[11px]">
-              <summary className="cursor-pointer px-3 py-1.5 font-semibold text-[#a6adc8]">Visualização · grade, camadas e guias</summary>
+            <div className={compactTools ? "relative z-30 h-0 shrink-0" : "contents"}>
+            <details data-testid="viewport-view-options" className={`border-[#313244] bg-[#181825] text-[11px] ${compactTools
+              ? "absolute right-1 top-1 max-h-[min(40vh,240px)] max-w-[min(22rem,60%)] overflow-y-auto rounded border open:w-[min(22rem,60%)]"
+              : "shrink-0 border-b"}`}>
+              <summary className="cursor-pointer px-3 py-1.5 font-semibold text-[var(--rds-text-primary)]">
+                {compactTools ? "Visualização e diagnósticos" : "Visualização · grade, camadas e guias"}
+              </summary>
               <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
               <button
                 type="button"
@@ -5146,10 +5344,14 @@ export default function ViewportPanel({
                     ? "border-[#94e2d5] bg-[#94e2d5]/15 text-[#94e2d5]"
                     : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
                 }`}
-                title="Snap para guias e grid"
+                title="Encaixar nas guias"
               >
                 Guias magnéticas
               </button>
+              {activeScene && sceneGuideStorageKey && !gameViewLight ? (
+                <SceneGuideControls key={sceneGuideStorageKey} guides={sceneGuides} bounds={guideBounds}
+                  onApply={saveSceneGuide} onRemove={removeSceneGuide} />
+              ) : null}
               <button
                 type="button"
                 onClick={() => setShowBackground((current) => !current)}
@@ -5209,7 +5411,7 @@ export default function ViewportPanel({
               {([
                 ["Cam", showCameraOverlay, setShowCameraOverlay, "Mostrar camera e janela MD"],
                 ["Bnd", showEntityBounds, setShowEntityBounds, "Mostrar bounds das entidades"],
-                ["Lbl", showEntityLabels, setShowEntityLabels, "Mostrar labels das entidades"],
+                ["Lbl", showEntityLabels, setEntityLabelPreference, "Mostrar todos os nomes das entidades"],
                 ["Stg", showStagingOverlay, setShowStagingOverlay, "Mostrar staging importado"],
                 ["Warn", showViewportWarnings, setShowViewportWarnings, "Mostrar avisos de autoria no viewport"],
                 ["Nav", showSceneNavigator, setShowSceneNavigator, "Mostrar navegador do mundo"],
@@ -5220,7 +5422,7 @@ export default function ViewportPanel({
                   key={label}
                   type="button"
                   data-testid={`viewport-toggle-${label.toLowerCase()}`}
-                  onClick={() => setter((current) => !current)}
+                  onClick={() => setter(!active)}
                   aria-pressed={active}
                   className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
                     active
@@ -5246,15 +5448,38 @@ export default function ViewportPanel({
                 Prévia sem guias
               </button>
               </div>
+              {compactTools && activeScene && !gameViewLight ? (
+                <SceneAttentionPanel assets={{ missing: sceneAssetHealth.missing, failed: sceneAssetHealth.failed }} />
+              ) : null}
             </details>
+            </div>
 
-            {activeScene && !gameViewLight ? (
+            {!compactTools && activeScene && !gameViewLight ? (
               <SceneAttentionPanel assets={{ missing: sceneAssetHealth.missing, failed: sceneAssetHealth.failed }} />
             ) : null}
+            <div className="flex min-h-0 flex-1">
+            {editorMode === "collision" && activeTarget === "megadrive" && showMaterialBrush && activeScene?.collision_map && (
+              <MaterialBrushPanel dock={materialDock} map={activeScene.collision_map} entities={activeScene.entities}
+                brush={materialBrush} onBrush={setMaterialBrush}
+                onSave={(material) => {
+                  const map = useEditorStore.getState().activeScene?.collision_map;
+                  if (!map) return;
+                  const materials = map.materials ?? [];
+                  beginHistoryCapture();
+                  setCollisionMap({ ...map, materials: materials.some((item) => item.name === material.name)
+                    ? materials.map((item) => item.name === material.name ? material : item) : [...materials, material] });
+                  commitHistoryCapture();
+                }}
+                onCell={(index) => {
+                  beginHistoryCapture();
+                  updateCollisionMap(index, 1, materialBrush);
+                  commitHistoryCapture();
+                }} />
+            )}
             {/* Área de canvas com overflow para mais espaço */}
             <div
               ref={sceneStageRef}
-              className="relative flex-1 overflow-hidden min-h-0"
+              className="relative min-w-0 flex-1 overflow-hidden min-h-0"
               onPointerDownCapture={() => { if (autoFitRef.current) autoFitRef.current.touched = true; }}
               onWheel={handleSceneStageWheel}
               data-testid="viewport-scene-stage"
@@ -5448,11 +5673,31 @@ export default function ViewportPanel({
                 data-world-height={sceneHeight}
                 width={sceneScaleWidth}
                 height={sceneScaleHeight}
+                onPointerDown={(event) => {
+                  if (editorMode === "collision" && !drawingPriority && !gameViewLight && !sceneProbeArmed
+                      && ((event.button === 0 && !spacePressed) || event.button === 2)) {
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                  }
+                }}
+                onLostPointerCapture={() => {
+                  if (collisionDragRef.current) void handleMouseUp();
+                }}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseLeave}
                 onDoubleClick={handleSceneDoubleClick}
+                onKeyDown={(event) => {
+                  if (drawingPriority && event.key === "Escape") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    cancelPriorityDrawing();
+                  }
+                  if (sceneProbeArmed && event.key === "Escape") {
+                    event.stopPropagation();
+                    setSceneProbeArmed(false);
+                  }
+                }}
                 onContextMenu={(event) => event.preventDefault()}
                 className="absolute"
                 style={{
@@ -5460,7 +5705,7 @@ export default function ViewportPanel({
                   top: sceneChromeOffset,
                   width: sceneScaleWidth,
                   height: sceneScaleHeight,
-                  cursor: isPanning
+                  cursor: sceneProbeArmed ? "crosshair" : isPanning
                     ? "grabbing"
                     : isDragging
                       ? "grabbing"
@@ -5478,6 +5723,15 @@ export default function ViewportPanel({
                 }}
                 title="Cena: selecionar/arrastar. Espaco+arraste ou botao do meio = pan. Shift+clique com pilha = lista. Alt+clique = proxima sobreposicao. Duplo-clique: guia remove | tilemap pintura | grafo abre Logic. Ctrl+scroll = zoom."
               />
+              {drawingPriority && priorityPreview && selectedEntity ? <div
+                data-testid="priority-region-canvas-preview"
+                className="pointer-events-none absolute border border-dashed border-[#89b4fa] bg-[#89b4fa]/25"
+                style={{
+                  left: sceneChromeOffset + (selectedEntity.transform.x + priorityPreview.x * 8 - sceneWorldMinX) * sceneScaleWidth / sceneWidth,
+                  top: sceneChromeOffset + (selectedEntity.transform.y + priorityPreview.y * 8 - sceneWorldMinY) * sceneScaleHeight / sceneHeight,
+                  width: priorityPreview.width * 8 * sceneScaleWidth / sceneWidth,
+                  height: priorityPreview.height * 8 * sceneScaleHeight / sceneHeight,
+                }} /> : null}
               {!gameViewLight && (
                 <div
                   className="pointer-events-none absolute border-2 border-[#f9e2af]/80 bg-[#f9e2af]/8"
@@ -5818,7 +6072,7 @@ export default function ViewportPanel({
               (sceneAssetHealth.failed > 0 || sceneAssetHealth.missing > 0) && (
                 <SceneAssetHealthBadge health={sceneAssetHealth} />
               )}
-            <div className="absolute bottom-0 left-0 right-0 shrink-0 border-t border-[#313244] bg-[#181825]/90 px-2 py-1">
+            <div className={compactTools ? "sr-only" : "absolute bottom-0 left-0 right-0 shrink-0 border-t border-[#313244] bg-[#181825]/90 px-2 py-1"}>
             <span className="select-none text-[10px] text-[#6c7086]">
               {activeScene
                 ? `${activeScene.entities.length} entidade(s) | ${activeScene.background_layers.length} layer(s) | ${sceneGuides.length} guia(s) | ${gridSnap ? "snap 8px" : "snap livre"} | ${showGrid ? "grid on" : "grid off"}${
@@ -5835,6 +6089,131 @@ export default function ViewportPanel({
                 : "Abra um projeto para visualizar a cena"}
             </span>
             </div>
+            </div>
+            </div>
+            <div role="group" aria-label="Enquadramento e zoom" className="rds-viewport-framing">
+              <button
+                type="button"
+                onClick={focusSelectedEntity}
+                disabled={!selectedEntity}
+                className="rounded border border-[#313244] bg-[#11111b] px-2 py-1 text-[10px] font-semibold text-[#cdd6f4] transition-colors hover:border-[#89b4fa] hover:text-[#89b4fa] disabled:cursor-not-allowed disabled:opacity-40"
+                title="Centralizar entidade selecionada"
+              >
+                Foco
+              </button>
+              <button
+                type="button"
+                data-testid="viewport-entity-solo-toggle"
+                aria-pressed={Boolean(selectedEntity && soloEntityId === selectedEntity.entity_id)}
+                onClick={toggleSelectedEntitySolo}
+                disabled={!selectedEntity}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                  selectedEntity && soloEntityId === selectedEntity.entity_id
+                    ? "border-[#f9e2af] bg-[#f9e2af]/15 text-[#f9e2af]"
+                    : "border-[#313244] bg-[#11111b] text-[#a6adc8] hover:border-[#f9e2af] hover:text-[#f9e2af]"
+                }`}
+                title="Isolar visualmente a entidade selecionada sem alterar a cena"
+              >
+                Solo
+              </button>
+              {soloEntityId ? (
+                <span
+                  data-testid="viewport-isolation-chip"
+                  role="status"
+                  className="inline-flex items-center gap-1 rounded border border-[#f9e2af]/60 px-2 py-0.5 text-[10px] font-semibold text-[#f9e2af]"
+                >
+                  Atenuado · isolamento: {(() => { const e = activeScene?.entities.find((c) => c.entity_id === soloEntityId); return e ? getEntityDisplayName(e) : soloEntityId; })()}
+                  <button
+                    type="button"
+                    data-testid="viewport-isolation-exit"
+                    onClick={() => setSoloEntityId(null)}
+                    aria-label="Sair do isolamento (Esc)"
+                    title="Sair do isolamento (Esc) — não altera a cena"
+                    className="rounded px-1 hover:bg-[#313244] focus:outline-none focus-visible:ring-1 focus-visible:ring-[#89b4fa]"
+                  >
+                    ×
+                  </button>
+                </span>
+              ) : null}
+              <button
+                type="button"
+                onClick={centerViewportOnCamera}
+                className="rounded border border-[#313244] bg-[#11111b] px-2 py-1 text-[10px] font-semibold text-[#f9e2af] transition-colors hover:border-[#f9e2af]"
+                title="Enquadrar a janela do jogador no editor"
+              >
+                Enquadrar câmera
+              </button>
+              <CameraConfigurator entityId={sceneWorld.camera?.entityId} />
+              <button
+                type="button"
+                onClick={resetSceneView}
+                className="rounded border border-[#313244] bg-[#11111b] px-2 py-1 text-[10px] font-semibold text-[#a6adc8] transition-colors hover:text-[#cdd6f4]"
+                title="Resetar vista (zoom + pan)"
+              >
+                Enquadrar cena
+              </button>
+              <button
+                type="button"
+                onClick={() => setClampViewportToWorld((current) => !current)}
+                aria-pressed={clampViewportToWorld}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  clampViewportToWorld
+                    ? "border-[#a6e3a1]/40 bg-[#a6e3a1]/10 text-[#a6e3a1]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Travar pan nos limites do mundo"
+              >
+                Clamp
+              </button>
+              {sceneDensityStatus.shouldSuggestStaging ? (
+                <button
+                  type="button"
+                  onClick={applyAuthoringStagingLayout}
+                  className="rounded border border-[#fab387]/35 bg-[#fab387]/10 px-2 py-1 text-[10px] font-semibold text-[#fab387] transition-colors hover:bg-[#fab387]/20"
+                  title="Distribuir cena densa em staging de autoria sem perder auditabilidade"
+                >
+                  Normalizar Cena
+                </button>
+              ) : null}
+              <span
+                className="hidden max-w-[10rem] truncate text-[9px] text-[#6c7086] xl:inline"
+                title="Shift+clique na pilha abre lista; Alt+clique cicla"
+              >
+                Shift=lista · Alt=ciclo
+              </span>
+              <div className="mx-1 w-px bg-[#313244] self-stretch" />
+              <button
+                type="button"
+                onClick={() => setViewportZoom(Math.max(ZOOM_MIN, viewportZoom - ZOOM_STEP))}
+                data-testid="viewport-zoom-out"
+                aria-label="Diminuir zoom"
+                className="rounded border border-[#313244] bg-[#11111b] px-1.5 py-0.5 text-[10px] font-semibold text-[#6c7086] transition-colors hover:text-[#a6adc8] disabled:opacity-30"
+                disabled={viewportZoom <= ZOOM_MIN}
+                data-tool-hint="Diminuir zoom (Ctrl+-)" title="Diminuir zoom (Ctrl+-)"
+              >
+                −
+              </button>
+              <button
+                type="button"
+                onClick={() => resetViewportZoom()}
+                data-testid="viewport-zoom-reset"
+                aria-label="Restaurar zoom"
+                className="min-w-[40px] rounded border border-[#313244] bg-[#11111b] px-1.5 py-0.5 text-center text-[10px] font-semibold text-[#6c7086] transition-colors hover:text-[#a6adc8]"
+                data-tool-hint="Restaurar zoom (Ctrl+0)" title="Restaurar zoom (Ctrl+0)"
+              >
+                {Math.round(viewportZoom * 100)}%
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewportZoom(Math.min(ZOOM_MAX, viewportZoom + ZOOM_STEP))}
+                data-testid="viewport-zoom-in"
+                aria-label="Aumentar zoom"
+                className="rounded border border-[#313244] bg-[#11111b] px-1.5 py-0.5 text-[10px] font-semibold text-[#6c7086] transition-colors hover:text-[#a6adc8] disabled:opacity-30"
+                disabled={viewportZoom >= ZOOM_MAX}
+                data-tool-hint="Aumentar zoom (Ctrl+=)" title="Aumentar zoom (Ctrl+=)"
+              >
+                +
+              </button>
             </div>
           </div>
         )}
@@ -5894,17 +6273,25 @@ export default function ViewportPanel({
                   {gameFrameSize.width}x{gameFrameSize.height} @ {gameViewportScale}x
                 </div>
               </div>
-              <TestAdjustPanel paused={emulPaused} renderedFrames={renderedFrameCount} />
+              <div className="min-w-0 max-w-md overflow-auto">
+                <TestAdjustPanel paused={emulPaused} renderedFrames={renderedFrameCount} />
+                {activeScene?.entities.filter(entity => entity.components.hud).map(entity =>
+                  <section key={entity.entity_id} className="mt-1 rounded border border-[var(--rds-border-default)] bg-[var(--rds-surface-panel)] p-2 text-xs text-[var(--rds-text-primary)]">
+                    <strong>{getEntityDisplayName(entity)}</strong>
+                    <HudExtremes entity={entity} testId={"test-extremes-" + entity.entity_id} idPrefix={"test-hud-" + entity.entity_id} />
+                  </section>)}
+              </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <div role="group" aria-label="Controlar a ROM carregada" className="rds-command-group">
               <button
                 type="button"
                 onClick={() => handlePause()}
                 disabled={!hasEmulatorSession || emulPaused}
-                data-testid="viewport-pause"
+                data-testid="viewport-pause" aria-label="Pausar" aria-keyshortcuts="F8" data-tool-hint="Pausar a ROM carregada (F8 no jogo)"
                 className="rounded border border-[#fab387]/40 bg-[#fab387]/10 px-2 py-1 text-[10px] font-semibold text-[#fab387] transition-colors hover:bg-[#fab387]/20 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Pausar
+                <Icon name="pause" size={16} />
               </button>
               {rexCopyRun && emulatorRomIdentity?.path === rexCopyRun.copyPath ? (
                 <button
@@ -5926,20 +6313,22 @@ export default function ViewportPanel({
                 type="button"
                 onClick={() => handleResume()}
                 disabled={!hasEmulatorSession || !emulPaused}
-                data-testid="viewport-resume"
+                data-testid="viewport-resume" aria-label="Retomar" aria-keyshortcuts="F8" data-tool-hint="Retomar a ROM carregada (F8 no jogo)"
                 className="rounded border border-[#a6e3a1]/40 bg-[#a6e3a1]/10 px-2 py-1 text-[10px] font-semibold text-[#a6e3a1] transition-colors hover:bg-[#a6e3a1]/20 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Retomar
+                <Icon name="play" size={16} />
               </button>
               <button
                 type="button"
                 onClick={() => void handleStepFrame()}
                 disabled={!hasEmulatorSession || !emulPaused || stepBusy}
-                data-testid="viewport-step-frame"
+                data-testid="viewport-step-frame" aria-keyshortcuts="F10" data-tool-hint="Avançar um quadro (F10 no jogo pausado)"
                 className="rounded border border-[#f9e2af]/40 bg-[#f9e2af]/10 px-2 py-1 text-[10px] font-semibold text-[#f9e2af] transition-colors hover:bg-[#f9e2af]/20 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {stepBusy ? "Step..." : "Step 1 frame"}
+                {stepBusy ? "Avançando…" : "1 quadro"}
               </button>
+              {stopSessionButton}
+              </div>
               <button
                 type="button"
                 onClick={() => void handleSaveState()}
@@ -6036,10 +6425,16 @@ export default function ViewportPanel({
                 ? `${emulatorRomIdentity.sourceLabel} · ROM ${emulatorRomIdentity.sha256} · ${emulatorRomIdentity.size} bytes · ${emulatorRomIdentity.coreLabel} · frames renderizados ${renderedFrameCount} · input ACK ${lastJoypadAck?.seq ?? 0}`
                 : "Identidade da ROM ainda não observada"}
             </div>
+            <MotionTracePanel screen={canvasRef.current} renderedFrames={renderedFrameCount} paused={emulPaused} />
           </div>
         )}
 
         {activeViewportTab === "logic" && (
+          !nativeCProject && activeProjectDir ? (
+            <Suspense fallback={<WorkspaceViewportFallback label="Carregando Lógica..." />}>
+              <LogicAuthoringWorkspace showNativePoses={showNativePoses} />
+            </Suspense>
+          ) : (
           <div className="flex h-full w-full flex-col">
             {nativeCProject && activeProjectDir ? (
               <div role="tablist" aria-label="Origem da lógica" className="flex shrink-0 items-center gap-1 border-b border-[#313244] bg-[#11111b] px-2 py-1 text-[11px]">
@@ -6076,6 +6471,7 @@ export default function ViewportPanel({
               )}
             </div>
           </div>
+          )
         )}
 
         {activeViewportTab === "retrofx" && (
@@ -6088,12 +6484,10 @@ export default function ViewportPanel({
 
         {activeViewportTab === "artstudio" && (
           <div className="h-full w-full">
-            {selectedEntity?.components.sprite &&
-            Object.values(selectedEntity.components.sprite.animations ?? {}).some((animation) =>
-              Array.isArray(animation.mugen_frames)
-            ) ? (
+            {studio.focus.task !== "pixels" && selectedEntity?.components.sprite && (showNativePoses ||
+              Object.values(selectedEntity.components.sprite.animations ?? {}).some((animation) => Array.isArray(animation.mugen_frames))) ? (
               <Suspense fallback={<WorkspaceViewportFallback label="Carregando Personagem..." />}>
-                <CharacterTimelinePanel key={selectedEntity.entity_id} entity={selectedEntity} />
+                <CharacterTimelinePanel key={selectedEntity.entity_id} entity={selectedEntity} authored={showNativePoses} onAnimateInScene={onAnimateInScene} />
               </Suspense>
             ) : (
               <Suspense fallback={<WorkspaceViewportFallback label="Carregando ArtStudio..." />}>
@@ -6105,7 +6499,7 @@ export default function ViewportPanel({
       </div>
       </div>
 
-      <div className="flex h-6 shrink-0 items-center gap-4 border-t border-[#313244] bg-[#181825] px-3">
+      <div className={compactTools ? "sr-only" : "flex h-6 shrink-0 items-center gap-4 border-t border-[#313244] bg-[#181825] px-3"}>
         <span className="select-none text-[10px] text-[#45475a]">{targetLabel}</span>
         <span className="select-none text-[10px] text-[#45475a]">{resolution} / 60fps</span>
         <span data-testid="viewport-scene-sprites" title="Instâncias com componente sprite nesta cena. Metasprites e o jogo C original exigem seu próprio orçamento/captura." className="select-none text-[10px] text-[#45475a]">

@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -29,6 +30,12 @@ export default defineConfig({
   envPrefix: ["VITE_", "TAURI_ENV_*"],
 
   build: {
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL("./index.html", import.meta.url)),
+        studioPanel: fileURLToPath(new URL("./src/studio-panel.html", import.meta.url)),
+      },
+    },
     target:
       process.env.TAURI_ENV_PLATFORM === "windows"
         ? "chrome105"

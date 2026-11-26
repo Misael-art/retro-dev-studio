@@ -576,6 +576,9 @@ pub(crate) fn convert_character_v1_with_review(
                 // Identidade estavel por ocorrencia (nao pelo indice da imagem): duas ocorrencias
                 // da mesma imagem sao itens distintos para duracao, caixas e eventos.
                 occurrence_ids: Some((1..=a.frames.len()).map(|i| format!("o{i}")).collect()),
+                pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
+                pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: a
                     .frames
@@ -2946,6 +2949,7 @@ mod tests {
                 source: source.into(),
             }),
             digits: 3,
+            bar_tiles: None,
         }
     }
 
@@ -2958,8 +2962,16 @@ mod tests {
         );
         assert!(!c.contains("#error"), "{c}");
         assert!(c.contains("VDP_drawText(\"VIDA \", 2, 25);"));
-        assert!(c.contains("static volatile u16 rds_hud_hud_vida_shown = 0xFFFF;"));
-        assert!(c.contains("const u16 v = rds_strike_strike1_hp; if (v != rds_hud_hud_vida_shown)"));
+        assert!(c.contains("static volatile u16 rds_hud_hud_vida_shown;"));
+        assert!(c.contains("if (!rds_hud_hud_vida_initialized || v != rds_hud_hud_vida_shown)"));
+        assert!(c.contains("while (len < 3) b[len++] = ' ';"));
+        let mut bar = hud(2, 25, "VIDA ", "strike1");
+        bar.bar_tiles = Some(8);
+        let c = scene_c(&project, &sentinel_scene_with_hud(&project, bar.clone()));
+        assert!(!c.contains("#error"), "{c}");
+        assert!(c.contains("b[i] = i < fill ? '#' : '-'; b[8] = 0;"));
+        bar.column = 29;
+        assert!(scene_c(&project, &sentinel_scene_with_hud(&project, bar)).contains("sai da grade"));
         for (bad, why) in [
             (hud(36, 25, "VIDA ", "strike1"), "sai da grade"),
             (hud(2, 28, "VIDA ", "strike1"), "sai da grade"),
@@ -3738,7 +3750,18 @@ mod tests {
     #[test]
     fn mugen_real_hud_text_tracks_strike_hp_and_changes_only_its_rectangle() {
         let (root, project) = import_fixture("sentinel", "hud-real");
-        let scene = sentinel_scene_with_hud(&project, hud(2, 25, "VIDA ", "strike1"));
+        let mut scene = sentinel_scene_with_hud(&project, hud(2, 25, "VIDA ", "strike1"));
+        let mut bar = scene
+            .entities
+            .iter()
+            .find(|e| e.entity_id == "hud_vida")
+            .unwrap()
+            .clone();
+        bar.entity_id = "hud_barra".into();
+        let mut bar_settings = hud(17, 25, "HP ", "strike1");
+        bar_settings.bar_tiles = Some(8);
+        bar.components.hud = Some(bar_settings);
+        scene.entities.push(bar);
         save_scene(
             &project,
             crate::core::project_mgr::DEFAULT_ENTRY_SCENE,
@@ -3759,6 +3782,7 @@ mod tests {
             (fb.width, fb.rgba)
         };
         assert_eq!(shown(&emu), 100);
+        assert_eq!(read_u16(&emu, sym["rds_hud_hud_barra_shown"]), 100);
         let (width, before) = frame(&emu);
         emu.set_joypad(JoypadState {
             b: true,
@@ -3774,24 +3798,27 @@ mod tests {
         }
         assert_eq!(read_u16(&emu, sym["rds_strike_strike1_hp"]), 88);
         assert_eq!(shown(&emu), 88);
+        assert_eq!(read_u16(&emu, sym["rds_hud_hud_barra_shown"]), 88);
         // Sprites tambem mudaram (chute); compara so as linhas da grade de texto do HUD (25).
         let (_, after) = frame(&emu);
-        let (mut min_x, mut max_x) = (u32::MAX, 0);
+        let (mut digits_changed, mut bar_changed) = (false, false);
         for y in 200..208u32 {
             for x in 0..width {
                 let i = ((y * width + x) * 4) as usize;
                 if before[i..i + 4] != after[i..i + 4] {
-                    min_x = min_x.min(x);
-                    max_x = max_x.max(x);
+                    if (56..=79).contains(&x) {
+                        digits_changed = true;
+                    } else if (160..=223).contains(&x) {
+                        bar_changed = true;
+                    } else {
+                        panic!("pixel de controle do HUD mudou em ({x}, {y})");
+                    }
                 }
             }
         }
-        eprintln!("linha HUD: diferenca x {min_x}..{max_x}");
-        assert!(min_x != u32::MAX, "valor redesenhado na linha do HUD");
-        // Rotulo "VIDA " em colunas 2..6; digitos em 7..9 => x 56..79.
         assert!(
-            min_x >= 56 && max_x <= 79,
-            "so os digitos mudaram: {min_x}..{max_x}"
+            digits_changed && bar_changed,
+            "os dois valores do HUD devem mudar"
         );
         let link: crate::compiler::runtime_link::RuntimeLink = serde_json::from_str(
             &fs::read_to_string(project.join("build/megadrive/rds-runtime-link.v1.json")).unwrap(),
@@ -3800,6 +3827,15 @@ mod tests {
         let entry = link.hud.iter().find(|h| h.entity_id == "hud_vida").unwrap();
         assert_eq!((entry.x, entry.y, entry.width_px), (16, 200, 64));
         assert_eq!(entry.shown_symbol, Some(sym["rds_hud_hud_vida_shown"]));
+        let bar_entry = link
+            .hud
+            .iter()
+            .find(|h| h.entity_id == "hud_barra")
+            .unwrap();
+        assert_eq!(
+            (bar_entry.x, bar_entry.y, bar_entry.width_px),
+            (136, 200, 88)
+        );
         let _ = fs::remove_dir_all(root);
     }
 
@@ -3847,6 +3883,7 @@ mod tests {
             cells: vec![],
             plane: None,
             priority: false,
+            priority_regions: Vec::new(),
         });
         scene.entities.insert(0, world);
         // Cores do personagem pelo mesmo planejador (derivadas do arquivo convertido).
@@ -4150,6 +4187,7 @@ mod tests {
                 .repeat(28),
             plane: None,
             priority: false,
+            priority_regions: Vec::new(),
         });
         let mut camera = scene.entities[0].clone();
         camera.entity_id = "camera".into();

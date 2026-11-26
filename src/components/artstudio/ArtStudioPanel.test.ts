@@ -206,6 +206,34 @@ describe("ArtStudioPanel helpers", () => {
     expect(removed.hitboxes).toEqual([]);
   });
 
+  it("reapplies the same atlas without flattening occurrence-owned metadata", () => {
+    const event = { id: "som", occurrence: "o2", tick: 3, sound: "passo", kind: "sound" as const };
+    const box = { frame: 1, occurrence_id: "o2", kind: "attack" as const, x: 2, y: 3, width: 10, height: 12 };
+    const passo = {
+      frames: [0, 1, 2, 1], fps: 12, loop: true,
+      occurrence_ids: ["o1", "o2", "o3", "o4"], frame_durations: [5, 4, 7, 2],
+      frame_events: [event], hitboxes: [box],
+      pose_alignment: { o2: { anchor: { x: 13, y: 26 }, offset: { x: 1, y: 1 } } },
+      pose_code_drafts: { o2: "static const u8 ticks = " },
+    };
+    const sequences = buildArtStudioSequencesFromSpriteMetadata({ animations: { passo } });
+    expect(buildArtStudioAnimations(sequences).animations.passo).toEqual(passo);
+    const selected = sequences.find((sequence) => sequence.name === "Passo")!;
+    const moved = moveArtStudioSequenceFrame(selected, 1, 3);
+    const duplicate = duplicateArtStudioSequenceFrame(moved, 3);
+    const edited = buildArtStudioAnimations([duplicate]).animations.passo;
+    expect(edited.frames).toEqual([0, 2, 1, 1, 1]);
+    expect(edited.occurrence_ids).toEqual(["o1", "o3", "o4", "o2", expect.stringMatching(/^pose-/)]);
+    expect(edited.frame_durations).toEqual([5, 7, 2, 4, 4]);
+    expect(edited.frame_events).toEqual([event]);
+    expect(edited.hitboxes).toEqual([box]);
+    const removed = buildArtStudioAnimations([removeArtStudioSequenceFrame(duplicate, 3)]).animations.passo;
+    expect(removed.frame_events).toEqual([]);
+    expect(removed.hitboxes).toEqual([]);
+    expect(removed.pose_alignment).toEqual({});
+    expect(removed.pose_code_drafts).toEqual({});
+  });
+
   it("builds sprite command bindings against animation keys without dropping unsupported tokens", () => {
     const hadouken: ParsedInputCommand = {
       id: "hadouken",

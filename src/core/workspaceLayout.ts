@@ -9,6 +9,68 @@ export type LayoutMap = {
   right: number;
 };
 
+export type SceneDesk = "compose" | "animate";
+export type ProjectPanelTab = "scene" | "layers";
+export type SceneDeskPreferences = {
+  desk: SceneDesk;
+  propertiesLeft: boolean;
+  projectTab: ProjectPanelTab;
+};
+
+export const DEFAULT_SCENE_DESK: SceneDeskPreferences = {
+  desk: "compose",
+  propertiesLeft: false,
+  projectTab: "scene",
+};
+
+export type WorkspaceLayoutSnapshot = {
+  layout: LayoutMap;
+  scene: SceneDeskPreferences;
+  name: string;
+  timelinePercent: number;
+};
+
+export function normalizeTimelinePercent(value: unknown): number {
+  return typeof value === "number" && value >= 15 && value <= 71 ? value : 42;
+}
+
+export function readWorkspaceLayout(raw: string | null): WorkspaceLayoutSnapshot | null {
+  if (!raw) return null;
+  try {
+    const saved = JSON.parse(raw);
+    if (!saved || typeof saved !== "object") return null;
+    const { left, center, right } = saved.layout ?? saved;
+    if (![left, center, right].every((size) => typeof size === "number" && size >= 0 && size <= 100)
+        || center < 20 || Math.abs(left + center + right - 100) > 0.1) return null;
+    return {
+      layout: { left, center, right },
+      scene: {
+        desk: saved.scene?.desk === "animate" ? "animate" : "compose",
+        propertiesLeft: saved.scene?.propertiesLeft === true,
+        projectTab: saved.scene?.projectTab === "layers" ? "layers" : "scene",
+      },
+      name: typeof saved.name === "string" ? saved.name.trim().slice(0, 60) : "",
+      timelinePercent: normalizeTimelinePercent(saved.timelinePercent),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function placeScenePanels(layout: LayoutMap, propertiesLeft: boolean): LayoutMap {
+  return propertiesLeft ? { left: layout.right, center: layout.center, right: layout.left } : layout;
+}
+
+/** Keep explicit collapse and account for each open pane's minimum before applying the group layout. */
+export function fitWorkspaceLayout(layout: LayoutMap, width: number, leftMinimum: number, rightMinimum: number): LayoutMap {
+  if (width <= 0) return layout;
+  const left = layout.left > 0 ? Math.max(layout.left, Math.ceil(leftMinimum * 1000 / width) / 10) : 0;
+  const right = layout.right > 0 ? Math.max(layout.right, Math.ceil(rightMinimum * 1000 / width) / 10) : 0;
+  const total = left + right;
+  const scale = total > 80 ? 80 / total : 1;
+  return { left: left * scale, center: 100 - total * scale, right: right * scale };
+}
+
 export type RightPanelMode = "inspector" | "tools" | "hidden";
 
 export type WorkspaceShellConfig = {
