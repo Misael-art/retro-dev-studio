@@ -4197,14 +4197,19 @@ async function captureScreenshot(sessionId, filename) {
       const original = (await webdriverRequest("GET", endpoint)).value;
       try {
         await webdriverRequest("POST", endpoint, { width: original.width - 554, height: original.height - 312 });
-        const compact = await waitFor(() => executeScript(sessionId, `
+        let compact;
+        await waitFor(async () => {
+          compact = await executeScript(sessionId, `
           const rail=document.querySelector('[data-testid="workspace-activity-bar"]')?.getBoundingClientRect();
           const state=window.__RDS_E2E__?.getState?.();
-          return innerWidth === 1366 && innerHeight === 768 && devicePixelRatio === 1 && rail?.width > 0
-            && { viewport:[innerWidth,innerHeight,devicePixelRatio], rail:rail.width, overflow:document.documentElement.scrollWidth-innerWidth,
+          return { viewport:[innerWidth,innerHeight,devicePixelRatio], rail:rail?.width ?? 0, overflow:document.documentElement.scrollWidth-innerWidth,
               selection:state?.selectedEntityId, workspace:state?.activeWorkspace };
-        `), 8000, "A mesa compacta não atingiu 1366 × 768 a 1×.");
-        if (compact.overflow > 1 || compact.selection !== layout.selection) fail("A janela compacta perdeu a seleção ou excedeu a largura.");
+          `);
+          return compact && isDeepStrictEqual(compact.viewport, [1366, 768, 1]) && compact.rail > 0
+            && compact.overflow <= 1 && compact.selection === layout.selection;
+        }, 8000, "A mesa compacta precisa conservar seleção e largura a 1366 × 768 e 1×.").catch(error => {
+          throw new Error(error.message + " " + JSON.stringify({ selectionBefore: layout.selection, compact }));
+        });
         const screenshot = (await webdriverRequest("GET", `/session/${sessionId}/screenshot`)).value;
         const bytes = Buffer.from(screenshot, "base64");
         if (bytes.readUInt32BE(16) !== 1366 || bytes.readUInt32BE(20) !== 768) fail("Raster inesperado na janela compacta.");
