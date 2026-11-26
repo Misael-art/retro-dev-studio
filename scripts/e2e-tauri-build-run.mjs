@@ -12222,6 +12222,10 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     "Editor nao expos o limiar autoral de score com source mapping.",
     250
   );
+  await activateByTestIdWithEnter(sessionId, "node-heading-score_threshold");
+  await waitFor(() => executeScript(sessionId,
+    "return document.querySelector('[data-testid=\"node-origin-score_threshold\"]')?.textContent.includes('authored_builtin_reference_platformer');"),
+  10000, "Selecionar o cartão precisa revelar a origem autoral do limiar.");
   const thresholdInput = await executeScript(sessionId, "return document.querySelector('[data-testid=\"node-param-score_threshold-b\"]')?.value ?? null;");
   const thresholdLabel = await executeScript(sessionId, "return document.querySelector('[data-testid=\"node-param-score_threshold-b\"]')?.parentElement?.querySelector('span')?.textContent ?? '';" );
   const sourceMappingVisible = await executeScript(sessionId, "return document.querySelector('[data-testid=\"node-card-score_threshold\"]')?.textContent ?? '';" );
