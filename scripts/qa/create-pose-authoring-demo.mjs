@@ -346,6 +346,22 @@ async function writeGuidesProject(directory) {
   return projectPath;
 }
 
+const port = (id) => ({ id, label: id, kind: "exec" });
+const value = (id) => ({ id, label: id, kind: "data", dataType: "int" });
+const node = (id, type, label, x, y, params = {}) => ({
+  id, type, label, x, y, params,
+  inputs: {
+    event_start: [], event_update: [], condition_compare: [port("exec"), value("a"), value("b")], var_get: [], var_set: [port("exec"), value("value")], logic_math: [value("a"), value("b")],
+  }[type] ?? [port("exec")],
+  outputs: {
+    condition_overlap: [port("true"), port("false")], condition_compare: [port("true"), port("false")],
+    timeline_sequence: Array.from({ length: 4 }, (_, i) => port("slot_" + i)),
+    var_get: [value("value")], logic_math: [value("value")],
+  }[type] ?? [port("exec")],
+});
+const edge = (fromNode, toNode, fromPort = "exec", toPort = "exec") =>
+  ({ id: fromNode + "_" + toNode, fromNode, fromPort, toNode, toPort });
+
 async function writeAdvancedAuthoringProject(directory, withFlash) {
   const projectPath = await writeProject(directory, false);
   const project = JSON.parse(await readFile(projectPath, "utf8"));
@@ -385,20 +401,6 @@ async function writeAdvancedAuthoringProject(directory, withFlash) {
   await mkdir(path.join(directory, "assets/audio"), { recursive: true });
   await writeFile(path.join(directory, "assets/audio/passo.wav"), wav);
   actor.components.audio = { sfx: { passo: "assets/audio/passo.wav" } };
-  const port = (id) => ({ id, label: id, kind: "exec" });
-  const value = (id) => ({ id, label: id, kind: "data", dataType: "int" });
-  const node = (id, type, label, x, y, params = {}) => ({
-    id, type, label, x, y, params,
-    inputs: {
-      event_update: [], var_get: [], var_set: [port("exec"), value("value")], logic_math: [value("a"), value("b")],
-    }[type] ?? [port("exec")],
-    outputs: {
-      timeline_sequence: Array.from({ length: 4 }, (_, i) => port("slot_" + i)),
-      var_get: [value("value")], logic_math: [value("value")],
-    }[type] ?? [port("exec")],
-  });
-  const edge = (fromNode, toNode, fromPort = "exec", toPort = "exec") =>
-    ({ id: fromNode + "_" + toNode, fromNode, fromPort, toNode, toPort });
   actor.components.logic = { graph: JSON.stringify({
     version: 1,
     nodes: [
@@ -423,9 +425,62 @@ async function writeAdvancedAuthoringProject(directory, withFlash) {
   return projectPath;
 }
 
+async function writeRingProject(directory) {
+  const projectPath = await writeAdvancedAuthoringProject(directory, true);
+  const project = JSON.parse(await readFile(projectPath, "utf8"));
+  const scenePath = path.join(directory, project.entry_scene);
+  const scene = JSON.parse(await readFile(scenePath, "utf8"));
+  project.name = scene.display_name = "Porto das Lanternas — Coleta do anel";
+  scene.entities = scene.entities.filter(e => !["corredor", "Lanterna"].includes(e.entity_id));
+  const fox = scene.entities.find(e => e.entity_id === "raposa");
+  fox.display_name = "Raposa";
+  const collision = (width, height) => ({ shape: "rect", solid: false, width, height, offset: { x: 0, y: 0 } });
+  fox.components.collision = collision(32, 32);
+  fox.components.logic = { graph: JSON.stringify({ version: 1, nodes: [
+    node("partida", "event_start", "Início da partida", 0, 0),
+    node("zerar", "var_set", "Zerar anéis", 280, 0, { var_name: "ctr_aneis", value: 0, counter_label: "Anéis" }),
+    node("movimento", "event_update", "A cada quadro", 0, 240),
+    node("direita", "input_held", "Direita pressionada", 280, 240, { pad: "JOY_1", button: "BUTTON_RIGHT" }),
+    node("andar", "sprite_move", "Andar para a direita", 560, 240, { target: "raposa", dx: 1, dy: 0 }),
+  ], edges: [edge("partida", "zerar"), edge("movimento", "direita"), edge("direita", "andar")] }) };
+  const asset = "assets/sprites/anel.png";
+  const colors = Array.from({ length: 16 }, (_, i) => i === 1 ? [7, 5, 0] : [0, 0, 0]);
+  const pixels = Buffer.from(["00111100","01100110","11000011","10000001","10000001","11000011","01100110","00111100"].join("").split("").map(Number));
+  await writeFile(path.join(directory, asset), indexedAtlasPng(8, 8, colors, [pixels]));
+  const nodes = [
+    node("evento", "event_update", "A cada quadro", 0, 180),
+    node("contato", "condition_overlap", "Contato", 270, 180, { a: "raposa", b: "anel" }),
+    node("tomado", "var_get", "Estado deste anel", 270, 440, { var_name: "anel_coletado" }),
+    node("primeira", "condition_compare", "Primeira coleta?", 540, 180, { operator: "==", b: 0 }),
+    node("marcar", "var_set", "Marcar como coletado", 810, 180, { var_name: "anel_coletado", value: 1 }),
+    node("tempo", "timeline_sequence", "Resposta à coleta", 1080, 180,
+      { run_mode: "event", slot_0_delay: 0, slot_1_delay: 4, slot_2_delay: 0, slot_3_delay: -1 }),
+    node("total", "var_get", "Anéis do jogo", 810, -140, { var_name: "ctr_aneis" }),
+    node("soma", "logic_math", "Somar uma unidade", 1080, -140, { operator: "+", b: 1 }),
+    node("contar", "var_set", "Contador de anéis", 1360, -100, { var_name: "ctr_aneis", value: 0, counter_label: "Anéis" }),
+    node("som", "action_sound", "Som da coleta", 1360, 180, { sfx: "passo" }),
+    node("brilho", "palette_swap", "Brilho do anel", 1360, 470,
+      { trigger_mode: "flow", target: "anel", palette: "brilho_resposta", frames: 8, scope: "instancia" }),
+  ];
+  const edges = [edge("evento", "contato"), edge("contato", "primeira", "true"), edge("tomado", "primeira", "value", "a"),
+    edge("primeira", "marcar", "true"), edge("marcar", "tempo"), edge("tempo", "contar", "slot_0"),
+    edge("tempo", "som", "slot_1"), edge("tempo", "brilho", "slot_2"), edge("total", "soma", "value", "a"),
+    edge("soma", "contar", "value", "value")];
+  scene.entities.push({ entity_id: "anel", display_name: "Anel", transform: { x: 104, y: 148 },
+    components: { sprite: { asset, frame_width: 8, frame_height: 8, palette_slot: 3, priority: "foreground" },
+      collision: collision(8, 8), logic: { graph: JSON.stringify({ version: 1, nodes, edges }) } } },
+    { entity_id: "hud_aneis", display_name: "Contador de anéis", transform: { x: 0, y: 0 },
+      components: { hud: { label: "ANEIS ", column: 2, row: 2, digits: 2, value: { kind: "logic_var", source: "ctr_aneis" } } } });
+  await writeFile(scenePath, JSON.stringify(scene, null, 2) + "\n");
+  await writeFile(projectPath, JSON.stringify(project, null, 2) + "\n");
+  return projectPath;
+}
+
 await mkdir(sessions, { recursive: true });
 const root = await mkdtemp(path.join(sessions, "ensaio-poses-"));
-if (process.argv.includes("--atlas-replacement")) {
+if (process.argv.includes("--ring")) {
+  console.log(await writeRingProject(path.join(root, "coleta-do-anel")));
+} else if (process.argv.includes("--atlas-replacement")) {
   console.log(await writeLinkedAtlasProject(path.join(root, "substituicao-atlas"), { replacement: true }));
 } else if (process.argv.includes("--wave")) {
   console.log(await writeWaveProject(path.join(root, "onda")));

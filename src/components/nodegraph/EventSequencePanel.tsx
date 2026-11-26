@@ -1,7 +1,7 @@
 import { useState, type Ref } from "react";
 import type { GraphNode, NodeGraph, NodeType } from "../../core/nodegraph/nodeTypes";
 
-const field = "min-w-0 rounded border border-[#45475a] bg-[#11111b] px-1 py-1";
+const field = "min-w-0 max-w-full rounded border border-[var(--rds-border-default)] bg-[var(--rds-surface-input)] px-1 py-1 text-[var(--rds-text-primary)]";
 const slotTypes: Array<{ type: NodeType; label: string }> = [
   { type: "action_sound", label: "Som" },
   { type: "palette_swap", label: "Brilho por paleta" },
@@ -10,6 +10,7 @@ const slotTypes: Array<{ type: NodeType; label: string }> = [
 ];
 
 type Props = {
+  linkedSequence?: GraphNode;
   panelRef: Ref<HTMLDetailsElement>;
   graph: NodeGraph;
   palettes: readonly { id?: string; name?: string }[];
@@ -27,7 +28,7 @@ function Delay({ value, axis, slot, onEdit }: { value: number; axis: number; slo
   return (
     <div className="grid grid-cols-[1fr_58px] items-center gap-2">
       <input type="range" aria-label={"Posição da etapa " + (slot + 1)}
-        data-testid={"event-sequence-grip-" + slot} min={0} max={axis} value={Math.max(0, draft ?? value)}
+        data-testid={"event-sequence-grip-" + slot} min={0} max={Math.min(axis, 3600)} value={Math.max(0, draft ?? value)}
         onChange={(event) => setDraft(event.currentTarget.valueAsNumber)}
         onPointerUp={(event) => { onEdit(event.currentTarget.valueAsNumber); setDraft(null); }}
         onPointerCancel={() => setDraft(null)}
@@ -51,22 +52,23 @@ function Delay({ value, axis, slot, onEdit }: { value: number; axis: number; slo
   );
 }
 
-export default function EventSequencePanel({ panelRef, graph, palettes, targets, selected, onCreate, onSelectNode, onParam, onAddAction }: Props) {
+export default function EventSequencePanel({ panelRef, graph, palettes, targets, selected, linkedSequence, onCreate, onSelectNode, onParam, onAddAction }: Props) {
   const [sequenceId, setSequenceId] = useState("");
   const [portId, setPortId] = useState("");
   const sequences = graph.nodes.filter((node) => node.type === "timeline_sequence");
   const sequence = selected?.type === "timeline_sequence" ? selected
-    : sequences.find((node) => node.id === sequenceId) ?? sequences[0];
+    : linkedSequence ?? sequences.find((node) => node.id === sequenceId) ?? sequences[0];
   const freePorts = selected?.outputs.filter((port) => port.kind === "exec"
     && !graph.edges.some((edge) => edge.fromNode === selected.id && edge.fromPort === port.id)) ?? [];
   const port = freePorts.find((candidate) => candidate.id === portId) ?? freePorts[0];
   const delays = [0, 1, 2, 3].map((slot) => Number(sequence?.params["slot_" + slot + "_delay"] ?? -1));
-  const axis = Math.max(120, ...delays);
+  const axis = Math.max(8, 2 ** Math.ceil(Math.log2(Math.max(1, ...delays))));
+  const ticks = [0, 1, 2, 3, 4].map(n => n * Math.min(axis, 3600) / 4);
   const incoming = graph.edges.find((edge) => edge.toNode === sequence?.id && edge.toPort === "exec");
   const source = graph.nodes.find((node) => node.id === incoming?.fromNode);
   return (
-    <details ref={panelRef} data-testid="event-sequence-composer" className="rounded border border-[#313244] bg-[#11111b] p-2 text-[11px]">
-      <summary className="cursor-pointer font-semibold text-[#89b4fa]">Compositor de eventos</summary>
+    <details ref={panelRef} data-testid="event-sequence-composer" className="max-h-[40%] shrink-0 overflow-auto border-t border-[var(--rds-border-default)] bg-[var(--rds-surface-panel)] px-3 py-1 text-[11px] text-[var(--rds-text-primary)]">
+      <summary className="cursor-pointer font-semibold text-[#89b4fa]">Compositor de eventos · régua de ticks</summary>
       <div className="mt-2 grid gap-2">
         {selected && selected.type !== "timeline_sequence" && port && (
           <div className="flex flex-wrap gap-1">
@@ -79,10 +81,10 @@ export default function EventSequencePanel({ panelRef, graph, palettes, targets,
         )}
         {sequence ? (
           <>
-            <label>Sequência
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1"><label>Sequência
               <select data-testid="event-sequence-picker" className={field + " ml-1"} value={sequence.id}
                 onChange={(event) => { setSequenceId(event.target.value); onSelectNode(event.target.value); }}>
-                {sequences.map((item) => <option key={item.id} value={item.id}>{item.label} · {item.id}</option>)}
+                {sequences.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
               </select>
             </label>
             <label>Execução
@@ -92,16 +94,21 @@ export default function EventSequencePanel({ panelRef, graph, palettes, targets,
                 <option value="continuous">Contador da sequência existente</option>
               </select>
             </label>
-            <p>{source ? "Disparo por " + source.label : "Conecte uma saída de execução ao disparo."} Use −1 para desativar uma etapa.</p>
+            </div><p>{source ? "Disparo por " + source.label : "Conecte uma saída de execução ao disparo."} Use −1 para desativar. O tick é programado no grafo. O quadro apresentado depende do VBlank.</p>
+            <div className="grid grid-cols-[minmax(7rem,28%)_1fr_58px] items-end gap-2 px-1 text-[var(--rds-text-secondary)]">
+              <span>Etapa</span><div className="flex justify-between font-mono">{ticks.map(tick => <span key={tick}>{tick}</span>)}</div><span>Ticks</span>
+            </div>
             {delays.map((delay, slot) => {
               const edge = graph.edges.find((item) => item.fromNode === sequence.id && item.fromPort === "slot_" + slot);
               const action = graph.nodes.find((node) => node.id === edge?.toNode);
               const animationTarget = action?.type === "set_animation_state"
                 ? targets.find(({ id }) => id === action.params.target) : undefined;
               return (
-                <div key={slot} className="grid gap-1 rounded border border-[#313244] p-1">
+                <div key={sequence.id + "/" + slot} data-selected={action && selected?.id === action.id ? "true" : undefined}
+                  className="grid grid-cols-[minmax(7rem,28%)_1fr] items-center gap-x-2 rounded border border-[#45475a] p-1 data-[selected=true]:border-blue-400">
+                  <div>
                   {action ? (
-                    <button type="button" className="text-left text-[#94e2d5]" onClick={() => onSelectNode(action.id)}>
+                    <button type="button" aria-pressed={selected?.id === action.id} data-testid={"event-sequence-select-" + slot} className="text-left font-semibold text-[var(--rds-text-primary)]" onClick={() => onSelectNode(action.id)}>
                       {slot + 1}. {action.label}
                       {action.params.sfx ? " · " + action.params.sfx : ""}
                     </button>
@@ -113,8 +120,12 @@ export default function EventSequencePanel({ panelRef, graph, palettes, targets,
                       {slotTypes.map(({ type, label }) => <option key={type} value={type}>{label}</option>)}
                     </select>
                   )}
+                  {action && delay >= 0 && delays.some((time, i) => i !== slot && time === delay && graph.edges.some(e => e.fromNode === sequence.id && e.fromPort === "slot_" + i)) && <small className="ml-1">Simultâneo</small>}
+                  </div>
+                  <Delay key={sequence.id + "/" + slot} value={delay} axis={axis} slot={slot}
+                    onEdit={(next) => { if (next !== delay) onParam(sequence.id, "slot_" + slot + "_delay", next); }} />
                   {action?.type === "palette_swap" && action.params.trigger_mode === "flow" && (
-                    <div className="grid gap-1">
+                    <div className="col-span-2 flex flex-wrap gap-2">
                       <label className="grid gap-1">Alvo do brilho
                         <select data-testid={"event-sequence-light-target-" + slot} className={field} value={action.params.target}
                           onChange={(event) => onParam(action.id, "target", event.target.value)}>
@@ -132,7 +143,7 @@ export default function EventSequencePanel({ panelRef, graph, palettes, targets,
                     </div>
                   )}
                   {action?.type === "set_animation_state" && (
-                    <div className="grid gap-1">
+                    <div className="col-span-2 flex flex-wrap gap-2">
                       <label className="grid gap-1">Ator da animação
                         <select data-testid={"event-sequence-animation-target-" + slot} className={field} value={animationTarget?.id ?? ""}
                           onChange={(event) => onParam(action.id, "target", event.target.value)}>
@@ -149,8 +160,7 @@ export default function EventSequencePanel({ panelRef, graph, palettes, targets,
                       </label>}
                     </div>
                   )}
-                  <Delay key={sequence.id + "/" + slot} value={delay} axis={axis} slot={slot}
-                    onEdit={(next) => { if (next !== delay) onParam(sequence.id, "slot_" + slot + "_delay", next); }} />
+
                 </div>
               );
             })}

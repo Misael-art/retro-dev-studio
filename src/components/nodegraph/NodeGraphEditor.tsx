@@ -11,6 +11,7 @@ import { getEntityDisplayName } from "../../core/entityDisplay";
 import { resolveEntitySourceRefs } from "../../core/entityAuthoring";
 import type { SgdkPatternTemplate } from "../../core/projectCapability";
 import SgdkPatternTemplateGallery from "./SgdkPatternTemplateGallery";
+import { actionTitle, sequenceSteps } from "../../core/nodegraph/eventSchedule";
 import EventSequencePanel from "./EventSequencePanel";
 import {
   collectGraphImportGaps,
@@ -1423,7 +1424,10 @@ interface NodeCardProps {
   /** Porta de entrada destacada pelo ima durante uma conexao (`in:<id>`). */
   snapPortKey: string | null;
   /** Portas de entrada compativeis com a conexao em andamento. */
-  compatiblePortIds: Set<string> | null;
+  portChecks: Map<string, ReturnType<typeof checkConnection>> | null;
+  title: string;
+  onActivate: () => void;
+  usedOutputs: ReadonlySet<string>;
   onMouseDown: (e: React.MouseEvent) => void;
   onPortMouseDown: (e: React.MouseEvent, portId: string, isOutput: boolean) => void;
   onPortMouseUp: (e: React.MouseEvent, portId: string, isOutput: boolean) => void;
@@ -1473,7 +1477,10 @@ function NodeCard({
   projectDir,
   detailsOpen,
   snapPortKey,
-  compatiblePortIds,
+  portChecks,
+  title,
+  onActivate,
+  usedOutputs,
   onMouseDown,
   onPortMouseDown,
   onPortMouseUp,
@@ -1518,8 +1525,14 @@ function NodeCard({
     const kind = getPortVisualKind(port);
     const key = `${output ? "out" : "in"}:${port.id}`;
     const snapped = snapPortKey === key;
-    const compatible = !output && compatiblePortIds?.has(port.id);
-    const label = getPortDisplayLabel(port);
+    const check = !output ? portChecks?.get(port.id) : undefined;
+    const compatible = check?.ok;
+    const rejection = check && !check.ok ? check.reason : undefined;
+    const branch = kind === "true" || kind === "false";
+    const scheduled = output && node.type === "timeline_sequence" && /^slot_[0-3]$/.test(port.id);
+    const tick = Number(node.params[port.id + "_delay"] ?? -1);
+    const label = scheduled ? (tick < 0 ? "Desativada" : "Tick " + tick)
+      : getPortDisplayLabel(port) + (output && branch && !usedOutputs.has(port.id) ? " · sem ação" : "");
     return (
       <div key={key} className={`flex h-5 items-center gap-1.5 ${output ? "justify-end" : ""}`}>
         {output && label ? <span className="text-[10px]" style={{ color: "var(--rds-text-secondary)" }}>{label}</span> : null}
@@ -1529,7 +1542,9 @@ function NodeCard({
           data-port-kind={kind}
           data-snapped={snapped ? "true" : undefined}
           data-compatible={compatible ? "true" : undefined}
-          title={`${kind === "exec" ? "Execucao" : kind === "data" ? `Dado${port.dataType ? ` (${port.dataType})` : ""}` : kind === "true" ? "Saida Sim" : "Saida Nao"}: ${port.id}`}
+          aria-label={rejection ?? label}
+          data-tool-hint={rejection}
+          title={rejection ?? `${kind === "exec" ? "Execucao" : kind === "data" ? `Dado${port.dataType ? ` (${port.dataType})` : ""}` : kind === "true" ? "Saida Sim" : "Saida Nao"}: ${port.id}`}
           className={`port-handle shrink-0 cursor-crosshair border-2 ${kind === "data" ? "h-3 w-3 rounded-full" : "h-3 w-3 rotate-45 rounded-[2px]"} ${
             snapped ? "scale-150 ring-2 ring-[#f9e2af]" : compatible ? "ring-2 ring-[#f9e2af]/50" : ""
           }`}
@@ -1646,8 +1661,11 @@ function NodeCard({
         style={{ height: CARD_HEADER_HEIGHT, backgroundColor: `${category.color}33`, borderBottom: `1px solid ${category.color}55` }}
         title={`${category.label} · ${catalog?.description ?? ""}`}
       >
-        <span style={{ color: category.color }}><Icon name={catalog?.icon ?? "chip"} size={14} /></span>
-        <span className="min-w-0 flex-1 truncate">{catalog?.title ?? node.type}</span>
+        <span title={catalog?.title} className="flex items-center gap-1 text-[9px]"><Icon name={catalog?.icon ?? "chip"} size={14} />
+          {node.type.startsWith("event_") ? "Evento" : node.outputs.some(port => port.id === "true") ? "Condição" : node.type === "timeline_sequence" ? "Tempo" : node.outputs.every(port => port.kind === "data") && node.outputs.length ? "Dado" : "Ação"}</span>
+        <button type="button" data-node-heading data-testid={`node-heading-${node.id}`} title={title} aria-pressed={selected}
+          onClick={(event) => { if (event.detail === 0) onActivate(); }}
+          className="min-w-0 flex-1 truncate text-left text-[13px]">{title}</button>
         {node.pinned ? <span data-testid={`node-pinned-${node.id}`} title="Posicao fixada: Organizar nao move este no"><Icon name="pin" size={12} /></span> : null}
       </div>
 
@@ -1685,7 +1703,7 @@ function NodeCard({
           {behaviorOrigin.edited ? "Personalizado nos nós · " : "Gerado por "}{behaviorOrigin.label}
         </p>
       ) : null}
-      {node.params.authoring_origin ? (
+      {(selected || detailsOpen) && node.params.authoring_origin ? (
         <p data-testid={`node-origin-${node.id}`} className="truncate px-2 pb-0.5 font-mono text-[9px] text-[#7f849c]" title="Origem autoral (rastreabilidade)">
           origem: {String(node.params.authoring_origin)}
         </p>
@@ -2191,6 +2209,7 @@ function importBadgeClass(tone: CapabilityTone): string {
 }
 
 interface EmptyStateOverlayProps {
+  onAddEvent: () => void;
   onApplyTemplate: (template: QuickActionTemplate) => void;
   selectedEntityLabel?: string | null;
   templates: QuickActionTemplate[];
@@ -2199,6 +2218,7 @@ interface EmptyStateOverlayProps {
 }
 
 function EmptyStateOverlay({
+  onAddEvent,
   onApplyTemplate,
   selectedEntityLabel,
   templates,
@@ -2216,6 +2236,7 @@ function EmptyStateOverlay({
           <h2 className="text-base font-semibold text-[#cdd6f4]">
             Crie um comportamento
           </h2>
+          <button type="button" className="w-fit rounded border px-3 py-1.5" onClick={onAddEvent}>Adicionar evento</button>
           <p className="max-w-3xl text-xs text-[#a6adc8]">
             Escolha um modelo com nós conectados ou abra a paleta para montar o fluxo.
           </p>
@@ -2627,6 +2648,20 @@ export default function NodeGraphEditor() {
     [cardMetrics]
   );
 
+  // ── Organizar visualmente (so posicoes) ─────────────────────────────────────
+  const fitViewTo = useCallback((nodes: GraphNode[]) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const width = rect?.width || canvasSize.width;
+    const height = rect?.height || canvasSize.height;
+    if (!nodes.length || !width || !height) return;
+    const minX = Math.min(...nodes.map((node) => node.x));
+    const minY = Math.min(...nodes.map((node) => node.y));
+    const maxX = Math.max(...nodes.map((node) => node.x + nodeSizeOf(node).width));
+    const maxY = Math.max(...nodes.map((node) => node.y + nodeSizeOf(node).height));
+    const zoom = clampNodeGraphZoom(Math.min(1, (width - 2 * FOCUS_PADDING) / (maxX - minX), (height - 2 * FOCUS_PADDING - 48) / (maxY - minY)));
+    setView({ zoom, x: FOCUS_PADDING - minX * zoom, y: FOCUS_PADDING + 48 - minY * zoom });
+  }, [canvasSize.height, canvasSize.width, nodeSizeOf]);
+
   useEffect(() => {
     if (!initialFocusPendingRef.current || graph !== currentGraphRef.current || !graph.nodes.length || !canvasSize.width || !canvasSize.height) return;
     const remembered = useCodeFocusStore.getState().graphNode;
@@ -2634,8 +2669,17 @@ export default function NodeGraphEditor() {
     const first = previous ?? graph.nodes.find((node) => EVENT_NODE_TYPES.includes(node.type)) ?? graph.nodes[0];
     initialFocusPendingRef.current = false;
     setSelectedId(first.id);
-    setView(getNodeEditingView({ ...nodeSizeOf(first), x: first.x, y: first.y }, canvasSize));
-  }, [canvasSize, graph, nodeSizeOf, selectionKey]);
+    const component = new Set([first.id]);
+    const adjacent = new Map<string, string[]>();
+    for (const { fromNode, toNode } of graph.edges) {
+      if (!adjacent.has(fromNode)) adjacent.set(fromNode, []);
+      if (!adjacent.has(toNode)) adjacent.set(toNode, []);
+      adjacent.get(fromNode)!.push(toNode);
+      adjacent.get(toNode)!.push(fromNode);
+    }
+    for (const id of component) for (const other of adjacent.get(id) ?? []) component.add(other);
+    fitViewTo(graph.nodes.filter(node => component.has(node.id) && !hiddenNodeIdsRef.current.has(node.id)));
+  }, [canvasSize, fitViewTo, graph, selectionKey]);
 
   const onCardMeasure = useCallback((nodeId: string, metrics: NodeCardMetrics) => {
     setCardMetrics((current) => {
@@ -2664,7 +2708,7 @@ export default function NodeGraphEditor() {
     }
     e.stopPropagation();
     const target = e.target as HTMLElement;
-    if (target.classList.contains("cursor-crosshair") || target.closest("input, select, button, textarea")) return;
+    if (target.classList.contains("cursor-crosshair") || target.closest("input, select, button:not([data-node-heading]), textarea")) return;
     let nextSelection: Set<string>;
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
       nextSelection = new Set(selectedIds);
@@ -2831,6 +2875,38 @@ export default function NodeGraphEditor() {
     setSnapTarget(null);
   }, [connectPorts, pendingEdge]);
 
+  const schedule = useMemo(() => sequenceSteps(graph), [graph]);
+  const selectedSteps = selectedId ? schedule.get(selectedId) ?? [] : [];
+  const names = useMemo(() => new Map(activeScene?.entities.map(entity => [entity.entity_id, getEntityDisplayName(entity)])), [activeScene?.entities]);
+  const usedPorts = useMemo(() => {
+    const ports = new Map<string, Set<string>>();
+    for (const edge of graph.edges) {
+      const used = ports.get(edge.fromNode) ?? new Set<string>();
+      used.add(edge.fromPort);
+      ports.set(edge.fromNode, used);
+    }
+    return ports;
+  }, [graph.edges]);
+  useEffect(() => {
+    if (selectedId && schedule.has(selectedId) && eventComposerRef.current) eventComposerRef.current.open = true;
+  }, [selectedId, schedule]);
+  const selectStep = (id: string) => {
+    setSelectedId(id);
+    setSelectedIds(new Set([id]));
+    const node = graph.nodes.find(item => item.id === id);
+    if (!node) return;
+    const group = graph.groups?.find(item => item.collapsed && item.nodeIds.includes(id));
+    if (group) setGraph(current => ({ ...current, groups: current.groups?.map(item => item.id === group.id ? { ...item, collapsed: false } : item) }), "Revelar grupo");
+    const size = nodeSizeOf(node);
+    setView(current => {
+      const { zoom } = current;
+      const left = current.x + node.x * zoom;
+      const top = current.y + node.y * zoom;
+      if (left >= 0 && top >= 48 && left + size.width * zoom <= canvasSize.width && top + size.height * zoom <= canvasSize.height) return current;
+      return { zoom, x: (canvasSize.width - size.width * zoom) / 2 - node.x * zoom,
+        y: Math.max(52, (canvasSize.height - size.height * zoom) / 2) - node.y * zoom };
+    });
+  };
   const selectedNode = graph.nodes.find((node) => node.id === selectedId) ?? null;
   useEffect(() => {
     if (!selectedId || !selectedEntityId || hydratedEntityIdRef.current !== selectedEntityId || graph !== currentGraphRef.current) return;
@@ -3286,20 +3362,6 @@ export default function NodeGraphEditor() {
     logMessage("info", `[NodeGraph] Refeito: ${result.label}.`);
   }, [logMessage]);
   useEffect(() => registerGraphHistoryHandler({ undo: undoGraph, redo: redoGraph }), [redoGraph, undoGraph]);
-
-  // ── Organizar visualmente (so posicoes) ─────────────────────────────────────
-  const fitViewTo = useCallback((nodes: GraphNode[]) => {
-    const rect = canvasRef.current?.getBoundingClientRect();
-    const width = rect?.width || canvasSize.width;
-    const height = rect?.height || canvasSize.height;
-    if (!nodes.length || !width || !height) return;
-    const minX = Math.min(...nodes.map((node) => node.x));
-    const minY = Math.min(...nodes.map((node) => node.y));
-    const maxX = Math.max(...nodes.map((node) => node.x + nodeSizeOf(node).width));
-    const maxY = Math.max(...nodes.map((node) => node.y + nodeSizeOf(node).height));
-    const zoom = clampNodeGraphZoom(Math.min(1, (width - 2 * FOCUS_PADDING) / (maxX - minX), (height - 2 * FOCUS_PADDING - 48) / (maxY - minY)));
-    setView({ zoom, x: FOCUS_PADDING - minX * zoom, y: FOCUS_PADDING + 48 - minY * zoom });
-  }, [canvasSize.height, canvasSize.width, nodeSizeOf]);
 
   const organizeGraph = useCallback((scope: "all" | "selection") => {
     const current = currentGraphRef.current;
@@ -3784,6 +3846,7 @@ export default function NodeGraphEditor() {
       </div>
 
       {/* ── Canvas ── */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div
         data-testid="nodegraph-canvas-shell"
         data-zoom={view.zoom.toFixed(3)}
@@ -3820,7 +3883,6 @@ export default function NodeGraphEditor() {
             {activeTarget === "megadrive" && !isRecoveredRegionGraph(graph) && (
               <button type="button" data-testid="nodegraph-open-composer" className="rounded px-2 py-1 text-[#cdd6f4]"
                 onClick={() => {
-                  setContextOpen(true);
                   if (window.innerWidth < 1100) setPaletteOpen(false);
                   requestAnimationFrame(() => {
                     const panel = eventComposerRef.current;
@@ -3847,17 +3909,17 @@ export default function NodeGraphEditor() {
             <button type="button" aria-expanded={minimapOpen} aria-pressed={minimapOpen} data-testid="nodegraph-toggle-minimap" onClick={() => setMinimapOpen((open) => !open)}
               title={minimapOpen ? "Recolher o minimapa (preferência lembrada)" : "Mostrar o minimapa do grafo (preferência lembrada)"}
               className={`rounded px-2 py-1 hover:bg-[#313244] ${minimapOpen ? "bg-[#313244] text-[#89b4fa]" : "text-[#cdd6f4]"}`}>Minimapa</button>
+            <button type="button" data-testid="nodegraph-organize-all" onClick={() => organizeGraph("all")} disabled={graph.nodes.length === 0}
+              aria-label="Organizar tudo" data-tool-hint="Organizar o grafo pelas conexões" title="Organizar visualmente: so muda posicoes, segue as conexoes e nunca cria ou remove ligacoes. Nos fixados ficam parados."
+              className="flex items-center gap-1 rounded border border-[#89b4fa]/40 bg-[#89b4fa]/10 px-2 py-1 font-semibold text-[#89b4fa] hover:bg-[#89b4fa]/20 disabled:opacity-40">
+              <Icon name="organize" size={14} /> <span className="sr-only">Organizar tudo</span>
+            </button>
             <button type="button" data-testid="nodegraph-more-actions" popoverTarget="nodegraph-visual-tools" className="rounded border border-[#45475a] px-2 py-1 text-[#cdd6f4]">Mais ações</button>
             <div id="nodegraph-visual-tools" data-testid="nodegraph-visual-tools" popover="auto"
               className="fixed left-4 top-24 m-0 max-h-[calc(100vh-120px)] w-[min(480px,calc(100vw-32px))] overflow-y-auto rounded-lg border border-[#313244] bg-[var(--rds-surface-panel)] p-3 text-xs text-[var(--rds-text-primary)] shadow-xl"
               onClick={(event) => { if ((event.target as Element).closest("button")) event.currentTarget.hidePopover?.(); }}
               onWheel={(event) => event.stopPropagation()}>
             <div className="flex flex-wrap items-center gap-2 [&>button]:min-h-8">
-            <button type="button" data-testid="nodegraph-organize-all" onClick={() => organizeGraph("all")} disabled={graph.nodes.length === 0}
-              title="Organizar visualmente: so muda posicoes, segue as conexoes e nunca cria ou remove ligacoes. Nos fixados ficam parados."
-              className="flex items-center gap-1 rounded border border-[#89b4fa]/40 bg-[#89b4fa]/10 px-2 py-1 font-semibold text-[#89b4fa] hover:bg-[#89b4fa]/20 disabled:opacity-40">
-              <Icon name="organize" size={14} /> Organizar tudo
-            </button>
             <button type="button" data-testid="nodegraph-organize-selection" onClick={() => organizeGraph("selection")} disabled={selectionIds.length === 0}
               title="Organiza so os nos selecionados; o resto nao se move."
               className="rounded border border-[#89b4fa]/40 px-2 py-1 text-[#89b4fa] hover:bg-[#89b4fa]/20 disabled:opacity-40">
@@ -4292,62 +4354,6 @@ export default function NodeGraphEditor() {
               projectDir={activeProjectDir ?? null}
               onGraphChange={(next) => setGraph(next, "Trocar som")}
             />
-            {activeTarget === "megadrive" && !isRecoveredRegionGraph(graph) && (
-              <EventSequencePanel panelRef={eventComposerRef} graph={graph} palettes={activeScene?.palettes ?? []} selected={selectedNode}
-                targets={(activeScene?.entities ?? []).filter((entity) => entity.components.sprite)
-                  .map((entity) => ({ id: entity.entity_id, name: getEntityDisplayName(entity),
-                    animations: Object.keys(entity.components.sprite?.animations ?? {}).sort() }))}
-                onSelectNode={(id) => { setSelectedId(id); setSelectedIds(new Set([id])); }}
-                onCreate={(trigger, port) => {
-                  if (!canEditGraphNode(trigger)) return;
-                  const node = makeNode("timeline_sequence", trigger.x + 270, trigger.y);
-                  node.id = "resposta_" + Date.now().toString(36) + "_" + node.id;
-                  node.params = { ...node.params, run_mode: "event", slot_0_delay: 0, slot_1_delay: 2, slot_2_delay: 4, slot_3_delay: 6 };
-                  setGraph((current) => current.edges.some((edge) => edge.fromNode === trigger.id && edge.fromPort === port)
-                    ? current : { ...current, nodes: [...current.nodes, node], edges: [...current.edges, makeEdge(trigger, port, node, "exec")] },
-                  "Criar resposta a eventos");
-                  setSelectedId(node.id);
-                  setSelectedIds(new Set([node.id]));
-                }}
-                onParam={(id, key, value) => setGraph((current) => {
-                  const node = current.nodes.find((item) => item.id === id);
-                  if (!node || !canEditGraphNode(node) || node.params[key] === value) return current;
-                  const outputs = node.type !== "timeline_sequence" || node.outputs.some((port) => port.id === "slot_3")
-                    ? node.outputs : clonePorts(NODE_DEFS.timeline_sequence.outputs);
-                  const params = { ...node.params, [key]: value };
-                  if (node.type === "set_animation_state" && key === "target") {
-                    const target = activeScene?.entities.find((entity) => entity.entity_id === value);
-                    const animations = Object.keys(target?.components.sprite?.animations ?? {}).sort();
-                    if (animations.length === 0) return current;
-                    if (!animations.includes(String(params.state))) params.state = animations[0];
-                  }
-                  return { ...current, nodes: current.nodes.map((item) => item.id === id
-                    ? { ...item, outputs, params } : item) };
-                }, "Editar resposta a eventos")}
-                onAddAction={(sequence, slot, type) => {
-                  if (!canEditGraphNode(sequence)) return;
-                  const node = makeNode(type, sequence.x + 265, sequence.y + 170 * slot);
-                  if (type === "palette_swap") {
-                    node.label = "Brilho por paleta";
-                    node.params = { ...node.params, trigger_mode: "flow", target: "self" };
-                  }
-                  if (type === "set_animation_state") {
-                    const state = Object.keys(selectedEntity.components.sprite?.animations ?? {}).sort()[0];
-                    node.label = "Trocar animação";
-                    node.params = { ...node.params, target: state ? selectedEntity.entity_id : "", state: state ?? "" };
-                  }
-                  const port = "slot_" + slot;
-                  node.id = sequence.id + "_" + port + "_" + Date.now().toString(36) + "_" + node.id;
-                  setGraph((current) => {
-                    if (current.edges.some((edge) => edge.fromNode === sequence.id && edge.fromPort === port)) return current;
-                    return { ...current,
-                      nodes: [...current.nodes.map((item) => item.id === sequence.id && !item.outputs.some((output) => output.id === port)
-                        ? { ...item, outputs: clonePorts(NODE_DEFS.timeline_sequence.outputs) } : item), node],
-                      edges: [...current.edges, { ...makeEdge(sequence, port, node, "exec"), id: node.id + "_link" }],
-                    };
-                  }, "Adicionar ação à resposta");
-                }} />
-            )}
             {hardwareFeedback.length > 0 ? (
               <div
                 data-testid="nodegraph-hardware-feedback"
@@ -4897,11 +4903,10 @@ export default function NodeGraphEditor() {
               sfx={sceneSfx}
               detailsOpen={openDetails.has(node.id)}
               snapPortKey={snapTarget?.nodeId === node.id ? `in:${snapTarget.portId}` : null}
-              compatiblePortIds={
-                pendingEdge
-                  ? new Set(node.inputs.filter((port) => checkConnection(graph, pendingEdge.fromNode, pendingEdge.fromPort, node.id, port.id).ok).map((port) => port.id))
-                  : null
-              }
+              title={actionTitle(graph, node, names, schedule.get(node.id) ?? [])}
+              usedOutputs={usedPorts.get(node.id) ?? new Set()}
+              onActivate={() => selectStep(node.id)}
+              portChecks={pendingEdge ? new Map(node.inputs.map(port => [port.id, checkConnection(graph, pendingEdge.fromNode, pendingEdge.fromPort, node.id, port.id)])) : null}
               onMouseDown={(e) => onNodeMouseDown(e, node.id)}
               onPortMouseDown={(e, portId, isOutput) => onPortMouseDown(e, node.id, portId, isOutput)}
               onPortMouseUp={(e, portId, isOutput) => onPortMouseUp(e, node.id, portId, isOutput)}
@@ -4989,6 +4994,7 @@ export default function NodeGraphEditor() {
         {/* Empty state */}
         {selectedEntity && graph.nodes.length === 0 && (
           <EmptyStateOverlay
+            onAddEvent={() => addNode("event_update")}
             onApplyTemplate={applyQuickActionTemplate}
             selectedEntityLabel={quickActionContext.selectedEntityLabel}
             templates={orderedQuickActionTemplates}
@@ -5008,6 +5014,63 @@ export default function NodeGraphEditor() {
             Grafo sem conexoes: arraste de uma saida para uma entrada para ligar o fluxo.
           </div>
         )}
+      </div>
+            {selectedEntity && activeTarget === "megadrive" && !isRecoveredRegionGraph(graph) && (
+              <EventSequencePanel panelRef={eventComposerRef} graph={graph} palettes={activeScene?.palettes ?? []} selected={selectedNode} linkedSequence={selectedSteps[0]?.sequence}
+                targets={(activeScene?.entities ?? []).filter((entity) => entity.components.sprite)
+                  .map((entity) => ({ id: entity.entity_id, name: getEntityDisplayName(entity),
+                    animations: Object.keys(entity.components.sprite?.animations ?? {}).sort() }))}
+                onSelectNode={selectStep}
+                onCreate={(trigger, port) => {
+                  if (!canEditGraphNode(trigger)) return;
+                  const node = makeNode("timeline_sequence", trigger.x + 270, trigger.y);
+                  node.id = "resposta_" + Date.now().toString(36) + "_" + node.id;
+                  node.params = { ...node.params, run_mode: "event", slot_0_delay: 0, slot_1_delay: 2, slot_2_delay: 4, slot_3_delay: 6 };
+                  setGraph((current) => current.edges.some((edge) => edge.fromNode === trigger.id && edge.fromPort === port)
+                    ? current : { ...current, nodes: [...current.nodes, node], edges: [...current.edges, makeEdge(trigger, port, node, "exec")] },
+                  "Criar resposta a eventos");
+                  setSelectedId(node.id);
+                  setSelectedIds(new Set([node.id]));
+                }}
+                onParam={(id, key, value) => setGraph((current) => {
+                  const node = current.nodes.find((item) => item.id === id);
+                  if (!node || !canEditGraphNode(node) || node.params[key] === value) return current;
+                  const outputs = node.type !== "timeline_sequence" || node.outputs.some((port) => port.id === "slot_3")
+                    ? node.outputs : clonePorts(NODE_DEFS.timeline_sequence.outputs);
+                  const params = { ...node.params, [key]: value };
+                  if (node.type === "set_animation_state" && key === "target") {
+                    const target = activeScene?.entities.find((entity) => entity.entity_id === value);
+                    const animations = Object.keys(target?.components.sprite?.animations ?? {}).sort();
+                    if (animations.length === 0) return current;
+                    if (!animations.includes(String(params.state))) params.state = animations[0];
+                  }
+                  return { ...current, nodes: current.nodes.map((item) => item.id === id
+                    ? { ...item, outputs, params } : item) };
+                }, "Editar resposta a eventos")}
+                onAddAction={(sequence, slot, type) => {
+                  if (!canEditGraphNode(sequence)) return;
+                  const node = makeNode(type, sequence.x + 265, sequence.y + 170 * slot);
+                  if (type === "palette_swap") {
+                    node.label = "Brilho por paleta";
+                    node.params = { ...node.params, trigger_mode: "flow", target: "self" };
+                  }
+                  if (type === "set_animation_state") {
+                    const state = Object.keys(selectedEntity.components.sprite?.animations ?? {}).sort()[0];
+                    node.label = "Trocar animação";
+                    node.params = { ...node.params, target: state ? selectedEntity.entity_id : "", state: state ?? "" };
+                  }
+                  const port = "slot_" + slot;
+                  node.id = sequence.id + "_" + port + "_" + Date.now().toString(36) + "_" + node.id;
+                  setGraph((current) => {
+                    if (current.edges.some((edge) => edge.fromNode === sequence.id && edge.fromPort === port)) return current;
+                    return { ...current,
+                      nodes: [...current.nodes.map((item) => item.id === sequence.id && !item.outputs.some((output) => output.id === port)
+                        ? { ...item, outputs: clonePorts(NODE_DEFS.timeline_sequence.outputs) } : item), node],
+                      edges: [...current.edges, { ...makeEdge(sequence, port, node, "exec"), id: node.id + "_link" }],
+                    };
+                  }, "Adicionar ação à resposta");
+                }} />
+            )}
       </div>
     </div>
   );
