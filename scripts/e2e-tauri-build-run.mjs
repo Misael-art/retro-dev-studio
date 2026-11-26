@@ -11159,7 +11159,7 @@ async function verifyReferenceMotionTrace(sessionId, projectDir, timeoutMs, repo
       || changed.markers[2] >= first.markers[2]) fail(`A gravidade mudou o controle ou a curva inesperadamente: ${JSON.stringify({ first, changed })}`);
   await click("workspace-rail-debug");
   await openTrace();
-  await click("motion-trace-overlay");
+  await clickElement(sessionId, await findElement(sessionId, 'input[data-testid="motion-trace-overlay"]'));
   await click("motion-trace-b-Ápice");
   await waitFor(() => executeScript(sessionId, `return document.querySelectorAll('[data-testid="motion-trace-world"] path').length === 2
     && document.querySelector('[data-testid="motion-trace-b"]').textContent.includes("RAM do core");`),
@@ -19293,7 +19293,7 @@ async function verifyWaterTile(sessionId, projectDir, report, prefix) {
   const js = (script, args = []) => executeScript(sessionId, script, args);
   const shot = async label => addReportArtifact(report, await captureScreenshot(sessionId, prefix + "-" + label + ".png"), label);
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await click("hierarchy-select-raposa");
+  await selectPoseActorsOnCanvas(sessionId);
   await click("viewport-open-animation");
   await click("character-open-pixels");
   const selector = 'select[aria-label="Abrir arte vinculada da cena"]';
@@ -19303,7 +19303,9 @@ async function verifyWaterTile(sessionId, projectDir, report, prefix) {
   await clickElement(sessionId, option);
   await waitFor(() => js(`return document.querySelector('[data-testid="pixel-doc-name"]')?.value === 'agua';`), 10000, "O documento da água não abriu.");
   await click("pixel-task-tiles");
-  await click("pixel-open-seam-preview");
+  if (!await js("return !!document.querySelector('[data-testid=pixel-seam-canvas]');")) {
+    await clickElement(sessionId, await findElement(sessionId, 'summary[data-testid="pixel-open-seam-preview"]'));
+  }
   const seam = '[data-testid="pixel-seam-canvas"]';
   const paint = '[data-testid="pixel-canvas"]';
   const reveal = selector => js("document.querySelector(arguments[0]).scrollIntoView({block:'nearest',inline:'nearest'});", [selector]);
@@ -19336,6 +19338,8 @@ async function verifyIcePath(sessionId, projectDir, report, prefix, timeoutMs) {
   const click = id => clickButtonByTestIdNativeWhenReady(sessionId, id);
   const shot = async label => addReportArtifact(report, await captureScreenshot(sessionId, prefix + "-" + label + ".png"), label);
   await setSessionWindowRect(sessionId, 1920, 1080);
+  await click("unified-topbar-menu-trigger");
+  await click("workspace-reset-layout");
   await click("hierarchy-select-elevador");
   await click("viewport-tool-path");
   await shot("gelo-trajeto");
@@ -19388,11 +19392,16 @@ async function verifyRingAuthoring(sessionId, projectDir, report, prefix, timeou
     await click("viewport-pause");
     await waitFor(async () => (await readAutomationState(sessionId))?.emulPaused, 15000, "A ROM da coleta não pausou.");
     const probe = await openTimedRoomProbe(sessionId, projectDir, build);
+    const initialFrame = (await probe.observeRegions([])).frames_run;
+    const inputFrame = 256;
+    if (initialFrame >= inputFrame) fail("A ROM passou do quadro de partida comum antes da pausa.");
+    await probe.advance(inputFrame - initialFrame);
+    if ((await probe.observeRegions([])).frames_run !== inputFrame) fail("A ROM não alcançou o quadro de entrada combinado.");
     const file = path.join(validationDir, prefix + "-anel-" + delay + ".bin");
     await copyFile(build.rom_path, file);
     if (createHash("sha256").update(await readFile(file)).digest("hex") !== build.rom_sha256) fail("A cópia da ROM do anel divergiu da compilação.");
     addReportArtifact(report, file, "ROM autoral do anel, atraso " + delay + " ticks");
-    const sample = { delay, build, frames: [], regions: { ring: [111, 151, 1, 1], backdrop: [10, 110, 1, 1] } };
+    const sample = { delay, build, inputFrame, frames: [], regions: { ring: [111, 151, 1, 1], backdrop: [10, 110, 1, 1] } };
     report.ringTrials.push(sample);
     await probe.listen();
     try {
@@ -19460,7 +19469,7 @@ async function verifyRingAuthoring(sessionId, projectDir, report, prefix, timeou
   await waitFor(async () => !(await readAutomationState(sessionId))?.activeProjectDir, 15000, "A sala não fechou.");
   await open();
   const after = await measure(6);
-  if (before.build.rom_sha256 === after.build.rom_sha256 || after.firstPcmTick - before.firstPcmTick !== 2)
+  if (before.contactFrame !== after.contactFrame || before.build.rom_sha256 === after.build.rom_sha256 || after.firstPcmTick - before.firstPcmTick !== 2)
     fail("A reabertura e recompilação não deslocaram o PCM em dois ticks.");
   addReportStep(report, "ring_contact_once_timing_and_controls", "passed", { initialZoom });
 }
