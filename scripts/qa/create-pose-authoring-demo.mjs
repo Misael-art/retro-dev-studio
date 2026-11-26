@@ -546,7 +546,9 @@ if (process.argv.includes("--water-tile")) {
   console.log(await writeAdvancedAuthoringProject(path.join(root, "autoria-avancada"), process.argv.includes("--with-flash")));
 } else if (process.argv.includes("--indexed-effects")) {
   const moving = process.argv.includes("--moving-camera");
-  for (const effect of ["transparent", "ghost", "rotation"]) {
+  const effects = ["transparent", "ghost", "rotation"];
+  if (!moving) effects.push("deform-pose", "deform-sequence");
+  for (const effect of effects) {
     console.log(await writeLinkedAtlasProject(path.join(root, effect), { effect: true, moving }));
   }
 } else if (process.argv.includes("--linked-atlas")) {

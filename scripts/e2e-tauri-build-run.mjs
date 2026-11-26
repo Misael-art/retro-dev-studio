@@ -18183,7 +18183,7 @@ async function verifyLinkedAtlasEdit(sessionId, projectDir, report, prefix, time
   addReportStep(report, "atlas_reordered_with_occurrences_and_shared_use_intact", "passed", { baseline, edited });
 }
 
-const indexedEffectModes = ["effect-transparent", "effect-ghost", "effect-rotation"];
+const indexedEffectModes = ["effect-transparent", "effect-ghost", "effect-rotation", "effect-deform-pose", "effect-deform-sequence"];
 
 async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeoutMs, mode) {
   const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
@@ -18192,6 +18192,9 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
   const actor = (scene, id) => scene.entities.find((entity) => entity.entity_id === id);
   const moving = actor(await disk(), "camera_root")?.components.camera?.visual?.active === true;
   const rect = { x: 3, y: 4, width: 8, height: 8 };
+  const deform = mode.startsWith("effect-deform-");
+  const entireSequence = mode === "effect-deform-sequence";
+  const occurrence = deform ? "o2" : "o1";
   const targetPoint = { x: 4, y: 10 };
   const isInside = (x, y) => x >= rect.x && x < rect.x + rect.width && y >= rect.y && y < rect.y + rect.height;
   const indexAt = (x, y) => y * 16 + x;
@@ -18300,7 +18303,8 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
         return result;
       }, []);
       const lengths = runs.map(({ length }) => length).sort((a, b) => a - b);
-      if (new Set(runs.map(({ value }) => value)).size !== 3
+      const distinct = mode === "effect-deform-pose" && name === "target" && label === "efeito-publicado" ? 4 : 3;
+      if (new Set(runs.map(({ value }) => value)).size !== distinct
         || !isDeepStrictEqual(lengths, [2, period === 18 ? 4 : 3, 5, 7])) fail(`Ocorrências inesperadas em ${name}: ${lengths}.`);
       return runs.map(({ value, length }) => [length, moving ? value : Buffer.from(value, "base64")]).sort(([a], [b]) => a - b);
     };
@@ -18329,13 +18333,24 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
     if (mode === "effect-ghost") return (x + y) % 2 === 0 ? 0 : value;
     return cels[0][indexAt(y - 1, 14 - x)];
   });
+  // Independent oracle for an 8×8 selection shrunk to 4×6 with a two-pixel shear.
+  const sourceOffset = (x, y) => {
+    if (!isInside(x, y)) return indexAt(x, y);
+    const row = y - 4, column = x - 3 - [0, 0, 1, 1, 2, 2][row];
+    if (row >= 6 || column < 0 || column >= 4) return null;
+    return indexAt([4, 6, 8, 10][column], [4, 6, 7, 8, 10, 11][row]);
+  };
+  const deformed = cels.map(cel => cel.map((_, offset) => {
+    const src = sourceOffset(offset % 16, Math.floor(offset / 16));
+    return src == null ? 0 : cel[src];
+  }));
   const baseline = await observed("efeito-original", palette);
   await selectPoseActorsOnCanvas(sessionId, [["testemunha", 216], ["raposa", 72]]);
   await click("viewport-open-animation");
-  await click("character-occurrence-o1");
+  await click(`character-occurrence-${occurrence}`);
   await click("character-open-pixels");
   await waitFor(() => executeScript(sessionId,
-    `return document.querySelector('[data-testid="pixel-frame-0"]')?.dataset.active === 'true' && !!document.querySelector('[data-testid="pixel-save"]');`),
+    `return document.querySelector('[data-testid="pixel-frame-${deform ? 1 : 0}"]')?.dataset.active === 'true' && !!document.querySelector('[data-testid="pixel-save"]');`),
   15000, "Pixels não abriu na imagem da primeira ocorrência.", 100);
   const canvas = '[data-testid="pixel-canvas"]';
   const showPoints = async () => executeScript(sessionId, `document.querySelector(arguments[0]).scrollIntoView({ block: 'center', inline: 'center' });`, [canvas]);
@@ -18349,7 +18364,7 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
   const clean = await state();
   const normal = await colorAt(targetPoint.x, targetPoint.y);
   if (!normal || normal[0] < 180) fail(`Amostra original do editor não é o pixel opaco esperado: ${normal}.`);
-  await click(mode === "effect-rotation" ? "pixel-task-image" : "pixel-task-colors");
+  await click(deform ? "pixel-task-deform" : mode === "effect-rotation" ? "pixel-task-image" : "pixel-task-colors");
   let apply = "pixel-apply-image";
   if (mode === "effect-transparent") {
     apply = "pixel-transparent-apply";
@@ -18372,7 +18387,24 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
         { type: "pointerMove", origin: "viewport", x: to.x, y: to.y, duration: 240 }, { type: "pointerUp", button: 0 },
       ],
     }] });
-    if (mode === "effect-rotation") {
+    if (deform) {
+      const wasYellow = await colorAt(8, 6), orange = await colorAt(5, 6);
+      if (isDeepStrictEqual(wasYellow, orange)) fail("A seleção perdeu a borda entre as cores da pose.");
+      await fillInputBySelector(sessionId, 'input[name="Largura"]', "12");
+      await click("deform-preview");
+      await waitFor(async () => isDeepStrictEqual(await colorAt(8, 6), orange), 7000, "Ampliar a largura não deslocou a borda laranja.");
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-ampliacao.png`), "Prévia da seleção ampliada de oito para doze pixels");
+      await click("pixel-cancel-image");
+      await waitFor(async () => isDeepStrictEqual(await colorAt(8, 6), wasYellow), 7000, "Cancelar a ampliação não recuperou a borda.");
+      await fillInputBySelector(sessionId, 'input[name="Largura"]', "4");
+      await fillInputBySelector(sessionId, 'input[name="Altura"]', "6");
+      await fillInputBySelector(sessionId, 'input[name="Inclinação"]', "2");
+      if (entireSequence) await selectOptionByTestIdNative(sessionId, "deform-scope", "sequence", { confirm: false });
+      await click("deform-preview");
+      await click("pixel-cancel-image");
+      await waitFor(async () => isDeepStrictEqual(await colorAt(targetPoint.x, targetPoint.y), normal), 5000, "Cancelar alterou o sprite.");
+      await click("deform-preview");
+    } else if (mode === "effect-rotation") {
       await clickElement(sessionId, await findElement(sessionId, 'details:has([data-testid="pixel-preview-rotation"]) > summary'));
       const form = '[data-testid="pixel-preview-rotation"]';
       const fields = await executeScript(sessionId, `return Object.fromEntries(new FormData(document.querySelector(arguments[0]).form));`, [form]);
@@ -18464,7 +18496,18 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
     restoredTarget.components.sprite.asset = originalPath;
     restoredTarget.components.logic.logic_hints = restoredTarget.components.logic.logic_hints.map((hint) =>
       hint === `pixel_art:document=${publishedDocPath}` ? `pixel_art:document=${originalDocPath}` : hint);
-    const expectedFrames = [expected, ...cels.slice(1)];
+    let expectedFrames = [expected, ...cels.slice(1)];
+    if (deform) {
+      const expectedAnimation = structuredClone(actor(before, "raposa").components.sprite.animations.passo);
+      if (entireSequence) expectedFrames = deformed;
+      else {
+        expectedFrames = [...cels, deformed[1]];
+        expectedAnimation.frames[1] = cels.length;
+        expectedAnimation.hitboxes[0].frame = cels.length;
+      }
+      if (!isDeepStrictEqual(restoredTarget.components.sprite.animations.passo, expectedAnimation)) fail("O alcance alterou os vínculos ou as caixas de outra pose.");
+      restoredTarget.components.sprite.animations.passo = actor(before, "raposa").components.sprite.animations.passo;
+    }
     const differences = {
       frames: pixels.map((frame, index) => ({ index, pixels: [...frame.keys()].filter((offset) => frame[offset] !== expectedFrames[index]?.[offset]) }))
         .filter((frame) => frame.pixels.length > 0),
@@ -18486,7 +18529,7 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
   }, 20000, "A variante não foi vinculada ao ator.", 100);
   await verifySaved(saved);
   await click("studio-return-origin");
-  await waitFor(async () => (await state())?.studio.focus.occurrenceId === "o1" && (await state())?.activeWorkspace === "artstudio",
+  await waitFor(async () => (await state())?.studio.focus.occurrenceId === occurrence && (await state())?.activeWorkspace === "artstudio",
     10000, "O editor do efeito não retornou à ocorrência.", 100);
   await clickTopBarMenuAction(sessionId, "Fechar");
   await waitFor(async () => !(await state())?.activeProjectDir, 15000, "A fase do efeito não fechou.", 100);
@@ -18531,13 +18574,31 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
     });
   } else {
     const baseTarget = new Map(baseline.target), editedTarget = new Map(edited.target);
-    delta = checkMask(baseTarget.get(5), editedTarget.get(5), baseTarget.get(7), "fixo");
-    if ([2, 4, 7].some((key) => !baseTarget.get(key).equals(editedTarget.get(key)))) fail("Uma pose fora do escopo foi alterada.");
+    if (deform) {
+      const background = baseTarget.get(7);
+      pairedFrames = [5, 4, 7, 2].map((ticks, i) => {
+        const original = baseTarget.get(ticks), result = editedTarget.get(ticks);
+        const count = [];
+        for (let offset = 0; offset < 256; offset++) {
+          const src = entireSequence || ticks === 4 ? sourceOffset(offset % 16, Math.floor(offset / 16)) : offset;
+          const pose = [0, 1, 2, 1][i];
+          const wanted = src === offset ? rgba(original, offset)
+            : src == null || cels[pose][src] === 0 ? rgba(background, offset) : rgba(original, src);
+          if (!rgba(result, offset).equals(wanted)) fail(`Deformação divergente em o${i+1}, pixel ${offset}.`);
+          if (!rgba(original, offset).equals(rgba(result, offset))) count.push(offset);
+        }
+        if ((entireSequence ? i !== 2 : i === 1) !== Boolean(count.length)) fail(`Alcance incorreto para o${i+1}.`);
+        return { occurrence: "o" + (i+1), ticks, changedPixels: count.length };
+      });
+    } else {
+      delta = checkMask(baseTarget.get(5), editedTarget.get(5), baseTarget.get(7), "fixo");
+      if ([2, 4, 7].some((key) => !baseTarget.get(key).equals(editedTarget.get(key)))) fail("Uma pose fora do escopo foi alterada.");
+    }
   }
   const describe = ({ samples: _samples, ...observation }) => ({ ...observation, ...Object.fromEntries(["target", "witness"].map((name) =>
     [name, observation[name].map(([ticks, value]) => moving ? { ticks, pose: value } : { ticks, sha256: digest(value) })])) });
   await click("workspace-rail-scene");
-  await waitFor(async () => (await state())?.selectedEntityId === "raposa" && (await state())?.studio.focus.occurrenceId === "o1",
+  await waitFor(async () => (await state())?.selectedEntityId === "raposa" && (await state())?.studio.focus.occurrenceId === occurrence,
     10000, "O retorno do efeito ao Canvas perdeu o ator ou a ocorrência.", 100);
   addReportStep(report, "indexed_effect_and_control_in_core", "passed", { baseline: describe(baseline), edited: describe(edited), delta, pairedFrames });
 }

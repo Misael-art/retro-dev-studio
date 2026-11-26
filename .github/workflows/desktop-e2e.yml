@@ -439,7 +439,8 @@ jobs:
             $fixture = @('--indexed-effects')
             if ($camera -eq 'moving') { $fixture += '--moving-camera' }
             $projects = @(node scripts/qa/create-pose-authoring-demo.mjs @fixture)
-            if ($LASTEXITCODE -ne 0 -or $projects.Count -ne 3) { throw "Expected three indexed effect fixtures with camera $camera" }
+            $expected = if ($camera -eq 'fixed') { 5 } else { 3 }
+            if ($LASTEXITCODE -ne 0 -or $projects.Count -ne $expected) { throw "Expected $expected indexed effect fixtures with camera $camera" }
             foreach ($project in $projects) {
               $room = Split-Path -LiteralPath $project
               $env:RDS_POSE_PROOF = 'effect-' + (Split-Path -Leaf $room)
