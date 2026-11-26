@@ -3115,7 +3115,7 @@ describe("App build flow", () => {
     while (Date.now() < explorerDeadline) {
       const text = container.textContent ?? "";
       if (
-        text.includes("Workspace contextual de arquivos") &&
+        container.querySelector('[role="group"][aria-label="Catálogo do projeto"]') &&
         text.includes("Cenas 2") &&
         text.includes("hero.png")
       ) {
@@ -3128,7 +3128,7 @@ describe("App build flow", () => {
 
     expect(useEditorStore.getState().activeWorkspace).toBe("explorer");
     expect(useEditorStore.getState().activeViewportTab).toBe("scene");
-    expect(container.textContent).toContain("Workspace contextual de arquivos");
+    expect(container.querySelector('[aria-label="Catálogo do projeto"] button[aria-label="Atualizar arquivos"]')).toBeInstanceOf(HTMLButtonElement);
     expect(container.textContent).toContain("Cenas 2");
     expect(container.textContent).toContain("hero.png");
     expect(container.textContent).toContain("src/main.c");

@@ -19466,6 +19466,74 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
   if (strokeError) fail("A ROM foi verificada. O traço nativo continuou em aberto: " + strokeError);
 }
 
+// Visit the production owners on the saved advanced-authoring fixture. Each
+// capture records the actual WebView size, selection and affordances of this run.
+async function verifyWorkspaceCommandAccess(sessionId, report, prefix) {
+  const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  const rail = (area) => click("workspace-rail-" + area);
+  const js = (script, args = []) => executeScript(sessionId, script, args);
+  const visible = (id) => js("return !!document.querySelector('[data-testid='+JSON.stringify(arguments[0])+']')?.getBoundingClientRect().width;", [id]);
+  const capture = async (name, gesture, controls) => {
+    const ids = ["unified-topbar-menu-trigger", "toolbar-build-run", "workspace-activity-bar", ...controls];
+    await waitFor(async () => (await Promise.all(ids.map(visible))).every(Boolean),
+      12000, "Controles ausentes na vista " + name + ": " + ids.join(", "), 150);
+    const layout = await js(`
+      const rect = id => document.querySelector('[data-testid="'+id+'"]').getBoundingClientRect().toJSON();
+      return {viewport:[innerWidth,innerHeight],scale:devicePixelRatio,header:rect("unified-topbar"),
+        overflow:document.documentElement.scrollWidth-innerWidth,
+        controls:arguments[0].map(id=>({id,rect:rect(id)}))};`, [ids]);
+    if (layout.overflow > 1) fail("A janela exige rolagem horizontal em " + name);
+    const file = await captureScreenshot(sessionId, prefix + "-mesa-" + name + ".png");
+    addReportArtifact(report, file, gesture);
+    report.workspaceReview.push({ name: name + ".png", capture: file, gesture, layout });
+  };
+  const menu = async (id) => { await click("unified-topbar-menu-trigger"); await click(id); };
+  report.workspaceReview = [];
+  await setSessionWindowRect(sessionId, 1920, 1080);
+  await selectPoseActorsOnCanvas(sessionId);
+  await capture("01-cena", "Selecionar a raposa mantendo a hierarquia e as camadas acessíveis",
+    ["viewport-tool-select", "workspace-project-tab-layers"]);
+  await click("viewport-open-animation");
+  await click("character-occurrence-o2");
+  await capture("02-animacao", "Selecionar a segunda ocorrência e conferir a prévia",
+    ["character-occurrence-o2", "character-play", "character-preview"]);
+  await rail("logic");
+  await click("logic-view-nodes");
+  await click("nodegraph-open-composer");
+  await capture("05-logica", "Abrir o compositor com as etapas do evento à vista",
+    ["event-sequence-ticks-2", "nodegraph-undo"]);
+  await click("logic-view-code");
+  await capture("06-codigo", "Abrir a projeção da instância selecionada", ["instance-code-view", "instance-code-entity"]);
+  await rail("artstudio");
+  if (await visible("character-open-pixels")) await click("character-open-pixels");
+  else await click("artstudio-mode-pixel");
+  await click("pixel-task-tiles");
+  if (!await visible("pixel-seam-canvas")) await click("pixel-open-seam-preview");
+  await capture("03-arte", "Inspecionar a repetição do tile", ["pixel-canvas", "pixel-seam-canvas"]);
+  await click("pixel-task-colors");
+  await click("pixel-preview-ghost");
+  await capture("12-efeitos-sprite", "Abrir a prévia Fantasma no editor de pixels", ["pixel-canvas", "pixel-preview-ghost"]);
+  await rail("explorer");
+  await waitFor(() => js("return !!document.querySelector('[aria-label=\"Catálogo do projeto\"] button[aria-label=\"Atualizar arquivos\"]')?.offsetWidth;"),
+    10000, "Catálogo ou atualização de arquivos indisponível.", 100);
+  await capture("04-arquivos", "Consultar o catálogo do projeto", ["workspace-rail-explorer"]);
+  await rail("retrofx");
+  await click("retrofx-tab-wave");
+  await capture("07-efeitos", "Inspecionar a faixa de ondulação", ["retrofx-wave-editor"]);
+  await rail("scene");
+  await click("viewport-tool-collision");
+  if (!await visible("material-brush-panel")) await click("viewport-material-brush");
+  await selectOptionByTestIdNative(sessionId, "material-rule", "Areia");
+  await capture("11-terreno", "Inspecionar o pincel e os parâmetros da regra Areia", ["material-brush-scope", "material-friction"]);
+  await menu("workspace-preset-animate");
+  await capture("10-workspace", "Abrir a disposição de animação com a timeline encaixada", ["float-timeline", "viewport-scene-stage"]);
+  await rail("game");
+  await capture("08-teste", "Conferir a ROM do ensaio e seu transporte", ["viewport-emulator-identity", "viewport-game-canvas", "viewport-step-frame", "toolbar-emulator-stop"]);
+  await rail("debug");
+  await capture("09-depurar", "Abrir a área de depuração da sessão", ["workspace-properties-panel"]);
+  addReportStep(report, "workspace_commands_in_twelve_views", "passed", { screens: report.workspaceReview.length });
+}
+
 async function verifyFloatingStudioPanels(sessionId, projectDir, report, prefix, timeoutMs) {
   const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
   const enter = (id) => activateByTestIdWithEnter(sessionId, id);
@@ -19633,6 +19701,7 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
         60000, "A sala de autoria avançada não abriu.", 200);
       const verify = revision === "floating" ? verifyFloatingStudioPanels : verifyAdvancedAuthoring;
       await verify(sessionId, projectDir, report, prefix, timeoutMs);
+      if (revision === "advanced-flash") await verifyWorkspaceCommandAccess(sessionId, report, prefix);
       report.status = "passed";
       return;
     }
