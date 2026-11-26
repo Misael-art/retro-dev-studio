@@ -148,10 +148,10 @@ export default function MotionTracePanel({ renderedFrames, paused, screen }: { r
     {slot && <p>Avance um quadro por vez para registrar posição e entrada consumida pelo core.</p>}
     {message && <p role="status">{message}</p>}
     {session && <>
-      <label className="flex items-center gap-1"><input type="checkbox" checked={overlay} onChange={e => setOverlay(e.target.checked)} /> Sobrepor ao cenário pausado</label>
+      <label className="flex items-center gap-1"><input type="checkbox" data-testid="motion-trace-overlay" checked={overlay} onChange={e => setOverlay(e.target.checked)} /> Sobrepor ao cenário pausado</label>
       {overlay && paused && screen?.parentElement && camera && camera.epoch === epoch && camera.sha === rom?.sha256 && camera.frame === renderedFrames
         && !(session.a && session.b && session.a.entityId !== session.b.entityId) && createPortal(
-          <svg viewBox={`0 0 ${screen.width} ${screen.height}`} aria-label="Trajetos medidos no cenário" className="pointer-events-none absolute inset-0 h-full w-full">
+          <svg viewBox={`0 0 ${screen.width} ${screen.height}`} data-testid="motion-trace-world" aria-label="Trajetos medidos no cenário" className="pointer-events-none absolute inset-0 h-full w-full">
             {([session.a, session.b] as const).map((track, i) => {
               if (!track) return null;
               const color = i ? "#fcd34d" : "#99f6e4";
@@ -181,7 +181,7 @@ export default function MotionTracePanel({ renderedFrames, paused, screen }: { r
           {last && <p>Quadro {last.frame} em ({last.x}, {last.y}) px do mundo · entrada {buttons ? buttons.join(", ") || "neutra" : "sem leitura"}</p>}
           <div className="flex flex-wrap gap-1">
             {([{ label: "Saída", sample: takeoff }, { label: "Ápice", sample: apex }, { label: "Pouso", sample: landing }]).map(({ label, sample }) =>
-              <button type="button" key={label} className={button} disabled={!sample} onClick={() => sample && setPoint({ track: value, sample })}>
+              <button type="button" key={label} data-testid={`motion-trace-${name}-${label}`} className={button} disabled={!sample} onClick={() => sample && setPoint({ track: value, sample })}>
                 {label} {sample?.frame ?? "—"}</button>)}
           </div>
           {point?.track === value && <p>RAM do core · {value.entityId} · quadro {point.sample.frame} · ({point.sample.x}, {point.sample.y}) px · entrada {point.sample.input ? Object.entries(point.sample.input).filter(([, pressed]) => pressed).map(([key]) => key).join(", ") || "neutra" : "sem leitura"}</p>}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { compositeFrame, mdLevelTo8, pixelIndex, pixelLine, type PixelDoc, type PixelRect } from "../../core/pixelEditor";
 
 const TILE_SIZE = 8;
@@ -18,6 +18,8 @@ export default function PixelSeamPreview({ doc, frame, onSelectTile }: {
   const [scroll, setScroll] = useState<"still" | "horizontal" | "vertical">("still");
   const [source, setSource] = useState({ x: 0, y: 0 });
   const { width, height } = doc;
+  const pixels = useMemo(() => compositeFrame(doc, frame), [doc, frame]);
+  const selectedPixel = pixels[wrap(source.y, height) * width + wrap(source.x, width)];
 
   useEffect(() => {
     const preview = canvas.current;
@@ -29,7 +31,6 @@ export default function PixelSeamPreview({ doc, frame, onSelectTile }: {
     const tileSurface = tile.getContext("2d");
     if (!tileSurface) return;
     const image = tileSurface.createImageData(width, height);
-    const pixels = compositeFrame(doc, frame);
     const colors = doc.palettes.map((bank) => bank.map((color) => color.map(mdLevelTo8)));
     for (const [index, value] of pixels.entries()) {
       const slot = pixelIndex(value);
@@ -66,7 +67,7 @@ export default function PixelSeamPreview({ doc, frame, onSelectTile }: {
       draw();
     }, 50);
     return () => window.clearInterval(timer);
-  }, [doc, frame, height, scroll, width]);
+  }, [doc.palettes, pixels, height, scroll, width]);
 
   function selectSource(x: number, y: number) {
     const next = { x: wrap(x, width), y: wrap(y, height) };
@@ -79,7 +80,7 @@ export default function PixelSeamPreview({ doc, frame, onSelectTile }: {
       <p>Veja o quadro repetido em 3×3. Escolha um ponto para localizar o tile no editor.</p>
       <canvas ref={canvas} width={width * 3} height={height * 3} aria-label="Repetição 3×3 do cenário"
         data-testid="pixel-seam-canvas" className="h-auto max-w-full cursor-crosshair rounded bg-[#0b0f19] [image-rendering:pixelated]"
-        style={{ maxWidth: `min(100%, ${Math.ceil(width / height * 192)}px)` }}
+        style={{ width: `min(100%, ${Math.ceil(width / height * 192)}px)` }}
         onClick={(event) => {
           const rect = event.currentTarget.getBoundingClientRect();
           if (rect.width <= 0 || rect.height <= 0) return;
@@ -109,7 +110,7 @@ export default function PixelSeamPreview({ doc, frame, onSelectTile }: {
         ))}
         <button type="submit" className="rounded border border-[var(--rds-border-subtle)] p-1">Localizar tile</button>
       </form>
-      <p role="status" data-testid="pixel-seam-location">Tile ({Math.floor(source.x / TILE_SIZE)}, {Math.floor(source.y / TILE_SIZE)}) · pixel ({source.x}, {source.y})
+      <p role="status" data-testid="pixel-seam-location">Tile ({Math.floor(source.x / TILE_SIZE)}, {Math.floor(source.y / TILE_SIZE)}) · pixel ({wrap(source.x, width)}, {wrap(source.y, height)}) · PAL{pixelLine(selectedPixel)} · índice {pixelIndex(selectedPixel)}
         {source.x === 0 ? " · borda esquerda" : source.x === width - 1 ? " · borda direita" : ""}
         {source.y === 0 ? " · borda superior" : source.y === height - 1 ? " · borda inferior" : ""}
       </p>
