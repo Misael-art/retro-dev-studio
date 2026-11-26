@@ -19224,7 +19224,11 @@ async function openTimedRoomProbe(sessionId, projectDir, build) {
     const queue = [];
     const handler = api.transformCallback(({ payload }) => {
       const samples = payload.samples;
-      if (samples?.length) queue.push(Math.sqrt(samples.reduce((sum, v) => sum + v * v, 0) / samples.length));
+      if (samples?.length) {
+        const firstSignal = samples.findIndex(v => Math.abs(v) > 128);
+        queue.push({ rms: Math.sqrt(samples.reduce((sum, v) => sum + v * v, 0) / samples.length),
+          sampleCount: samples.length, firstSignal, sampleRate: payload.sample_rate });
+      }
     });
     api.invoke('plugin:event|listen', { event: 'emulator://audio', target: { kind: 'Any' }, handler })
       .then((id) => { window.__RDS_ADVANCED_AUDIO__ = { queue, id, handler }; done(true); }).catch(() => done(false));
@@ -19233,7 +19237,7 @@ async function openTimedRoomProbe(sessionId, projectDir, build) {
   };
   const audio = () => waitFor(() => executeScript(sessionId, `
     const queue = window.__RDS_ADVANCED_AUDIO__.queue;
-    return queue.length ? { rms: queue.shift() } : null;
+    return queue.shift() ?? null;
   `), 5000, "O core não retornou PCM do quadro.", 50);
   const close = async () => {
     await executeAsyncScript(sessionId, `
@@ -19419,6 +19423,14 @@ async function verifyRingAuthoring(sessionId, projectDir, report, prefix, timeou
     await click("viewport-pause");
     await waitFor(async () => (await readAutomationState(sessionId))?.emulPaused, 15000, "A ROM da coleta não pausou.");
     const probe = await openTimedRoomProbe(sessionId, projectDir, build);
+    const clockSymbol = "logic_var_timeline_event_tempo";
+    const generated = await readFile(path.join(projectDir, "build/megadrive/src/main.c"), "utf8");
+    const dispatch = generated.match(/switch\s*\(logic_var_timeline_event_tempo\)\s*\{([\s\S]*?)default:/)?.[1];
+    const soundCases = [...(dispatch || "").matchAll(/case\s+(\d+)\s*:([^:]*?)break;/g)]
+      .filter(match => match[2].includes("XGM_startPlayPCM(SFX_PASSO,"));
+    if (soundCases.length !== 1 || Number(soundCases[0][1]) !== delay || !probe.symbols.has(clockSymbol)) {
+      fail("O C e o ELF da ROM precisam identificar a chamada de som no tick programado.");
+    }
     const initialFrame = (await probe.observeRegions([])).frames_run;
     const inputFrame = 256;
     if (initialFrame >= inputFrame) fail("A ROM passou do quadro de partida comum antes da pausa.");
@@ -19428,7 +19440,8 @@ async function verifyRingAuthoring(sessionId, projectDir, report, prefix, timeou
     await copyFile(build.rom_path, file);
     if (createHash("sha256").update(await readFile(file)).digest("hex") !== build.rom_sha256) fail("A cópia da ROM do anel divergiu da compilação.");
     addReportArtifact(report, file, "ROM autoral do anel, atraso " + delay + " ticks");
-    const sample = { delay, build, inputFrame, frames: [], regions: { ring: [111, 151, 1, 1], backdrop: [10, 110, 1, 1] } };
+    const sample = { delay, build, inputFrame, clockSymbol, soundCase: soundCases[0][0], frames: [],
+      regions: { ring: [111, 151, 1, 1], backdrop: [10, 110, 1, 1] } };
     report.ringTrials.push(sample);
     await probe.listen();
     try {
@@ -19440,7 +19453,7 @@ async function verifyRingAuthoring(sessionId, projectDir, report, prefix, timeou
         const frame = await probe.observeRegions(Object.values(sample.regions));
         sample.core ??= await collectCoreIdentity(frame);
         const count = await probe.ram("logic_var_ctr_aneis", 4);
-        sample.frames.push({ frame: frame.frames_run, right, count, rgb: frame.crops[0].slice(0, 3),
+        sample.frames.push({ frame: frame.frames_run, right, count, clock: await probe.ram(clockSymbol, 4), rgb: frame.crops[0].slice(0, 3),
           background: frame.crops[1].slice(0, 3), ...(await probe.audio()) });
         if (contact < 0 && count > 0) contact = i;
         if (contact >= 0 && i >= contact + 25) break;
@@ -19450,10 +19463,19 @@ async function verifyRingAuthoring(sessionId, projectDir, report, prefix, timeou
           || frames.slice(contact).some(f => f.count !== 1)) fail("Contagem ou som incorreto fora e dentro do contato.");
       const lit = frames.flatMap((f, i) => Math.min(...f.rgb) > 220 ? [i - contact] : []);
       const pcm = frames.findIndex(f => f.rms > 100) - contact;
-      if (lit.length !== 8 || lit.some((t, i) => t !== lit[0] + i) || pcm < delay || pcm > delay + 8
+      // The generated switch runs before the counter increment. Sample the same clock in the loaded ROM.
+      const clockTicks = frames.slice(contact).map(f => f.clock);
+      if (frames.slice(0, contact).some(f => f.clock !== 0) || clockTicks.some((tick, i) => tick !== Math.min(i + 1, delay + 1))) {
+        fail("O relógio da sequência em RAM não percorreu exatamente os ticks do C compilado.");
+      }
+      const signal = frames.findIndex(f => f.firstSignal >= 0);
+      if (signal < contact || frames[signal].sampleCount <= 0) fail("O PCM não identificou uma frente audível após o contato.");
+      const onsetTick = signal - contact + frames[signal].firstSignal / frames[signal].sampleCount;
+      if (lit.length !== 8 || lit.some((t, i) => t !== i) || pcm < delay || pcm > delay + 8
           || frames.some(f => !isDeepStrictEqual(f.background, frames[0].background))
           || !isDeepStrictEqual(frames.at(-1).rgb, frames[0].rgb)) fail("O brilho, o áudio ou a região de controle divergiu.");
-      Object.assign(sample, { contactFrame: frames[contact].frame, firstPcmTick: pcm, presentedFlashTicks: lit });
+      Object.assign(sample, { contactFrame: frames[contact].frame, dispatchFrame: frames[contact + delay].frame,
+        onsetTick, firstPcmTick: pcm, presentedFlashTicks: lit });
       await shot("rom-anel-" + delay);
     } finally { await probe.input(); await probe.close(); }
     await click("workspace-rail-scene");
@@ -19496,8 +19518,13 @@ async function verifyRingAuthoring(sessionId, projectDir, report, prefix, timeou
   await waitFor(async () => !(await readAutomationState(sessionId))?.activeProjectDir, 15000, "A sala não fechou.");
   await open();
   const after = await measure(6);
-  if (before.contactFrame !== after.contactFrame || before.build.rom_sha256 === after.build.rom_sha256 || after.firstPcmTick - before.firstPcmTick !== 2)
-    fail("A reabertura e recompilação não deslocaram o PCM em dois ticks.");
+  const dispatchDelta = after.dispatchFrame - before.dispatchFrame;
+  const audibleDelta = after.onsetTick - before.onsetTick;
+  report.ringTiming = { dispatchDelta, audibleDelta, firstBlockDelta: after.firstPcmTick - before.firstPcmTick };
+  if (before.contactFrame !== after.contactFrame || before.build.rom_sha256 === after.build.rom_sha256
+      || dispatchDelta !== 2 || Math.abs(audibleDelta - dispatchDelta) >= 1) {
+    fail("O despacho do som deve atrasar exatamente dois ticks e a frente PCM deve acompanhá-lo dentro de um VBlank: " + JSON.stringify(report.ringTiming));
+  }
   addReportStep(report, "ring_contact_once_timing_and_controls", "passed", { initialZoom });
 }
 

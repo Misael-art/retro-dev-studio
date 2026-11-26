@@ -25,6 +25,20 @@ function required(value, field) {
   return value.trim();
 }
 
+async function readNativeReport(reportPath, baseDirectory, commit) {
+  const receipt = path.resolve(baseDirectory, reportPath);
+  const native = JSON.parse(await readFile(receipt, "utf8"));
+  const binarySha256 = native.testedApplication?.sha256 || native.executableSha256 || native.app_sha256;
+  if (!/^[0-9a-f]{64}$/.test(binarySha256)) throw new Error("O recibo do Tauri precisa identificar o executável por SHA-256.");
+  if ([native.repository?.commit, native.source].some(source => source && source !== commit)) throw new Error("A revisão diverge do recibo do Tauri.");
+  const recorded = [...(native.artifacts || []).map(entry => entry.path), ...(native.steps || []).map(step => step.screenshot),
+    ...Object.values(native.items || {}).map(item => item.file)];
+  const artifactPaths = new Set(recorded.filter(name => typeof name === "string").flatMap(name => [
+    path.resolve(path.dirname(receipt), name), path.join(path.dirname(receipt), path.win32.basename(name)),
+  ]));
+  return { artifactPaths, identity: { binarySha256, nativeReport: receipt, nativeReportSha256: await sha256(receipt) } };
+}
+
 // A janela pode ter escala e bordas nativas. Registre o raster separadamente da área lógica.
 async function pngSize(file) {
   const handle = await open(file, "r");
@@ -71,17 +85,9 @@ if (input !== "--referencias") {
     system: required(run.system, "system"), viewport: run.viewport, scalePercent: run.scalePercent };
   let artifactPaths;
   if (run.nativeReport) {
-    const receipt = path.resolve(path.dirname(file), run.nativeReport);
-    const native = JSON.parse(await readFile(receipt, "utf8"));
-    const binarySha256 = native.testedApplication?.sha256 || native.executableSha256;
-    if (!/^[0-9a-f]{64}$/.test(binarySha256)) throw new Error("O recibo do Tauri precisa identificar o executável por SHA-256.");
-    if (native.repository?.commit && native.repository.commit !== run.commit) throw new Error("A revisão diverge do recibo do Tauri.");
-    const recorded = [...(native.artifacts || []).map(entry => entry.path), ...(native.steps || []).map(step => step.screenshot)];
-    artifactPaths = new Set(recorded.filter(name => typeof name === "string").flatMap(name => [
-      path.resolve(path.dirname(receipt), name),
-      path.join(path.dirname(receipt), path.win32.basename(name)),
-    ]));
-    Object.assign(report.candidate, { binarySha256, nativeReport: receipt, nativeReportSha256: await sha256(receipt) });
+    const native = await readNativeReport(run.nativeReport, path.dirname(file), run.commit);
+    artifactPaths = native.artifactPaths;
+    Object.assign(report.candidate, native.identity);
   }
   if (run.binary || !run.nativeReport) {
     const binary = path.resolve(path.dirname(file), required(run.binary, "binary"));
@@ -107,7 +113,17 @@ if (input !== "--referencias") {
   for (const row of run.screens) {
     if (!criteria.has(row.name) || captures.has(row.name)) throw new Error(`Tela desconhecida ou repetida: ${row.name}`);
     const capture = path.resolve(path.dirname(file), required(row.capture, "capture"));
-    if (artifactPaths && !artifactPaths.has(capture)) throw new Error(`Captura ausente no recibo do Tauri: ${capture}`);
+    let provenance;
+    let recordedPaths = artifactPaths;
+    if (row.nativeReport) {
+      const commit = row.commit ?? run.commit;
+      if (!/^[0-9a-f]{40}$/.test(commit)) throw new Error("Revisão inválida na captura: " + row.name);
+      const system = required(row.system ?? run.system, "system");
+      const native = await readNativeReport(row.nativeReport, path.dirname(file), commit);
+      recordedPaths = native.artifactPaths;
+      provenance = { commit, system, ...native.identity };
+    }
+    if (recordedPaths && !recordedPaths.has(capture)) throw new Error(`Captura ausente no recibo do Tauri: ${capture}`);
     const size = await pngSize(capture);
     const digest = await sha256(capture);
     if (images.some(image => image.sha256 === digest)) throw new Error(`A captura é um dos mockups: ${row.name}`);
@@ -132,7 +148,8 @@ if (input !== "--referencias") {
       related.push({ path: filePath, label: required(item.label, "related.label"), size: await pngSize(filePath), sha256: await sha256(filePath) });
     }
     captures.set(row.name, { path: capture, sha256: digest, size, gesture: required(row.gesture, "gesture"),
-      observation: required(row.observation, "observation"), project: row.project, selection: row.selection, problem: row.problem, change: row.change, groups, related });
+      observation: required(row.observation, "observation"), project: row.project, selection: row.selection, problem: row.problem, change: row.change,
+      command: row.command, provenance, groups, related });
 
   }
 }
@@ -164,7 +181,9 @@ ${old ? picture(old.path, "Tauri anterior · " + report.previous.commit.slice(0,
 ${capture ? picture(capture.path, `Tauri · ${capture.size.join(" × ")} px`, groups, "current") : "<p class='pending'>Captura do Tauri pendente</p>"}</div>
 ${capture?.related?.length ? "<p>" + capture.related.map(item => `<a href="${escape(localUrl(item.path))}">${escape(item.label)}</a>`).join(" · ") + "</p>" : ""}
 ${groups?.length ? "<ol>" + groups.map(group => "<li>" + escape(group.name) + "</li>").join("") + "</ol>" : ""}
-${capture ? `<p>${[capture.project, capture.selection].filter(Boolean).map(escape).join(" · ")}</p><p><b>Gesto</b> ${escape(capture.gesture)}</p><p><b>Observação</b> ${escape(capture.observation)}</p>` : ""}</section>`;
+${capture ? `<p>${[capture.project, capture.selection].filter(Boolean).map(escape).join(" · ")}</p><p><b>Gesto</b> ${escape(capture.gesture)}</p><p><b>Observação</b> ${escape(capture.observation)}</p>` : ""}
+${capture?.command ? `<p><b>Comando</b> <code>${escape(capture.command)}</code></p>` : ""}
+${capture?.provenance ? `<p>${escape(capture.provenance.system)} · <code>${escape(capture.provenance.commit)}</code> · <a href="${escape(localUrl(capture.provenance.nativeReport))}">Recibo do executável e da captura</a></p>` : ""}</section>`;
 });
 const candidate = report.candidate;
 const html = `<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
