@@ -19506,11 +19506,15 @@ async function verifyWorkspaceCommandAccess(sessionId, report, prefix) {
   await capture("06-codigo", "Abrir a projeção da instância selecionada", ["instance-code-view", "instance-code-entity"]);
   await rail("artstudio");
   await click("character-open-pixels");
+  // On this fixture the sprite has no linked pixel document. Change the role
+  // of the unsaved document for the seam check, then return to sprite tools.
+  await selectOptionByTestIdNative(sessionId, "pixel-doc-target", "plane");
   await click("pixel-task-tiles");
   if (!await visible("pixel-seam-canvas")) {
     await clickElement(sessionId, await findElement(sessionId, 'summary[data-testid="pixel-open-seam-preview"]'));
   }
   await capture("03-arte", "Inspecionar a repetição do tile", ["pixel-canvas", "pixel-seam-canvas"]);
+  await selectOptionByTestIdNative(sessionId, "pixel-doc-target", "sprite");
   await click("pixel-task-colors");
   await click("pixel-preview-ghost");
   await capture("12-efeitos-sprite", "Abrir a prévia Fantasma no editor de pixels", ["pixel-canvas", "pixel-preview-ghost"]);
