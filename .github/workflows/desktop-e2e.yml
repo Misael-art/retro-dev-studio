@@ -17,6 +17,10 @@ on:
           - guides
           - advanced-authoring
           - linux-candidate
+      visual_comparison:
+        description: "Registrar as jornadas de autoria em Full HD com conferência em 1366 × 768"
+        type: boolean
+        default: false
       upload_candidate:
         description: "Guardar o executável exato deste ensaio Windows e seu SHA-256"
         type: boolean
@@ -86,6 +90,9 @@ jobs:
       RDS_E2E_UI_TIMEOUT_MS: 30000
       RDS_E2E_RUN_TIMEOUT_MS: 300000
       RDS_FORCE_TAURI_CLI_DEBUG: "1"
+      RDS_E2E_RECORD_LAYOUT: ${{ inputs.visual_comparison && contains(fromJSON('["authoring","advanced-authoring"]'), inputs.target) && '1' || '' }}
+      RDS_E2E_WINDOW_WIDTH: ${{ inputs.visual_comparison && contains(fromJSON('["authoring","advanced-authoring"]'), inputs.target) && '1920' || '' }}
+      RDS_E2E_WINDOW_HEIGHT: ${{ inputs.visual_comparison && contains(fromJSON('["authoring","advanced-authoring"]'), inputs.target) && '1080' || '' }}
       RDS_E2E_TARGET: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.target || github.event_name == 'workflow_call' && inputs.target || 'all' }}
       RDS_GITHUB_TOKEN: ${{ github.token }}
     steps:

@@ -18345,6 +18345,33 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
     fail(`A prévia modificou a fase, os arquivos ou o histórico: ${JSON.stringify(unchanged)}.`);
   }
   addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-previa.png`), "Prévia do efeito e retângulo de controle");
+  const compare = () => executeScript(sessionId, `
+    const original = document.querySelector('canvas[aria-label="Pose original"]');
+    const treated = document.querySelector('[data-testid="pixel-canvas"]');
+    if (!original || !treated) return null;
+    return { width: [original.getBoundingClientRect().width, treated.getBoundingClientRect().width],
+      height: [original.getBoundingClientRect().height, treated.getBoundingClientRect().height],
+      originalBackground: getComputedStyle(original.closest('figure')).backgroundColor,
+      treatedBackground: [...treated.getContext('2d').getImageData(0, 0, 1, 1).data] };
+  `);
+  const dark = await compare();
+  if (!dark || dark.width[0] !== dark.width[1] || dark.height[0] !== dark.height[1]
+      || dark.originalBackground !== "rgb(24, 32, 43)" || !isDeepStrictEqual(dark.treatedBackground, [24,32,43,255])) {
+    fail("Original e tratamento não compartilham zoom e fundo escuro.");
+  }
+  const background = await webdriverRequest("POST", `/session/${sessionId}/element`, {
+    using: "xpath", value: "//label[normalize-space(.)='Fundo claro']/input[@type='checkbox']",
+  });
+  const toggle = Object.values(background.value)[0];
+  await clickElement(sessionId, toggle);
+  const light = await waitFor(async () => {
+    const view = await compare();
+    return view?.originalBackground === "rgb(234, 223, 207)" && isDeepStrictEqual(view.treatedBackground, [234,223,207,255]) && view;
+  }, 5000, "O fundo claro não mudou nas duas poses.");
+  addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-previa-clara.png`), "As mesmas poses e zoom sobre fundo claro");
+  await clickElement(sessionId, toggle);
+  await waitFor(async () => isDeepStrictEqual(await compare(), dark), 5000, "O fundo escuro não foi recuperado.");
+  addReportStep(report, "indexed_effect_comparison_zoom_and_backdrops", "passed", { dark, light });
   await click(apply);
   await waitFor(() => executeScript(sessionId, `return document.querySelector('[data-testid="pixel-save"]')?.disabled === false;`),
     10000, "O editor permaneceu na prévia após aplicar.", 100);
