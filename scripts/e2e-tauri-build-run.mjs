@@ -19505,10 +19505,11 @@ async function verifyWorkspaceCommandAccess(sessionId, report, prefix) {
   await click("logic-view-code");
   await capture("06-codigo", "Abrir a projeção da instância selecionada", ["instance-code-view", "instance-code-entity"]);
   await rail("artstudio");
-  if (await visible("character-open-pixels")) await click("character-open-pixels");
-  else await click("artstudio-mode-pixel");
+  await click("character-open-pixels");
   await click("pixel-task-tiles");
-  if (!await visible("pixel-seam-canvas")) await click("pixel-open-seam-preview");
+  if (!await visible("pixel-seam-canvas")) {
+    await clickElement(sessionId, await findElement(sessionId, 'summary[data-testid="pixel-open-seam-preview"]'));
+  }
   await capture("03-arte", "Inspecionar a repetição do tile", ["pixel-canvas", "pixel-seam-canvas"]);
   await click("pixel-task-colors");
   await click("pixel-preview-ghost");

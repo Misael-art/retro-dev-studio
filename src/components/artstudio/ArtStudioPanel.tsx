@@ -2814,7 +2814,9 @@ export default function ArtStudioPanel() {
   const focusedImage = focusedPixelAnimation
     ? focusedPixelAnimation.frames[occurrenceIds(focusedPixelAnimation).indexOf(studio.focus.occurrenceId ?? "")] : undefined;
   const imageOriginalRelative = selectedEntity?.components.logic?.logic_hints?.find(h=>h.startsWith("art_ingress:original="))?.slice("art_ingress:original=".length);
-  useEffect(() => { if (importedPixelPath) setArtMode("pixel"); }, [importedPixelPath]);
+  useEffect(() => {
+    if (importedPixelPath || studio.focus.task === "pixels") setArtMode("pixel");
+  }, [importedPixelPath, studio.focus.task]);
   const canUpdateEntity = Boolean(selectedEntitySprite);
   const returnToSceneWithSelectedContext = useCallback(() => {
     setActiveWorkspace("scene");
