@@ -11127,6 +11127,9 @@ async function verifyReferenceMotionTrace(sessionId, projectDir, timeoutMs, repo
   };
 
   await setSessionWindowRect(sessionId, 1366, 768);
+  await click("workspace-rail-scene");
+  await click("unified-topbar-menu-trigger");
+  await click("workspace-reset-layout");
   await click("workspace-project-tab-scene");
   await click("hierarchy-select-player");
   const baseRom = await pauseBuild("traco-base");
@@ -18354,11 +18357,15 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
       originalBackground: getComputedStyle(original.closest('figure')).backgroundColor,
       treatedBackground: [...treated.getContext('2d').getImageData(0, 0, 1, 1).data] };
   `);
-  const dark = await compare();
-  if (!dark || dark.width[0] !== dark.width[1] || dark.height[0] !== dark.height[1]
-      || dark.originalBackground !== "rgb(24, 32, 43)" || !isDeepStrictEqual(dark.treatedBackground, [24,32,43,255])) {
-    fail("Original e tratamento não compartilham zoom e fundo escuro.");
-  }
+  // Resizing the real window updates the fit through ResizeObserver and the bitmap in a React effect.
+  let dark;
+  await waitFor(async () => {
+    dark = await compare();
+    return dark && dark.width[0] > 0 && dark.width[0] === dark.width[1] && dark.height[0] === dark.height[1]
+      && dark.originalBackground === "rgb(24, 32, 43)" && isDeepStrictEqual(dark.treatedBackground, [24,32,43,255]);
+  }, 5000, "Original e tratamento não compartilham zoom e fundo escuro.").catch(error => {
+    throw new Error(error.message + " " + JSON.stringify(dark));
+  });
   const background = await webdriverRequest("POST", `/session/${sessionId}/element`, {
     using: "xpath", value: "//label[normalize-space(.)='Fundo claro']/input[@type='checkbox']",
   });
