@@ -324,7 +324,7 @@ export function getNodeGraphDotGridStyle(
 ): Pick<CSSProperties, "backgroundImage" | "backgroundSize" | "backgroundPosition"> {
   const scaledSize = Math.max(1, gridSize * clampNodeGraphZoom(view.zoom || 1));
   return {
-    backgroundImage: "radial-gradient(circle, #313244 1px, transparent 1px)",
+    backgroundImage: "radial-gradient(circle, color-mix(in srgb, var(--rds-text-muted) 35%, transparent) 1px, transparent 1px)",
     backgroundSize: `${scaledSize}px ${scaledSize}px`,
     backgroundPosition: `${view.x}px ${view.y}px`,
   };
@@ -1495,6 +1495,10 @@ function NodeCard({
   const catalog = getNodeCatalogEntry(node.type);
   const category = getNodeCategory(node.type);
   const role = GRAPH_ROLES[graphRole(node)];
+  const overview = zoom < 0.8;
+  // Give the title the summary's space at small scales; ports keep their world coordinates.
+  const headerHeight = overview ? Math.min(CARD_HEADER_HEIGHT + CARD_ACTION_HEIGHT, 32 / zoom) : CARD_HEADER_HEIGHT;
+  const summaryHeight = CARD_HEADER_HEIGHT + CARD_ACTION_HEIGHT - headerHeight;
   const importBadges = getGraphNodeImportBadges(node);
   const editable = canEditGraphNode(node);
   const essential = (node.type==="camera_control"?["target","action",...(["shake","offset"].includes(String(node.params.action))?["frames","x","y"]:[])]:catalog?.essentialParams ?? []).filter((key) => key in node.params);
@@ -1662,21 +1666,24 @@ function NodeCard({
     >
       <div
         className="flex items-center gap-1.5 rounded-t-xl px-2 text-[11px] font-semibold text-[var(--rds-text-primary)] cursor-grab"
-        style={{ height: CARD_HEADER_HEIGHT, backgroundColor: role.color, color: "#fff" }}
+        style={{ height: headerHeight, backgroundColor: role.color, color: "#fff" }}
         title={`${category.label} · ${catalog?.description ?? ""}`}
       >
-        <span title={catalog?.title} className="flex items-center gap-1 text-[9px]"><Icon name={catalog?.icon ?? "chip"} size={14} />
-          {role.label}</span>
+        <span title={role.label} className="flex shrink-0 items-center gap-1 text-[9px]">
+          <Icon name={overview ? role.icon : catalog?.icon ?? "chip"} size={overview ? Math.min(26, 12 / zoom) : 14} />
+          <span className={overview ? "sr-only" : undefined}>{role.label}</span>
+        </span>
         <button type="button" data-node-heading data-testid={`node-heading-${node.id}`} title={title} aria-pressed={selected}
           onClick={(event) => { if (event.detail === 0) onActivate(); }}
-          className="min-w-0 flex-1 truncate text-left text-[13px]">{title}</button>
+          style={{ fontSize: Math.max(13, 11 / zoom) }}
+          className={`min-w-0 flex-1 text-left leading-[1.12] ${overview ? "line-clamp-2 break-words" : "truncate"}`}>{title}</button>
         {node.pinned ? <span data-testid={`node-pinned-${node.id}`} title="Posicao fixada: Organizar nao move este no"><Icon name="pin" size={12} /></span> : null}
       </div>
 
       <p
         data-testid={`node-action-${node.id}`}
         className="line-clamp-2 px-2 pt-1 text-[11px] leading-[15px] text-[#cdd6f4]"
-        style={{ height: CARD_ACTION_HEIGHT }}
+        style={{ height: summaryHeight, paddingTop: summaryHeight < 15 ? 0 : undefined, visibility: summaryHeight < 15 ? "hidden" : undefined }}
       >
         {describeNodeAction(node)}
       </p>
@@ -2664,10 +2671,10 @@ export default function NodeGraphEditor() {
     const maxX = Math.max(...nodes.map((node) => node.x + nodeSizeOf(node).width));
     const maxY = Math.max(...nodes.map((node) => node.y + nodeSizeOf(node).height));
     const zoom = clampNodeGraphZoom(Math.min(1, (width - 2 * FOCUS_PADDING) / (maxX - minX), (height - 2 * FOCUS_PADDING - 74) / (maxY - minY)));
-    setView({ zoom, x: FOCUS_PADDING - minX * zoom, y: FOCUS_PADDING + 48 - minY * zoom });
+    setView({ zoom, x: (width - (maxX - minX) * zoom) / 2 - minX * zoom, y: FOCUS_PADDING + 48 - minY * zoom });
   }, [canvasSize.height, canvasSize.width, nodeSizeOf]);
 
-  const fitRule = useCallback((id: string) => {
+  const fitRule = useCallback((id: string, revealed: readonly string[] = []) => {
     const component = new Set([id]);
     const adjacent = new Map<string, string[]>();
     for (const { fromNode, toNode } of graph.edges) {
@@ -2677,7 +2684,7 @@ export default function NodeGraphEditor() {
       adjacent.get(toNode)!.push(fromNode);
     }
     for (const id of component) for (const other of adjacent.get(id) ?? []) component.add(other);
-    fitViewTo(graph.nodes.filter(node => component.has(node.id) && !hiddenNodeIdsRef.current.has(node.id)));
+    fitViewTo(graph.nodes.filter(node => component.has(node.id) && (!hiddenNodeIdsRef.current.has(node.id) || revealed.includes(node.id))));
   }, [fitViewTo, graph]);
 
   useEffect(() => {
@@ -2910,7 +2917,7 @@ export default function NodeGraphEditor() {
     const left = view.x + node.x * view.zoom;
     const top = view.y + node.y * view.zoom;
     if (left < 0 || top < 48 || left + size.width * view.zoom > canvasSize.width || top + size.height * view.zoom > canvasSize.height - 32) {
-      fitRule(id);
+      fitRule(id, group?.nodeIds);
     }
   };
   const selectedNode = graph.nodes.find((node) => node.id === selectedId) ?? null;
@@ -4763,7 +4770,9 @@ export default function NodeGraphEditor() {
               ) + 18 * view.zoom;
               const hovered = hoveredEdgeId === edge.id;
               const active = activeEdgeId === edge.id;
-              const color = active ? "var(--rds-status-warning)" : PORT_VISUAL_COLORS[kind];
+              const selectedConnection = edge.fromNode === selectedId || edge.toNode === selectedId;
+              const color = active ? "var(--rds-status-warning)"
+                : selectedConnection && kind === "exec" ? "var(--rds-status-success)" : PORT_VISUAL_COLORS[kind];
               return (
                 <g key={edge.id}>
                   <path
@@ -4783,7 +4792,7 @@ export default function NodeGraphEditor() {
                     d={routeEdgePath(a, b, detour)}
                     fill="none"
                     stroke={color}
-                    strokeWidth={hovered || active ? 3 : kind === "data" ? 1.5 : 2}
+                    strokeWidth={hovered || active || selectedConnection ? 3 : kind === "data" ? 1.5 : 2}
                     strokeDasharray={kind === "data" ? "5 4" : undefined}
                     strokeOpacity={hovered || active ? 0.95 : 0.8}
                     style={{ pointerEvents: "stroke" }}

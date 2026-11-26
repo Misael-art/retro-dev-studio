@@ -19799,13 +19799,15 @@ async function verifyRingAuthoring(sessionId, projectDir, report, prefix, timeou
     const toolbar = get("nodegraph-toolbar").getBoundingClientRect();
     const legend = get("nodegraph-legend");
     const cards = ["evento","contato","primeira","tempo","som","brilho","contar"].map(id => {
-      const rect = get("node-card-"+id).getBoundingClientRect();
-      return { id, visible: rect.left >= canvas.left-1 && rect.right <= canvas.right+1
+      const card = get("node-card-"+id);
+      const rect = card.getBoundingClientRect();
+      const titlePx = parseFloat(getComputedStyle(get("node-heading-"+id)).fontSize) * rect.width / card.offsetWidth;
+      return { id, titlePx, visible: rect.left >= canvas.left-1 && rect.right <= canvas.right+1
         && rect.top >= toolbar.bottom && rect.bottom <= canvas.bottom+1 };
     });
     return { cards, roles: legend?.textContent, warnings: get("nodegraph-validation-preview")?.innerText };
   `);
-  if (graphReading.cards.some(card => !card.visible) || !["Evento","Condição","Ação","Tempo","Som","Visual"].every(role => graphReading.roles?.includes(role))
+  if (graphReading.cards.some(card => !card.visible || card.titlePx < 10.9) || !["Evento","Condição","Ação","Tempo","Som","Visual"].every(role => graphReading.roles?.includes(role))
       || graphReading.warnings?.includes("sem destino")) fail("O caminho da coleta, a legenda ou os terminais divergiram: " + JSON.stringify(graphReading));
   report.ringGraphReading = graphReading;
   await shot("05-som-selecionado");

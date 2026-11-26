@@ -1,5 +1,14 @@
 ## Recertificação Full do Deck em 26/11/2026
 
+
+<a id="conferir-respostas-compartilhadas"></a>
+
+### Conferir respostas compartilhadas, cores e Ondular
+
+A sala reproduzível é gerada por `node scripts/qa/create-pose-authoring-demo.mjs --ring`. No aplicativo, selecione o Anel e abra Lógica → Nós → Compositor. O enquadramento mostra disparo, condições e respostas. Os cartões e a régua usam os papéis da legenda no canto inferior do canvas. A régua mantém um único tempo por saída, inclusive quando há dois destinos.
+
+No workflow desktop, `target=advanced-authoring` com `visual_comparison=true` exercita a coleta original e uma cópia com duas respostas. O relatório `ring` registra o enquadramento, a marca na RAM e o PCM da mesma ROM. `target=authoring` compara a ondulação com a câmera, o primeiro plano e as linhas de controle. No Deck, a sessão de conferência desta correção é `/home/deck/RetroDevStudio-work/sessions/compositor-uq67aI/`. Consulte o diagnóstico e o Fôlego antes da certificação Full. O ensaio do Tauri em `606f1b4` passou na atribuição A=4/B=7 e nas duas ações. A avaliação com participantes continua aberta.
+
 O Fôlego admitiu a rodada de `a1087af`. O resultado da certificação com os sete gates é `$RDS_WORK_ROOT/sessions/deformacao-sprites-9T6MGyQm/certificacao-local.json`. A sessão também guarda o executável de `881a7cf` e os ensaios de transformação de sprites nas ROMs. O binário de `1b3f4b4` repetiu arraste, ajuste numérico e Desfazer em Cena. Os hashes, o pacote portátil, a galeria e a receita de reprodução estão na [jornada de autoria](../studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#transformar-sprites-e-recertificar-o-deck).
 
 <a id="qualificacao-autoria-20261124"></a>

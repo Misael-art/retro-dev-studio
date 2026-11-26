@@ -1,3 +1,9 @@
+### Compositor, legenda dos nós e relógio de Ondular · 26/11/2026
+
+Na [execução do Tauri Windows em `606f1b4`](https://github.com/Misael-art/retro-dev-studio/actions/runs/45885095588), a mesma ação de som foi selecionada nas respostas A e B. B passou de 13 para 7 ticks, com Undo/Redo e reabertura, e A conservou 4. A ROM `1a9c04911d9fd5bd5ffff6931d38b11bb37a8d6294aae6743c9bb3b51a748b16` executou som e marca na mesma saída. Na coleta simples, o despacho mudou de 4 para 6; a primeira amostra audível deslocou-se 2,220 quadros. Os sete cartões do percurso ficaram enquadrados e a coleta válida ficou sem avisos de saída. Ondular usa o relógio do projeto; o ensaio de um segundo a 60 Hz registrou 60 avanços. As cores e os nomes dos papéis são compartilhados entre grafo, régua e legenda.
+
+O ajuste visual seguinte amplia os títulos em zoom reduzido, dá ênfase à ligação selecionada e conserva as posições das portas. O condutor `advanced-authoring` mede o tamanho apresentado dos títulos junto da visibilidade do percurso. Receita, destino das provas e limites no [handoff local](handoffs/NOVO_HOST_INICIO.md#conferir-respostas-compartilhadas).
+
 ### Recertificação Full no Deck e transformação de sprites · 26/11/2026
 
 O Deck concluiu os sete gates locais em `a1087af`, incluindo 1.497 testes de frontend, 1.221 testes Rust e as provas upstream de Mega Drive e SNES. No executável exato de `1b3f4b4`, o arraste em Cena levou a Raposa de X=64 a 80. A entrada numérica levou a 81 e Desfazer recuperou 80, com Y=136 e a mesma seleção.
