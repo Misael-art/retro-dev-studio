@@ -10,7 +10,7 @@ const byTarget = {
   authoring: ["indexed_effects", "palette_and_atlas", "terrain_and_seam", "motion_trace", "wave_band", "hud_extremes"],
   hud: ["hud_extremes"],
   guides: ["scene_guides"],
-  "advanced-authoring": ["advanced_authoring", "ring_collection", "floating_panels"],
+  "advanced-authoring": ["advanced_authoring", "water_and_ice", "ring_collection", "floating_panels"],
 };
 
 export function verifyDesktopScenarios(target, steps) {

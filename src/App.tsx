@@ -4286,7 +4286,7 @@ export default function App() {
 
     if (workspace === "debug") {
       openToolsWorkspace("projectDiagnostics", "debug", true);
-      setActiveViewportTab("scene");
+      setActiveViewportTab(emulatorLoaded && useEditorStore.getState().motionTraceSession ? "game" : "scene");
       return;
     }
 

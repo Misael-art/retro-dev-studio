@@ -508,6 +508,19 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Add-Content -Path $env:RDS_E2E_LEDGER -Value 'hud_extremes'
 
+      - name: Paint a linked water tile and measure the ice platform in the core
+        id: water_and_ice
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'advanced-authoring' }}
+        run: |
+          foreach ($case in @('water-tile', 'ice-path')) {
+            $env:RDS_POSE_PROOF = $case
+            $project = node scripts/qa/create-pose-authoring-demo.mjs "--$case"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'water_and_ice'
+
       - name: Compare sockets, material and event timing in the Mega Drive core
         id: advanced_authoring
         if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'advanced-authoring' }}

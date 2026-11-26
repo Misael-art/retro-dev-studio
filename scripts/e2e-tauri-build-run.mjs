@@ -4177,6 +4177,21 @@ async function captureScreenshot(sessionId, filename) {
 
   const outputPath = path.join(validationDir, filename);
   await writeFile(outputPath, Buffer.from(base64, "base64"));
+  if (process.env.RDS_E2E_RECORD_LAYOUT === "1") {
+    const layout = await executeScript(sessionId, `
+      const state = window.__RDS_E2E__?.getState?.();
+      const nodes = [];
+      for (const element of document.querySelectorAll('[data-testid]')) {
+        const rect = element.getBoundingClientRect();
+        if (rect.width < 3 || rect.height < 3 || rect.bottom <= 0 || rect.top >= innerHeight
+            || rect.right <= 0 || rect.left >= innerWidth || getComputedStyle(element).visibility === 'hidden') continue;
+        nodes.push([element.dataset.testid, rect.x, rect.y, rect.width, rect.height]);
+      }
+      return { viewport: [innerWidth, innerHeight, devicePixelRatio], nodes,
+        project: state?.activeProjectDir, selection: state?.selectedEntityId, focus: state?.studio?.focus };
+    `);
+    await writeFile(outputPath + ".json", JSON.stringify(layout));
+  }
   return outputPath;
 }
 
@@ -11117,6 +11132,13 @@ async function verifyReferenceMotionTrace(sessionId, projectDir, timeoutMs, repo
       || changed.points.some(([x], i) => x !== first.points[i][0])
       || changed.points[changed.markers[1]][1] <= first.points[first.markers[1]][1]
       || changed.markers[2] >= first.markers[2]) fail(`A gravidade mudou o controle ou a curva inesperadamente: ${JSON.stringify({ first, changed })}`);
+  await click("workspace-rail-debug");
+  await openTrace();
+  await click("motion-trace-overlay");
+  await click("motion-trace-b-Ápice");
+  await waitFor(() => executeScript(sessionId, `return document.querySelectorAll('[data-testid="motion-trace-world"] path').length === 2
+    && document.querySelector('[data-testid="motion-trace-b"]').textContent.includes("RAM do core");`),
+    10000, "Depurar não apresentou os dois trajetos e o ápice lido da RAM.");
   addReportStep(report, "motion_trace_core_replay_and_gravity_control", "passed", { baseRom, changedRom, first, repeated, changed });
   addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-sobreposicao.png`), "Sobreposição dos dois saltos no jogo pausado");
 }
@@ -17323,7 +17345,7 @@ async function editPoseThroughDesktop(initialSessionId, projectDir, app, report,
     15000, "A edição vinculada não gravou 4 ticks como uma única operação.", 150);
   addReportStep(report, "c_o2_6_to_4", "passed");
   addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-duracao-c.png`), "Campo C vinculado com 4 ticks");
-  await click("studio-return-origin");
+  await click("code-return-pose");
   await ticks(4);
   await clickTopBarMenuAction(sessionId, "Desfazer");
   await ticks(6);
@@ -18457,6 +18479,15 @@ async function verifyWaveBand(sessionId, projectDir, report, prefix, timeoutMs) 
   const field = (name) => `${section} [name="${name}"]`;
   const range = await executeScript(sessionId, `return [arguments[0],arguments[1]].map((selector)=>Number(document.querySelector(selector).value));`, [field("first_line"), field("last_line")]);
   if (Math.abs(range[0]-145)>1 || Math.abs(range[1]-155)>1) fail(`Faixa do gesto incorreta: ${range}`);
+  for (const speed of [0, -4]) {
+    await fillInputBySelector(sessionId, field("speed"), String(speed));
+    await clickButtonByText(sessionId, "Aplicar valores", "exact");
+    await clickButtonByText(sessionId, "Salvar RetroFX", "exact");
+    await waitFor(async () => (await readWave())?.speed === speed, 10000, "Velocidade da faixa não persistiu.");
+  }
+  await clickButtonByText(sessionId, "Antes", "exact");
+  addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-onda-antes.png`), "Pilastra e plano sem deslocamento");
+  await clickButtonByText(sessionId, "Com onda", "exact");
   const values = {first_line: 145, last_line: 155, amplitude: 6, wavelength: 32, speed: 4, phase: 64};
   for (const [name, value] of Object.entries(values)) await fillInputBySelector(sessionId, field(name), String(value));
   await clickButtonByText(sessionId, "Aplicar valores", "exact");
@@ -19232,6 +19263,89 @@ async function observeAdvancedAuthoringRom(sessionId, projectDir, build) {
   return { build, core, magenta, control: matchPoseCadence(control, [0, 1, 2, 1], [5, 3, 7, 2]), neutral, event, secondPress, ground };
 }
 
+async function verifyWaterTile(sessionId, projectDir, report, prefix) {
+  const click = id => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  const js = (script, args = []) => executeScript(sessionId, script, args);
+  const shot = async label => addReportArtifact(report, await captureScreenshot(sessionId, prefix + "-" + label + ".png"), label);
+  await setSessionWindowRect(sessionId, 1920, 1080);
+  await click("hierarchy-select-raposa");
+  await click("viewport-open-animation");
+  await click("character-open-pixels");
+  const selector = 'select[aria-label="Abrir arte vinculada da cena"]';
+  const option = await findElement(sessionId, selector + ' option[value="paisagem"]');
+  await clickElement(sessionId, option);
+  await waitFor(() => js(`return document.querySelector('[data-testid="pixel-doc-name"]')?.value === 'agua';`), 10000, "O documento da água não abriu.");
+  await click("pixel-task-tiles");
+  await click("pixel-open-seam-preview");
+  const seam = '[data-testid="pixel-seam-canvas"]';
+  const paint = '[data-testid="pixel-canvas"]';
+  const reveal = selector => js("document.querySelector(arguments[0]).scrollIntoView({block:'nearest',inline:'nearest'});", [selector]);
+  const samples = () => js(`const c=document.querySelector(arguments[0]), ctx=c.getContext('2d');
+    return Array.from({length:9},(_,i)=>[...ctx.getImageData(7 + i%3*8, 1+Math.floor(i/3)*8,1,1).data]);`, [seam]);
+  await reveal(seam);
+  await clickCanvasPointNatively(sessionId, seam, 15.5/24, 9.5/24, "Localizar a borda da segunda cópia");
+  const where = () => js(`return document.querySelector('[data-testid="pixel-seam-location"]').textContent;`);
+  await waitFor(async () => (await where()).includes("pixel (7, 1) · PAL0 · índice 2"), 8000, "A emenda não indicou o pixel e o banco de origem.");
+  const before = await samples();
+  await shot("agua-borda-antes");
+  await click("pixel-tool-pencil");
+  await reveal(paint);
+  await clickCanvasPointNatively(sessionId, paint, 7.5/8, 1.5/8, "Pintar o pixel direito");
+  const after = await waitFor(async () => {
+    const pixels = await samples();
+    return pixels.every((p, i) => !isDeepStrictEqual(p, before[i]) && isDeepStrictEqual(p, pixels[0])) ? pixels : false;
+  }, 8000, "As nove cópias não acompanharam a pintura.");
+  await waitFor(async () => (await where()).includes("índice 1"), 8000, "Índice do pixel pintado incorreto.");
+  await shot("agua-borda-depois");
+  await click("pixel-save");
+  await waitFor(async () => {
+    const doc = JSON.parse(await readFile(path.join(projectDir, "assets/tilesets/pixel/agua.rdspixel.json")));
+    return Buffer.from(doc.frames[0].cels[0], "base64")[15] === 1;
+  }, 10000, "O pixel não persistiu no documento de água.");
+  addReportStep(report, "water_source_and_nine_repetitions", "passed", { before, after, source: [7, 1], bank: 0 });
+}
+
+async function verifyIcePath(sessionId, projectDir, report, prefix, timeoutMs) {
+  const click = id => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  const shot = async label => addReportArtifact(report, await captureScreenshot(sessionId, prefix + "-" + label + ".png"), label);
+  await setSessionWindowRect(sessionId, 1920, 1080);
+  await click("hierarchy-select-elevador");
+  await click("viewport-tool-path");
+  await shot("gelo-trajeto");
+  await click("viewport-tool-collision");
+  await click("viewport-material-brush");
+  await selectOptionByTestIdNative(sessionId, "material-rule", "Gelo");
+  await waitFor(() => executeScript(sessionId, `return /^8 células/.test(document.querySelector('[data-testid="material-brush-scope"]')?.textContent);`),
+    8000, "A faixa de Gelo perdeu células.");
+  await shot("gelo-faixa");
+  const build = await runBuildRunAndCollect(sessionId, "gelo-trajeto", timeoutMs, report, prefix, { nativeClick: true });
+  await click("viewport-pause");
+  await waitFor(async () => (await readAutomationState(sessionId))?.emulPaused, 15000, "A ROM do gelo não pausou.");
+  const probe = await openTimedRoomProbe(sessionId, projectDir, build);
+  const symbol = id => [...probe.symbols.keys()].find(name => name.startsWith("spr_") && name.endsWith(id + "_x"));
+  const runner = symbol("corredor"), platform = symbol("elevador");
+  if (!runner || !platform) fail("O ELF não identificou os dois atores do ensaio.");
+  await probe.input({ right: true });
+  for (let n = 0; n < 20 && await probe.ram(runner) < 54; n++) await probe.advance();
+  await probe.input();
+  const frames = [];
+  for (let tick = 0; tick < 150; tick++) {
+    frames.push({ tick, runner: await probe.ram(runner), platform: await probe.ram(platform) });
+    await probe.advance();
+  }
+  report.ice = { build, core: await collectCoreIdentity(await probe.observeRegions([])), frames };
+  const coast = frames.slice(0, 8);
+  const path = frames.map(f => f.platform);
+  if (coast[0].runner < 48 || coast[0].runner > 62 || coast.some((f, i) => i && f.runner <= coast[i-1].runner)
+      || frames.at(-1).runner === frames[0].runner || frames.at(-1).runner !== frames.at(-10).runner
+      || Math.min(...path) !== 152 || Math.max(...path) !== 176
+      || !path.some((x, i) => i && x > path[i-1]) || !path.some((x, i) => i && x < path[i-1])) {
+    fail("A leitura do core divergiu da inércia na faixa ou da ida e volta da plataforma.");
+  }
+  await shot("gelo-rom");
+  addReportStep(report, "ice_release_and_platform_return", "passed", { releasedAt: coast[0], stoppedAt: frames.at(-1) });
+}
+
 async function verifyRingAuthoring(sessionId, projectDir, report, prefix, timeoutMs) {
   const click = id => clickButtonByTestIdNativeWhenReady(sessionId, id);
   const enter = id => activateByTestIdWithEnter(sessionId, id);
@@ -19752,6 +19866,7 @@ async function verifyFloatingStudioPanels(sessionId, projectDir, report, prefix,
     report.floatingRestoration = { layout, restored, expected, pending };
     throw error;
   }
+  await shot("timeline-reencaixada");
   addReportStep(report, "floating_timeline_keyboard_draft_layout_history", "passed", { layout, ...pending });
 
   await enter("float-properties");
@@ -19793,7 +19908,7 @@ async function verifyFloatingStudioPanels(sessionId, projectDir, report, prefix,
 async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
   const revision = process.env.RDS_POSE_PROOF || "baseline";
   const occlusionModes = ["occlusion", "occlusion-region", "occlusion-motion"];
-  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace", "linked-atlas", "asset-replace", "terrain", "seam", "wave", "hud", "guides", "lighting", "advanced", "advanced-flash", "floating", "ring", ...occlusionModes, ...indexedEffectModes].includes(revision)) {
+  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace", "linked-atlas", "asset-replace", "terrain", "seam", "wave", "hud", "guides", "lighting", "advanced", "advanced-flash", "floating", "ring", "water-tile", "ice-path", ...occlusionModes, ...indexedEffectModes].includes(revision)) {
     fail(`RDS_POSE_PROOF desconhecido: ${revision}.`);
   }
   const prefix = `pose-cadence-${artifactTimestamp()}`;
@@ -19811,6 +19926,14 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
     if (report.atlasSha256 !== "8f104172610518705021450603f04bfd4d2fc0ed997e7c71de21cdb54874c735") fail("O atlas da prova mudou.");
     const atlas = decodeWindowPng(atlasBytes);
     report.executableSha256 = createHash("sha256").update(await readFile(app)).digest("hex");
+    if (revision === "water-tile" || revision === "ice-path") {
+      await openSavedProjectWizard(sessionId, projectDir);
+      await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir, 60000, "A sala não abriu.");
+      if (revision === "water-tile") await verifyWaterTile(sessionId, projectDir, report, prefix);
+      else await verifyIcePath(sessionId, projectDir, report, prefix, timeoutMs);
+      report.status = "passed";
+      return;
+    }
     if (revision === "ring") {
       await verifyRingAuthoring(sessionId, projectDir, report, prefix, timeoutMs);
       report.status = "passed";
