@@ -19532,8 +19532,21 @@ async function verifyWorkspaceCommandAccess(sessionId, report, prefix) {
   await capture("11-terreno", "Inspecionar o pincel e os parâmetros da regra Areia", ["material-brush-scope", "material-friction"]);
   await menu("workspace-preset-animate");
   await capture("10-workspace", "Abrir a disposição de animação com a timeline encaixada", ["float-timeline", "viewport-scene-stage"]);
+  const paused = await invokeCoreObserve(sessionId);
+  if (!paused?.ok || paused.non_black_pixels < 1000 || paused.rom_sha256 !== report.advancedRoms.editada.rom_sha256) {
+    fail("O core não apresentou a fase da ROM editada antes de voltar a Teste.");
+  }
   await rail("game");
-  await capture("08-teste", "Conferir a ROM do ensaio e seu transporte", ["viewport-emulator-identity", "viewport-game-canvas", "viewport-step-frame", "toolbar-emulator-stop"]);
+  await waitFor(async () => {
+    const frame = await readCanonicalGameFrame(sessionId);
+    return frame?.romSha256 === paused.rom_sha256 && frame.framebufferSha256 === paused.framebuffer_sha256;
+  }, 15000, "Voltar a Teste não recuperou a imagem exata do quadro pausado.", 200);
+  const restored = await invokeCoreObserve(sessionId);
+  if (restored.frames_run !== paused.frames_run) fail("Voltar a Teste avançou o jogo pausado.");
+  addReportStep(report, "restore_paused_view_without_advancing", "passed", {
+    rom: paused.rom_sha256, frame: paused.frames_run, framebuffer: paused.framebuffer_sha256,
+  });
+  await capture("08-teste", "Voltar à fase pausada com o mesmo quadro do core", ["viewport-emulator-identity", "viewport-game-canvas", "viewport-step-frame", "toolbar-emulator-stop"]);
   await rail("debug");
   await capture("09-depurar", "Abrir a área de depuração da sessão", ["workspace-properties-panel"]);
   addReportStep(report, "workspace_commands_in_twelve_views", "passed", { screens: report.workspaceReview.length });

@@ -17,6 +17,7 @@ import {
   JOYPAD_DEFAULT,
   acceptsFrame,
   emulatorLoadState,
+  emulatorObserve,
   emulatorPlayReplay,
   emulatorRewindStep,
   emulatorSaveState,
@@ -355,6 +356,7 @@ export default function ViewportPanel({
     projectSessionId,
     hwStatus,
     emulatorLoaded,
+    coreEpoch,
     setEmulatorLoaded,
     emulatorRomIdentity,
     lastBuildArtifact,
@@ -1576,6 +1578,7 @@ export default function ViewportPanel({
   );
 
   const lastPresentedFrameRef = useRef<FramePresentation | null>(null);
+  const paintedEpochs = useRef(new WeakMap<HTMLCanvasElement, number>());
   const renderFrame = useCallback((payload: FramePayload) => {
     const current = useEditorStore.getState();
     if (!acceptsFrame(payload, current.joypadSessionHold ? null : current.coreEpoch, current.emulatorRomIdentity?.sha256, lastPresentedFrameRef.current)) return;
@@ -1583,6 +1586,7 @@ export default function ViewportPanel({
     if (!canvas) return;
 
     if (!paintGameFrame(canvas, payload)) return;
+    paintedEpochs.current.set(canvas, payload.core_epoch!);
     current.recordBuildTestFrame(payload.core_epoch!, payload.rom_sha256!, payload.frame_index ?? 0);
     setGameFrameSize((current) => current.width === payload.width && current.height === payload.height
       ? current : { width: payload.width, height: payload.height });
@@ -1610,6 +1614,30 @@ export default function ViewportPanel({
       timing.frames = 1;
     }
   }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const sha = emulatorRomIdentity?.sha256;
+    if (!canvas || activeViewportTab !== "game" || !emulatorLoaded || !emulPaused
+      || !sha || coreEpoch === null || paintedEpochs.current.get(canvas) === coreEpoch) return;
+    let cancelled = false;
+    // Reopening Test recreates its canvas. Read the paused core without advancing it.
+    void emulatorObserve().then((snapshot) => {
+      const current = useEditorStore.getState();
+      if (cancelled || canvasRef.current !== canvas || !current.emulPaused || current.joypadSessionHold
+        || current.coreEpoch !== coreEpoch || current.emulatorRomIdentity?.sha256 !== sha
+        || paintedEpochs.current.get(canvas) === coreEpoch || !snapshot.ok || snapshot.rom_sha256 !== sha) return;
+      const width = snapshot.framebuffer_width;
+      const height = snapshot.framebuffer_height;
+      if (paintGameFrame(canvas, { width, height, rgba: snapshot.framebuffer_rgba })) {
+        paintedEpochs.current.set(canvas, coreEpoch);
+        setGameFrameSize({ width, height });
+      }
+    }).catch((error: unknown) => {
+      if (!cancelled) console.error("Falha ao recuperar o quadro pausado", error);
+    });
+    return () => { cancelled = true; };
+  }, [activeViewportTab, coreEpoch, emulatorLoaded, emulatorRomIdentity?.sha256, emulPaused]);
 
   useEffect(() => {
     let disposed = false;
