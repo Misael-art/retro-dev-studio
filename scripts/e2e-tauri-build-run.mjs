@@ -18351,7 +18351,6 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
   if (Object.values(unchanged).some((same) => !same)) {
     fail(`A prévia modificou a fase, os arquivos ou o histórico: ${JSON.stringify(unchanged)}.`);
   }
-  addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-previa.png`), "Prévia do efeito e retângulo de controle");
   const compare = () => executeScript(sessionId, `
     const original = document.querySelector('canvas[aria-label="Pose original"]');
     const treated = document.querySelector('[data-testid="pixel-canvas"]');
@@ -18383,6 +18382,8 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
   await clickElement(sessionId, toggle);
   await waitFor(async () => isDeepStrictEqual(await compare(), dark), 5000, "O fundo escuro não foi recuperado.");
   addReportStep(report, "indexed_effect_comparison_zoom_and_backdrops", "passed", { dark, light });
+  // The compact proof resizes the window. Capture it after comparing both backgrounds at the same zoom.
+  addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-previa.png`), "Prévia do efeito e retângulo de controle");
   await click(apply);
   await waitFor(() => executeScript(sessionId, `return document.querySelector('[data-testid="pixel-save"]')?.disabled === false;`),
     10000, "O editor permaneceu na prévia após aplicar.", 100);
