@@ -10,7 +10,7 @@ import { loadShellPersona } from "../../core/surfaceRegistry";
 import { cellsOnLine, terrainFromBrush, type TerrainBrush } from "../../core/tilemapCells";
 import { defaultPath, dropOffset, ellipsePath, hitPathHandleOrControl, pathBlockedReason, pathIssue, pathWorldPoints, removePoint, sampleSegment, withPoint } from "../../core/objectPath";
 import { describeEntityEditLock, entityEditLock, escapeExitsIsolation, layerCompositionEntities, resolvedTilemapPlanes, restoreTemplateEntityPositions, translateCollisionMap, tilePriorityBands, priorityRegionBetween, type TemplatePositionChange } from "../../core/sceneComposition";
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tabs from "../common/Tabs";
 import { useEditorStore } from "../../core/store/editorStore";
 import {
@@ -336,9 +336,11 @@ function drawResizeHandle(
 export default function ViewportPanel({
   showWorkspaceTabs = true,
   compactTools = false,
+  stopSessionButton,
 }: {
   showWorkspaceTabs?: boolean;
   compactTools?: boolean;
+  stopSessionButton?: ReactNode;
 }) {
   const {
     activeViewportTab,
@@ -2045,6 +2047,24 @@ export default function ViewportPanel({
       detachViewportRuntime();
     };
   }, [detachViewportRuntime]);
+
+  useEffect(() => {
+    if (activeViewportTab !== "game" || !hasEmulatorSession) return;
+    const transportKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey
+        || !gameMayTakeKeyDown(event)) return;
+      if (event.key === "F8") {
+        event.preventDefault();
+        if (emulPaused) handleResume();
+        else handlePause();
+      } else if (event.key === "F10" && emulPaused && !stepBusy) {
+        event.preventDefault();
+        void handleStepFrame();
+      }
+    };
+    window.addEventListener("keydown", transportKey);
+    return () => window.removeEventListener("keydown", transportKey);
+  }, [activeViewportTab, emulPaused, handlePause, handleResume, handleStepFrame, hasEmulatorSession, stepBusy]);
 
   useEffect(() => {
     if (activeViewportTab !== "game") return;
@@ -5147,9 +5167,10 @@ export default function ViewportPanel({
                       ? `${tool.activeColor} text-[#11111b]`
                       : "text-[#7f849c] hover:bg-[#313244] hover:text-[#cdd6f4]"
                   }`}
+                  data-tool-hint={tool.label}
                   title={tool.label}
                 >
-                  <Icon name={tool.icon} size={19} /> {tool.label.split(" (")[0]}
+                  <Icon name={tool.icon} size={19} />
                 </button>
               ))}
               {editorMode === "collision" && (
@@ -5215,148 +5236,8 @@ export default function ViewportPanel({
                 </button>
               ) : null}
               <div className="mx-1 w-px bg-[#313244] self-stretch" />
-              <button
-                type="button"
-                onClick={focusSelectedEntity}
-                disabled={!selectedEntity}
-                className="rounded border border-[#313244] bg-[#11111b] px-2 py-1 text-[10px] font-semibold text-[#cdd6f4] transition-colors hover:border-[#89b4fa] hover:text-[#89b4fa] disabled:cursor-not-allowed disabled:opacity-40"
-                title="Centralizar entidade selecionada"
-              >
-                Foco
-              </button>
-              <button
-                type="button"
-                data-testid="viewport-entity-solo-toggle"
-                aria-pressed={Boolean(selectedEntity && soloEntityId === selectedEntity.entity_id)}
-                onClick={toggleSelectedEntitySolo}
-                disabled={!selectedEntity}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                  selectedEntity && soloEntityId === selectedEntity.entity_id
-                    ? "border-[#f9e2af] bg-[#f9e2af]/15 text-[#f9e2af]"
-                    : "border-[#313244] bg-[#11111b] text-[#a6adc8] hover:border-[#f9e2af] hover:text-[#f9e2af]"
-                }`}
-                title="Isolar visualmente a entidade selecionada sem alterar a cena"
-              >
-                Solo
-              </button>
-              {soloEntityId ? (
-                <span
-                  data-testid="viewport-isolation-chip"
-                  role="status"
-                  className="inline-flex items-center gap-1 rounded border border-[#f9e2af]/60 px-2 py-0.5 text-[10px] font-semibold text-[#f9e2af]"
-                >
-                  Atenuado · isolamento: {(() => { const e = activeScene?.entities.find((c) => c.entity_id === soloEntityId); return e ? getEntityDisplayName(e) : soloEntityId; })()}
-                  <button
-                    type="button"
-                    data-testid="viewport-isolation-exit"
-                    onClick={() => setSoloEntityId(null)}
-                    aria-label="Sair do isolamento (Esc)"
-                    title="Sair do isolamento (Esc) — não altera a cena"
-                    className="rounded px-1 hover:bg-[#313244] focus:outline-none focus-visible:ring-1 focus-visible:ring-[#89b4fa]"
-                  >
-                    ×
-                  </button>
-                </span>
-              ) : null}
-              <button
-                type="button"
-                onClick={centerViewportOnCamera}
-                className="rounded border border-[#313244] bg-[#11111b] px-2 py-1 text-[10px] font-semibold text-[#f9e2af] transition-colors hover:border-[#f9e2af]"
-                title="Enquadrar a janela do jogador no editor"
-              >
-                Enquadrar câmera
-              </button>
-              <CameraConfigurator entityId={sceneWorld.camera?.entityId} />
-              <button
-                type="button"
-                onClick={resetSceneView}
-                className="rounded border border-[#313244] bg-[#11111b] px-2 py-1 text-[10px] font-semibold text-[#a6adc8] transition-colors hover:text-[#cdd6f4]"
-                title="Resetar vista (zoom + pan)"
-              >
-                Enquadrar cena
-              </button>
-              <button
-                type="button"
-                onClick={() => setClampViewportToWorld((current) => !current)}
-                aria-pressed={clampViewportToWorld}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  clampViewportToWorld
-                    ? "border-[#a6e3a1]/40 bg-[#a6e3a1]/10 text-[#a6e3a1]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Travar pan nos limites do mundo"
-              >
-                Clamp
-              </button>
-              {sceneDensityStatus.shouldSuggestStaging ? (
-                <button
-                  type="button"
-                  onClick={applyAuthoringStagingLayout}
-                  className="rounded border border-[#fab387]/35 bg-[#fab387]/10 px-2 py-1 text-[10px] font-semibold text-[#fab387] transition-colors hover:bg-[#fab387]/20"
-                  title="Distribuir cena densa em staging de autoria sem perder auditabilidade"
-                >
-                  Normalizar Cena
-                </button>
-              ) : null}
-              <span
-                className="hidden max-w-[10rem] truncate text-[9px] text-[#6c7086] xl:inline"
-                title="Shift+clique na pilha abre lista; Alt+clique cicla"
-              >
-                Shift=lista · Alt=ciclo
-              </span>
-              <div className="mx-1 w-px bg-[#313244] self-stretch" />
-              <button
-                type="button"
-                onClick={() => setViewportZoom(Math.max(ZOOM_MIN, viewportZoom - ZOOM_STEP))}
-                data-testid="viewport-zoom-out"
-                aria-label="Diminuir zoom"
-                className="rounded border border-[#313244] bg-[#11111b] px-1.5 py-0.5 text-[10px] font-semibold text-[#6c7086] transition-colors hover:text-[#a6adc8] disabled:opacity-30"
-                disabled={viewportZoom <= ZOOM_MIN}
-                title="Zoom out (Ctrl+-)"
-              >
-                −
-              </button>
-              <button
-                type="button"
-                onClick={() => resetViewportZoom()}
-                data-testid="viewport-zoom-reset"
-                aria-label="Restaurar zoom"
-                className="min-w-[40px] rounded border border-[#313244] bg-[#11111b] px-1.5 py-0.5 text-center text-[10px] font-semibold text-[#6c7086] transition-colors hover:text-[#a6adc8]"
-                title="Reset zoom (Ctrl+0)"
-              >
-                {Math.round(viewportZoom * 100)}%
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewportZoom(Math.min(ZOOM_MAX, viewportZoom + ZOOM_STEP))}
-                data-testid="viewport-zoom-in"
-                aria-label="Aumentar zoom"
-                className="rounded border border-[#313244] bg-[#11111b] px-1.5 py-0.5 text-[10px] font-semibold text-[#6c7086] transition-colors hover:text-[#a6adc8] disabled:opacity-30"
-                disabled={viewportZoom >= ZOOM_MAX}
-                title="Zoom in (Ctrl+=)"
-              >
-                +
-              </button>
             </div>
 
-            {editorMode === "collision" && activeTarget === "megadrive" && showMaterialBrush && activeScene?.collision_map && (
-              <MaterialBrushPanel map={activeScene.collision_map} entities={activeScene.entities}
-                brush={materialBrush} onBrush={setMaterialBrush}
-                onSave={(material) => {
-                  const map = useEditorStore.getState().activeScene?.collision_map;
-                  if (!map) return;
-                  const materials = map.materials ?? [];
-                  beginHistoryCapture();
-                  setCollisionMap({ ...map, materials: materials.some((item) => item.name === material.name)
-                    ? materials.map((item) => item.name === material.name ? material : item) : [...materials, material] });
-                  commitHistoryCapture();
-                }}
-                onCell={(index) => {
-                  beginHistoryCapture();
-                  updateCollisionMap(index, 1, materialBrush);
-                  commitHistoryCapture();
-                }} />
-            )}
             <CanvasAuthoringBar compact={compactTools} pathTool={pathTool} onPathToolChange={(tool) => { cancelPriorityDrawing(); pathDragRef.current = null; setPathPreview(null); setPathTool(tool); }}
               onDrawPriorityRegion={(high) => {
                 setSceneProbeArmed(false);
@@ -5543,10 +5424,29 @@ export default function ViewportPanel({
             {!compactTools && activeScene && !gameViewLight ? (
               <SceneAttentionPanel assets={{ missing: sceneAssetHealth.missing, failed: sceneAssetHealth.failed }} />
             ) : null}
+            <div className="flex min-h-0 flex-1">
+            {editorMode === "collision" && activeTarget === "megadrive" && showMaterialBrush && activeScene?.collision_map && (
+              <MaterialBrushPanel map={activeScene.collision_map} entities={activeScene.entities}
+                brush={materialBrush} onBrush={setMaterialBrush}
+                onSave={(material) => {
+                  const map = useEditorStore.getState().activeScene?.collision_map;
+                  if (!map) return;
+                  const materials = map.materials ?? [];
+                  beginHistoryCapture();
+                  setCollisionMap({ ...map, materials: materials.some((item) => item.name === material.name)
+                    ? materials.map((item) => item.name === material.name ? material : item) : [...materials, material] });
+                  commitHistoryCapture();
+                }}
+                onCell={(index) => {
+                  beginHistoryCapture();
+                  updateCollisionMap(index, 1, materialBrush);
+                  commitHistoryCapture();
+                }} />
+            )}
             {/* Área de canvas com overflow para mais espaço */}
             <div
               ref={sceneStageRef}
-              className="relative flex-1 overflow-hidden min-h-0"
+              className="relative min-w-0 flex-1 overflow-hidden min-h-0"
               onPointerDownCapture={() => { if (autoFitRef.current) autoFitRef.current.touched = true; }}
               onWheel={handleSceneStageWheel}
               data-testid="viewport-scene-stage"
@@ -6157,6 +6057,131 @@ export default function ViewportPanel({
             </span>
             </div>
             </div>
+            </div>
+            <div role="group" aria-label="Enquadramento e zoom" className="rds-viewport-framing">
+              <button
+                type="button"
+                onClick={focusSelectedEntity}
+                disabled={!selectedEntity}
+                className="rounded border border-[#313244] bg-[#11111b] px-2 py-1 text-[10px] font-semibold text-[#cdd6f4] transition-colors hover:border-[#89b4fa] hover:text-[#89b4fa] disabled:cursor-not-allowed disabled:opacity-40"
+                title="Centralizar entidade selecionada"
+              >
+                Foco
+              </button>
+              <button
+                type="button"
+                data-testid="viewport-entity-solo-toggle"
+                aria-pressed={Boolean(selectedEntity && soloEntityId === selectedEntity.entity_id)}
+                onClick={toggleSelectedEntitySolo}
+                disabled={!selectedEntity}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                  selectedEntity && soloEntityId === selectedEntity.entity_id
+                    ? "border-[#f9e2af] bg-[#f9e2af]/15 text-[#f9e2af]"
+                    : "border-[#313244] bg-[#11111b] text-[#a6adc8] hover:border-[#f9e2af] hover:text-[#f9e2af]"
+                }`}
+                title="Isolar visualmente a entidade selecionada sem alterar a cena"
+              >
+                Solo
+              </button>
+              {soloEntityId ? (
+                <span
+                  data-testid="viewport-isolation-chip"
+                  role="status"
+                  className="inline-flex items-center gap-1 rounded border border-[#f9e2af]/60 px-2 py-0.5 text-[10px] font-semibold text-[#f9e2af]"
+                >
+                  Atenuado · isolamento: {(() => { const e = activeScene?.entities.find((c) => c.entity_id === soloEntityId); return e ? getEntityDisplayName(e) : soloEntityId; })()}
+                  <button
+                    type="button"
+                    data-testid="viewport-isolation-exit"
+                    onClick={() => setSoloEntityId(null)}
+                    aria-label="Sair do isolamento (Esc)"
+                    title="Sair do isolamento (Esc) — não altera a cena"
+                    className="rounded px-1 hover:bg-[#313244] focus:outline-none focus-visible:ring-1 focus-visible:ring-[#89b4fa]"
+                  >
+                    ×
+                  </button>
+                </span>
+              ) : null}
+              <button
+                type="button"
+                onClick={centerViewportOnCamera}
+                className="rounded border border-[#313244] bg-[#11111b] px-2 py-1 text-[10px] font-semibold text-[#f9e2af] transition-colors hover:border-[#f9e2af]"
+                title="Enquadrar a janela do jogador no editor"
+              >
+                Enquadrar câmera
+              </button>
+              <CameraConfigurator entityId={sceneWorld.camera?.entityId} />
+              <button
+                type="button"
+                onClick={resetSceneView}
+                className="rounded border border-[#313244] bg-[#11111b] px-2 py-1 text-[10px] font-semibold text-[#a6adc8] transition-colors hover:text-[#cdd6f4]"
+                title="Resetar vista (zoom + pan)"
+              >
+                Enquadrar cena
+              </button>
+              <button
+                type="button"
+                onClick={() => setClampViewportToWorld((current) => !current)}
+                aria-pressed={clampViewportToWorld}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  clampViewportToWorld
+                    ? "border-[#a6e3a1]/40 bg-[#a6e3a1]/10 text-[#a6e3a1]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Travar pan nos limites do mundo"
+              >
+                Clamp
+              </button>
+              {sceneDensityStatus.shouldSuggestStaging ? (
+                <button
+                  type="button"
+                  onClick={applyAuthoringStagingLayout}
+                  className="rounded border border-[#fab387]/35 bg-[#fab387]/10 px-2 py-1 text-[10px] font-semibold text-[#fab387] transition-colors hover:bg-[#fab387]/20"
+                  title="Distribuir cena densa em staging de autoria sem perder auditabilidade"
+                >
+                  Normalizar Cena
+                </button>
+              ) : null}
+              <span
+                className="hidden max-w-[10rem] truncate text-[9px] text-[#6c7086] xl:inline"
+                title="Shift+clique na pilha abre lista; Alt+clique cicla"
+              >
+                Shift=lista · Alt=ciclo
+              </span>
+              <div className="mx-1 w-px bg-[#313244] self-stretch" />
+              <button
+                type="button"
+                onClick={() => setViewportZoom(Math.max(ZOOM_MIN, viewportZoom - ZOOM_STEP))}
+                data-testid="viewport-zoom-out"
+                aria-label="Diminuir zoom"
+                className="rounded border border-[#313244] bg-[#11111b] px-1.5 py-0.5 text-[10px] font-semibold text-[#6c7086] transition-colors hover:text-[#a6adc8] disabled:opacity-30"
+                disabled={viewportZoom <= ZOOM_MIN}
+                data-tool-hint="Diminuir zoom (Ctrl+-)" title="Diminuir zoom (Ctrl+-)"
+              >
+                −
+              </button>
+              <button
+                type="button"
+                onClick={() => resetViewportZoom()}
+                data-testid="viewport-zoom-reset"
+                aria-label="Restaurar zoom"
+                className="min-w-[40px] rounded border border-[#313244] bg-[#11111b] px-1.5 py-0.5 text-center text-[10px] font-semibold text-[#6c7086] transition-colors hover:text-[#a6adc8]"
+                data-tool-hint="Restaurar zoom (Ctrl+0)" title="Restaurar zoom (Ctrl+0)"
+              >
+                {Math.round(viewportZoom * 100)}%
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewportZoom(Math.min(ZOOM_MAX, viewportZoom + ZOOM_STEP))}
+                data-testid="viewport-zoom-in"
+                aria-label="Aumentar zoom"
+                className="rounded border border-[#313244] bg-[#11111b] px-1.5 py-0.5 text-[10px] font-semibold text-[#6c7086] transition-colors hover:text-[#a6adc8] disabled:opacity-30"
+                disabled={viewportZoom >= ZOOM_MAX}
+                data-tool-hint="Aumentar zoom (Ctrl+=)" title="Aumentar zoom (Ctrl+=)"
+              >
+                +
+              </button>
+            </div>
           </div>
         )}
 
@@ -6217,15 +6242,16 @@ export default function ViewportPanel({
               </div>
               <TestAdjustPanel paused={emulPaused} renderedFrames={renderedFrameCount} />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <div role="group" aria-label="Controlar a ROM carregada" className="rds-command-group">
               <button
                 type="button"
                 onClick={() => handlePause()}
                 disabled={!hasEmulatorSession || emulPaused}
-                data-testid="viewport-pause"
+                data-testid="viewport-pause" aria-label="Pausar" aria-keyshortcuts="F8" data-tool-hint="Pausar a ROM carregada (F8 no jogo)"
                 className="rounded border border-[#fab387]/40 bg-[#fab387]/10 px-2 py-1 text-[10px] font-semibold text-[#fab387] transition-colors hover:bg-[#fab387]/20 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Pausar
+                <Icon name="pause" size={16} />
               </button>
               {rexCopyRun && emulatorRomIdentity?.path === rexCopyRun.copyPath ? (
                 <button
@@ -6247,20 +6273,22 @@ export default function ViewportPanel({
                 type="button"
                 onClick={() => handleResume()}
                 disabled={!hasEmulatorSession || !emulPaused}
-                data-testid="viewport-resume"
+                data-testid="viewport-resume" aria-label="Retomar" aria-keyshortcuts="F8" data-tool-hint="Retomar a ROM carregada (F8 no jogo)"
                 className="rounded border border-[#a6e3a1]/40 bg-[#a6e3a1]/10 px-2 py-1 text-[10px] font-semibold text-[#a6e3a1] transition-colors hover:bg-[#a6e3a1]/20 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Retomar
+                <Icon name="play" size={16} />
               </button>
               <button
                 type="button"
                 onClick={() => void handleStepFrame()}
                 disabled={!hasEmulatorSession || !emulPaused || stepBusy}
-                data-testid="viewport-step-frame"
+                data-testid="viewport-step-frame" aria-keyshortcuts="F10" data-tool-hint="Avançar um quadro (F10 no jogo pausado)"
                 className="rounded border border-[#f9e2af]/40 bg-[#f9e2af]/10 px-2 py-1 text-[10px] font-semibold text-[#f9e2af] transition-colors hover:bg-[#f9e2af]/20 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {stepBusy ? "Step..." : "Step 1 frame"}
+                {stepBusy ? "Avançando…" : "1 quadro"}
               </button>
+              {stopSessionButton}
+              </div>
               <button
                 type="button"
                 onClick={() => void handleSaveState()}

@@ -885,11 +885,11 @@ export default function PixelEditor({ projectDir, source, log, beforeSave, onSav
           }} className="rounded border border-[#313244] px-2 py-1" title="Remove a cor uniforme conectada às bordas em todos os quadros; permite desfazer">
             Remover fundo
           </button>
-          <button type="button" onClick={undo} disabled={past.length === 0} className="rounded border border-[#313244] px-2 py-1 disabled:opacity-40" title="Desfazer (Ctrl+Z)">
-            ↶
+          <button type="button" onClick={undo} disabled={past.length === 0} className="rounded border border-[#313244] px-2 py-1 disabled:opacity-40" aria-label="Desfazer" data-tool-hint="Desfazer (Ctrl+Z)" title="Desfazer (Ctrl+Z)">
+            <Icon name="undo" size={16} />
           </button>
-          <button type="button" onClick={redo} disabled={future.length === 0} className="rounded border border-[#313244] px-2 py-1 disabled:opacity-40" title="Refazer (Ctrl+Y)">
-            ↷
+          <button type="button" onClick={redo} disabled={future.length === 0} className="rounded border border-[#313244] px-2 py-1 disabled:opacity-40" aria-label="Refazer" data-tool-hint="Refazer (Ctrl+Y)" title="Refazer (Ctrl+Y)">
+            <Icon name="redo" size={16} />
           </button>
           <button type="button" onClick={() => void download()} className="rounded border border-[#313244] px-2 py-1 hover:bg-[#1f2937]" title="Folha horizontal, PNG indexado 4-bit">
             Baixar PNG
@@ -927,7 +927,7 @@ export default function PixelEditor({ projectDir, source, log, beforeSave, onSav
               data-testid={`pixel-tool-${t.id}`}
               data-active={tool === t.id}
               onClick={() => { setTool(t.id); setTileMap(false); }}
-              title={`${t.label} (${t.key}) — ${t.hint}`}
+              data-tool-hint={`${t.label} (${t.key}) — ${t.hint}`} title={`${t.label} (${t.key}) — ${t.hint}`}
               aria-label={`${t.label} (${t.key})`}
               aria-pressed={tool === t.id}
               className={`flex min-h-8 shrink-0 items-center gap-2 rounded-lg px-2 py-1.5 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#7dd3fc] ${tool === t.id ? "bg-[#7dd3fc]/20 text-[#7dd3fc] ring-1 ring-[#7dd3fc]/60" : "text-[#cdd6f4] hover:bg-[#1f2937]"}`}

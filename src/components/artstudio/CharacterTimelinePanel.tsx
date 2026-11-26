@@ -1,3 +1,4 @@
+import Icon from "../common/Icon";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -425,7 +426,8 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
         <div className="flex flex-wrap items-center gap-2 border-b border-[#27272a] px-2 py-1">
           <button
             type="button"
-            data-testid="character-play"
+            data-testid="character-play" aria-pressed={playing}
+            data-tool-hint={playing ? "Pausar animação" : "Reproduzir animação"}
             onClick={() => {
               if (playing) {
                 setPausedPreviewTick(playTick.current);
@@ -437,7 +439,8 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
             }}
             className="rounded border border-[#334155] px-2 py-0.5"
           >
-            {playing ? "Pausar" : "Reproduzir"}
+            <Icon name={playing ? "pause" : "play"} size={16} />
+            <span className="sr-only">{playing ? "Pausar" : "Reproduzir"}</span>
           </button>
           <button
             type="button"

@@ -1,3 +1,4 @@
+import CommandHint from "./components/common/CommandHint";
 import ProjectStartWizard from "./components/common/ProjectStartWizard";
 import ImageIngress from "./components/artstudio/ImageIngress";
 import RomDropDecompile from "./components/tools/RomDropDecompile";
@@ -249,6 +250,7 @@ function ToolbarButton({
   testId,
   title,
   describedBy,
+  iconOnly = false,
   icon,
 }: {
   label: string;
@@ -257,6 +259,7 @@ function ToolbarButton({
   accent?: "default" | "primary" | "success" | "danger";
   testId?: string;
   title?: string;
+  iconOnly?: boolean;
   describedBy?: string;
   icon?: IconName;
 }) {
@@ -274,12 +277,13 @@ function ToolbarButton({
       onClick={onClick}
       disabled={disabled}
       data-testid={testId}
-      title={title}
+      title={title ?? label}
+      data-tool-hint={iconOnly ? title ?? label : undefined}
       aria-describedby={describedBy}
       className={`inline-flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap rounded px-2 py-1 text-xs font-semibold leading-none transition-colors ${palette} disabled:cursor-not-allowed disabled:opacity-40`}
     >
       {icon ? <Icon name={icon} size={18} /> : null}
-      {label}
+      <span className={iconOnly ? "sr-only" : undefined}>{label}</span>
     </button>
   );
 }
@@ -4394,7 +4398,7 @@ export default function App() {
             signal: sharedSignal,
             actions: [
               {
-                label: "Rodar no Emulador",
+                label: "Testar projeto",
                 onClick: () => void handleBuildAndRun(),
                 accent: "success",
                 disabled: building || liveBuildBlocked,
@@ -4432,7 +4436,7 @@ export default function App() {
                 onClick: () => void handleValidate(),
               },
               {
-                label: "Rodar no Emulador",
+                label: "Testar projeto",
                 onClick: () => void handleBuildAndRun(),
                 accent: "success",
                 disabled: building || liveBuildBlocked,
@@ -4462,7 +4466,7 @@ export default function App() {
                 onClick: () => handleWorkspaceSelect("scene"),
               },
               {
-                label: "Rodar no Emulador",
+                label: "Testar projeto",
                 onClick: () => void handleBuildAndRun(),
                 accent: "success",
                 disabled: building || liveBuildBlocked,
@@ -4529,7 +4533,7 @@ export default function App() {
               onClick: () => setRightPanelMode("inspector"),
             },
             {
-              label: "Rodar no Emulador",
+              label: "Testar projeto",
               onClick: () => void handleBuildAndRun(),
               accent: "success",
               disabled: building || liveBuildBlocked,
@@ -5159,6 +5163,13 @@ export default function App() {
       </div>
     </div>
   ) : null;
+  const transportAtGame = activeWorkspace === "game" && activeViewportTab === "game"
+    && (!compactShell || compactVisiblePanel === "canvas");
+  const stopSessionButton = (
+    <ToolbarButton label="Parar" icon="square" iconOnly accent="danger"
+      title={getShortcutTitle("emulator.stop", "Parar emulação", shortcuts)} testId="toolbar-emulator-stop"
+      onClick={() => void handleEmulatorStop()} disabled={!emulatorLoaded} />
+  );
   const workspaceEditor = activeWorkspace === "explorer" ? (
     <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Explorer..." />}>
       <ExplorerWorkspace
@@ -5168,7 +5179,7 @@ export default function App() {
     </Suspense>
   ) : (
     <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Workspace..." />}>
-      <ViewportPanel showWorkspaceTabs={false} compactTools={splitTimeline} />
+      <ViewportPanel showWorkspaceTabs={false} compactTools={splitTimeline} stopSessionButton={transportAtGame ? stopSessionButton : undefined} />
     </Suspense>
   );
   const animationActor = splitTimeline || floating.open.timeline
@@ -5698,6 +5709,7 @@ export default function App() {
         />
       )}
 
+      <CommandHint />
       <UnifiedTopBar
         appName="RetroDev Studio"
         appTagline="Workspace adaptativo para autoria, playtest e debug."
@@ -5731,7 +5743,7 @@ export default function App() {
                 "build.run",
                 liveBuildBlocked
                   ? buildDisabledReason ?? "Build & Run"
-                  : buildWarningSummary ?? "Build & Run",
+                  : buildWarningSummary ?? "Compilar a revisão atual e iniciar sua ROM",
                 shortcuts
               )}
               describedBy={liveBuildBlocked ? "build-disabled-reason" : undefined}
@@ -5750,35 +5762,33 @@ export default function App() {
                 title={`Compila e roda começando pela entrada de '${activeScenePath}', só nesta ROM de teste. O jogo continua começando em '${projectEntryScenePath}'.`}
               />
             ) : null}
-            <ToolbarButton
+            {!transportAtGame && <div role="group" aria-label="Sessão de emulação" className="rds-command-group">
+            <ToolbarButton icon="studio-game" iconOnly title={getShortcutTitle("emulator.play", "Abrir a sessão de teste atual", shortcuts)}
               label="Continuar teste"
               onClick={() => void handlePlay()}
               disabled={!emulatorLoaded || building}
             />
+            {stopSessionButton}
             <ToolbarButton
-              label="Parar" icon="square"
-              testId="toolbar-emulator-stop"
-              onClick={() => void handleEmulatorStop()}
-              disabled={!emulatorLoaded}
-              accent="danger"
-            />
-            <ToolbarButton
-              icon={emulPaused ? "play" : "pause"}
+              iconOnly icon={emulPaused ? "play" : "pause"}
               label={emulPaused ? "Retomar" : "Pausar"}
               testId="toolbar-emulator-pause"
               onClick={handleEmulatorPause}
               disabled={!emulatorLoaded}
             />
-            <ToolbarButton
+            </div>}
+            <div role="group" aria-label="Imagens do projeto" className="rds-command-group">
+            <ToolbarButton icon="camera" iconOnly
               label="Capturar cena"
               testId="toolbar-capture-rom-scene"
               onClick={() => void handleCaptureRomScene()}
               disabled={!emulatorLoaded || !activeProjectDir}
               title="Grava a tela atual do jogo (planos e sprites lidos do VDP) como cena do projeto"
             />
-            <ToolbarButton icon="studio-art" label="Imagem" testId="toolbar-add-image"
+            <ToolbarButton icon="studio-art" iconOnly label="Imagem" testId="toolbar-add-image"
               title="Adicionar imagem: cole com Ctrl+V ou solte uma imagem/GIF na cena"
               disabled={!activeProjectDir} onClick={() => window.dispatchEvent(new Event("rds:choose-image"))} />
+            </div>
             {activeProjectDir ? (
             <div data-testid="toolbar-build-status" className="relative shrink-0">
               <button type="button" popoverTarget="studio-build-details" data-testid="toolbar-build-details-open"
@@ -5930,7 +5940,7 @@ export default function App() {
             </div>
             ) : null}
             {activeProjectDir ? <SceneSaveStatusChip /> : null}
-            <ToolbarButton icon="save" label="Salvar" testId="toolbar-save" disabled={!activeProjectDir}
+            <ToolbarButton icon="save" iconOnly label="Salvar" testId="toolbar-save" disabled={!activeProjectDir}
               onClick={() => void handleSaveScene()} title={getShortcutTitle("scene.save", "Salvar cena ativa", shortcuts)} />
             {sceneDraftState.status === "confirmed" && sceneDraftState.savedAt && sceneDraftState.revision === sceneRevision ? (
               <span
@@ -5940,6 +5950,18 @@ export default function App() {
               >
                 Rascunho {new Date(sceneDraftState.savedAt).toLocaleTimeString()}
               </span>
+            ) : null}
+            {!showProjectWizard && !focusedShell && shellPersona !== "guiado" && workspaceGuide &&
+              activeWorkspace !== "artstudio" && activeWorkspace !== "retrofx" ? (
+              <>
+                <button type="button" popoverTarget="studio-workspace-help" data-testid="workspace-guide-open"
+                  aria-label="Guia desta área" data-tool-hint="Guia desta área" className="rds-command-icon">
+                  <Icon name="info-circle" size={18} />
+                </button>
+                <div key={workspaceMeta.id} id="studio-workspace-help" popover="auto" className="rds-guide-popover">
+                  <WorkspaceGuideCard guide={workspaceGuide} />
+                </div>
+              </>
             ) : null}
             <StudioAppearancePicker />
             <details className="relative shrink-0">
@@ -5992,13 +6014,13 @@ export default function App() {
             </div>
             </details>
             <ToolbarButton
-              label={focusedShell ? "Sair do foco" : "Focus"}
+              iconOnly icon="maximize" label={focusedShell ? "Sair do foco" : "Focus"}
               onClick={toggleFocusMode}
               title={getShortcutTitle("layout.focus", "Maximizar ou restaurar a area central", shortcuts)}
               testId="workspace-focus"
             />
             <ToolbarButton
-              label="Console"
+              iconOnly icon="terminal" label="Console"
               onClick={toggleConsole}
               title={getShortcutTitle("console.open", "Abrir Console", shortcuts)}
             />
@@ -6089,16 +6111,6 @@ export default function App() {
           onTest={() => void handleBuildAndRun()}
         />
       ) : null}
-      {!showProjectWizard &&
-        !focusedShell &&
-        !compactShell &&
-        shellPersona !== "guiado" &&
-        workspaceGuide &&
-        activeWorkspace !== "artstudio" &&
-        activeWorkspace !== "retrofx" && (
-        <WorkspaceGuideCard key={workspaceMeta.id} guide={workspaceGuide} />
-      )}
-
       {!showProjectWizard ? <StudioContextBar compact={compactShell} /> : null}
       {showDelivery ? <DeliveryPanel onClose={() => setShowDelivery(false)} /> : null}
       {showSceneHistory && activeProjectDir ? <SceneHistoryDialog onClose={() => setShowSceneHistory(false)} /> : null}

@@ -3827,18 +3827,19 @@ export default function NodeGraphEditor() {
                     if (!panel) return;
                     panel.open = true;
                     panel.querySelector("summary")?.focus();
+                    panel.scrollIntoView?.({ block: "nearest" });
                   });
                 }}>Compositor</button>
             )}
-            <button type="button" data-testid="nodegraph-undo" onClick={undoGraph} disabled={history.past.length === 0}
+            <button type="button" data-testid="nodegraph-undo" aria-label="Desfazer" data-tool-hint="Desfazer no grafo (Ctrl+Z)" onClick={undoGraph} disabled={history.past.length === 0}
               title={history.past.length ? `Desfazer: ${history.past[history.past.length - 1].label} (Ctrl+Z)` : "Nada para desfazer"}
               className="flex items-center gap-1 rounded px-2 py-1 text-[#cdd6f4] hover:bg-[#313244] disabled:opacity-40">
-              <Icon name="undo" size={14} /> Desfazer
+              <Icon name="undo" size={16} /><span className="sr-only">Desfazer</span>
             </button>
-            <button type="button" data-testid="nodegraph-redo" onClick={redoGraph} disabled={history.future.length === 0}
+            <button type="button" data-testid="nodegraph-redo" aria-label="Refazer" data-tool-hint="Refazer no grafo (Ctrl+Y)" onClick={redoGraph} disabled={history.future.length === 0}
               title={history.future.length ? `Refazer: ${history.future[0].label} (Ctrl+Y)` : "Nada para refazer"}
               className="flex items-center gap-1 rounded px-2 py-1 text-[#cdd6f4] hover:bg-[#313244] disabled:opacity-40">
-              <Icon name="redo" size={14} /> Refazer
+              <Icon name="redo" size={16} /><span className="sr-only">Refazer</span>
             </button>
             <button type="button" data-testid="nodegraph-fit-view" onClick={() => fitViewTo(graph.nodes.filter((node) => !hiddenNodeIds.has(node.id)))} disabled={graph.nodes.length === 0}
               title="Mostra o grafo inteiro. Escolha um nó para voltar à escala de edição."

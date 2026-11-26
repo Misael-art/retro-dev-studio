@@ -42,13 +42,23 @@ export default function MaterialBrushPanel({ map, entities, brush, onBrush, onSa
   }
 
   return (
-    <section data-testid="material-brush-panel" aria-label="Materiais de superfície" className="flex shrink-0 flex-wrap items-end gap-2 border-b border-[#313244] px-3 py-2 text-[11px] text-[#cdd6f4]">
+    <section data-testid="material-brush-panel" aria-label="Materiais de superfície" className="rds-material-inspector">
       <label className="grid">Regra da superfície
         <select data-testid="material-rule" className={control} value={selected} onChange={(event) => load(event.target.value)}>
           <option value="">Novo material</option>
           {materials.map((material) => <option key={material.name}>{material.name}</option>)}
         </select>
       </label>
+      <button type="button" data-testid="material-paint" className={control + " disabled:opacity-45"}
+        aria-pressed={Boolean(current && brush === current.name)} disabled={!current} onClick={() => current && onBrush(current.name)}>
+        Pintar material
+      </button>
+      <button type="button" data-testid="material-erase" className={control} aria-pressed={brush === null}
+        onClick={() => onBrush(null)}>Limpar material</button>
+      <span data-testid="material-brush-scope" role="status" className="basis-full text-[#a6adc8]">
+        {current ? current.cells.length + " células usam esta regra. " : ""}Pinte sobre células sólidas do mapa.
+      </span>
+      <fieldset className="rds-material-fields"><legend>Propriedades da regra</legend>
       <label className="grid">Nome
         <input data-testid="material-name" className={control + " w-28"} maxLength={32} value={name}
           readOnly={Boolean(current)} onChange={(event) => setName(event.target.value)} placeholder="Gelo" />
@@ -69,12 +79,8 @@ export default function MaterialBrushPanel({ map, entities, brush, onBrush, onSa
           select(label);
           onBrush(label);
         }}>Gravar regra</button>
-      <button type="button" data-testid="material-paint" className={control + " disabled:opacity-45"}
-        aria-pressed={Boolean(current && brush === current.name)} disabled={!current} onClick={() => current && onBrush(current.name)}>
-        Pintar material
-      </button>
-      <button type="button" data-testid="material-erase" className={control} aria-pressed={brush === null}
-        onClick={() => onBrush(null)}>Limpar material</button>
+      </fieldset>
+      <fieldset className="rds-material-fields"><legend>Aplicar por coordenadas</legend>
       <label className="grid">Coluna
         <input data-testid="material-column" className={control + " w-14"} type="number" min={0} max={map.width - 1}
           value={column} onChange={(event) => setColumn(event.target.value)} />
@@ -85,9 +91,7 @@ export default function MaterialBrushPanel({ map, entities, brush, onBrush, onSa
       </label>
       <button type="button" data-testid="material-paint-cell" className={control + " disabled:opacity-45"} disabled={!canPaint}
         onClick={() => onCell(index)}>Aplicar na célula</button>
-      <span data-testid="material-brush-scope" role="status" className="basis-full text-[#a6adc8]">
-        {current ? current.cells.length + " células usam esta regra. " : ""}Pinte sobre células sólidas do mapa.
-      </span>
+      </fieldset>
     </section>
   );
 }

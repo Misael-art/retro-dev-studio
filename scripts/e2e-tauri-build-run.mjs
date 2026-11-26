@@ -13326,7 +13326,7 @@ async function runStudioAppearanceScenario(initialSessionId, appPath, timeoutMs,
     report.steps.push({step:"model_created_without_picker_and_reopened_from_saved_file",status:"passed",dialog_fixture:"only file chooser result substituted",project:created.activeProjectDir});
     await click("shell-persona-pro");
     const built = await runBuildRunAndCollect(sessionId, "appearance-official-core", timeoutMs, report, prefix, { nativeClick: true });
-    await click("toolbar-emulator-pause");
+    await click("viewport-pause");
     await waitFor(async () => (await readAutomationState(sessionId))?.emulPaused, 15000, "Core não pausou.", 100);
     const canvas = () => js("return document.querySelector('[data-testid=viewport-game-canvas]')?.toDataURL('image/png') ?? null;");
     const beforePixels = await canvas();

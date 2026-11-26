@@ -584,21 +584,10 @@ export default function RetroFXDesigner() {
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-[#090d16]">
-      <div className="border-b border-[#313244] bg-[linear-gradient(180deg,#111827,#0b1220)] px-4 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#cba6f7]">
-              RetroFX Experimental
-            </div>
-            <div className="mt-1 text-sm font-semibold text-[#e5e7eb]">
-              Editor visual de profundidade e movimento
-            </div>
-            <div className="mt-1 text-[12px] text-[#94a3b8]">
-              Camadas mais distantes se movem mais devagar. Ajuste no painel e veja o impacto imediatamente no preview.
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 rounded-full border border-[#313244] bg-[#11111b] p-1">
+      <div className="border-b border-[#313244] bg-[var(--rds-surface-panel)] px-3 py-1">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-xs font-semibold text-[var(--rds-text-primary)]">RetroFX <small>Experimental</small></h2>
+          <div role="group" aria-label="Tipo de efeito" className="flex items-center gap-1">
             {(["parallax", "raster", "wave"] as const).filter((item) => item !== "wave" || target === "megadrive").map((currentTab) => (
               <button
                 key={currentTab}
@@ -624,10 +613,10 @@ export default function RetroFXDesigner() {
           <section className="flex min-h-0 flex-col overflow-hidden rounded-3xl border border-[#313244] bg-[linear-gradient(180deg,#111827,#0b1220)] shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
             <div className="border-b border-[#1f2937] px-4 py-3">
               <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#7dd3fc]">
-                Layers
+                Editor visual de profundidade e movimento · Layers
               </div>
               <div className="mt-1 text-[12px] leading-5 text-[#94a3b8]">
-                Arraste para reorganizar a profundidade. O topo da lista fica mais distante.
+                Camadas mais distantes se movem mais devagar. Arraste para reorganizar a profundidade. O topo da lista fica mais distante.
               </div>
             </div>
 

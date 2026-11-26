@@ -1,3 +1,4 @@
+import Icon from "../common/Icon";
 import { useEffect, useMemo, useState } from "react";
 import AssetPreview from "../common/AssetPreview";
 import { CGraphPanel } from "./CGraphPanel";
@@ -523,15 +524,15 @@ export default function ExplorerWorkspace({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[#09090b]">
-      <div className="flex items-center justify-between gap-3 border-b border-[#27272a] px-4 py-3">
-        <div>
+      <div role="group" aria-label="Catálogo do projeto" className="flex items-center justify-between gap-2 border-b border-[#27272a] px-3 py-1">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2">
             <span className="rounded-full border border-[#f9e2af]/30 bg-[#f9e2af]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#f9e2af]">
               Explorer
             </span>
-            <span className="text-[11px] text-[#64748b]">Workspace contextual de arquivos</span>
+
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-[#94a3b8]">
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-[#94a3b8]">
             <span className="rounded-full border border-[#27272a] bg-[#111827] px-2.5 py-1">
               Cenas {sceneCount}
             </span>
@@ -548,11 +549,12 @@ export default function ExplorerWorkspace({
 
         <button
           type="button"
+          aria-label="Atualizar arquivos" data-tool-hint="Atualizar arquivos do projeto"
           onClick={handleRefresh}
           disabled={!activeProjectDir || busy}
           className="rounded-xl border border-[#313244] bg-[#111827] px-3 py-2 text-[11px] font-semibold text-[#cbd5e1] transition-colors hover:bg-[#1f2937] disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {busy ? "Atualizando..." : "Atualizar"}
+          <Icon name="refresh" size={16} /><span className="sr-only">{busy ? "Atualizando..." : "Atualizar"}</span>
         </button>
       </div>
 

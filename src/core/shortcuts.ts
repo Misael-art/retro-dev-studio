@@ -310,6 +310,20 @@ export const DEFAULT_SHORTCUTS: ShortcutCommand[] = [
     scope: "nodegraph",
   },
   {
+    id: "emulator.togglePause",
+    group: "Emulador",
+    label: "Pausar ou retomar a ROM",
+    keys: ["F8"],
+    scope: "emulator",
+  },
+  {
+    id: "emulator.stepFrame",
+    group: "Emulador",
+    label: "Avançar um quadro em pausa",
+    keys: ["F10"],
+    scope: "emulator",
+  },
+  {
     id: "emulator.inputA",
     group: "Emulador",
     label: "Botao A",

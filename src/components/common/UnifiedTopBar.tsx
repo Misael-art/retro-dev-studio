@@ -80,7 +80,7 @@ export default function UnifiedTopBar({
   return (
     <header
       data-testid="unified-topbar"
-      className="relative z-20 grid shrink-0 grid-cols-[minmax(200px,1fr)_minmax(0,max-content)] items-center gap-x-3 gap-y-2 border-b border-[#27272a] bg-[#10131d] px-3 py-2"
+      className="rds-project-bar relative z-20 grid shrink-0 grid-cols-[minmax(200px,1fr)_minmax(0,max-content)] items-center gap-x-3 gap-y-2 border-b border-[#27272a] bg-[#10131d] px-3 py-2"
     >
       <div className="col-start-1 row-start-1 flex min-w-0 items-center gap-2">
         <div ref={menuRef} className="relative shrink-0">
@@ -170,7 +170,7 @@ export default function UnifiedTopBar({
 
       <div
         data-testid="unified-topbar-center"
-        className="col-span-2 row-start-2 flex min-w-0 items-center gap-2 pb-1"
+        className="rds-project-commands col-span-2 row-start-2 flex min-w-0 items-center gap-2 pb-1"
       >
         {primaryContent ? <div className="flex shrink-0 items-center gap-2 px-0.5" data-testid="unified-topbar-primary">{primaryContent}</div> : null}
         <div className="flex min-w-0 flex-1 items-center overflow-x-auto">
@@ -180,7 +180,7 @@ export default function UnifiedTopBar({
         </div>
       </div>
 
-      <div className="col-start-2 row-start-1 flex min-w-0 items-center justify-end">
+      <div className="rds-project-options col-start-2 row-start-1 flex min-w-0 items-center justify-end">
         <div data-testid="unified-topbar-right" className="flex min-w-0 flex-wrap items-center justify-end gap-x-2 gap-y-1">{rightContent}</div>
       </div>
     </header>
