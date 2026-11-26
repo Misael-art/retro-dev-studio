@@ -303,6 +303,20 @@ export function snapNodeGraphPoint(
   };
 }
 
+function fittedRuleView(bounds: GraphBounds, width: number, height: number): NodeGraphView {
+  const worldWidth = bounds.maxX - bounds.minX;
+  const worldHeight = bounds.maxY - bounds.minY;
+  const top = 56;
+  const bottom = 32;
+  const zoom = clampNodeGraphZoom(Math.min(1,
+    (width - 2 * FOCUS_PADDING) / worldWidth, (height - top - bottom) / worldHeight));
+  return {
+    zoom,
+    x: (width - worldWidth * zoom) / 2 - bounds.minX * zoom,
+    y: top + (height - top - bottom - worldHeight * zoom) / 2 - bounds.minY * zoom,
+  };
+}
+
 export function getNodeGraphWheelZoomState(input: NodeGraphWheelZoomInput): NodeGraphView {
   const localX = input.clientX - input.rect.left;
   const localY = input.clientY - input.rect.top;
@@ -2369,6 +2383,7 @@ export default function NodeGraphEditor() {
   const [paletteSearch, setPaletteSearch] = useState("");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [view, setView] = useState<NodeGraphView>({ x: 0, y: 0, zoom: 1 });
+  const fittedRule = useRef<{ bounds: GraphBounds; view: NodeGraphView } | null>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [legendOpen, setLegendOpen] = useState(true);
   const [paletteOpen, setPaletteOpen] = useState(() => window.innerWidth >= 1100);
@@ -2524,7 +2539,11 @@ export default function NodeGraphEditor() {
       if (previous.width > 0 && previous.height > 0) {
         const dx = (next.width - previous.width) / 2;
         const dy = (next.height - previous.height) / 2;
-        setView((current) => ({ ...current, x: current.x + dx, y: current.y + dy }));
+        const fit = fittedRule.current;
+        const resized = fit && { bounds: fit.bounds, view: fittedRuleView(fit.bounds, next.width, next.height) };
+        fittedRule.current = resized;
+        setView(current => fit && resized && current === fit.view ? resized.view
+          : { ...current, x: current.x + dx, y: current.y + dy });
       }
       previous = next;
       setCanvasSize(next);
@@ -2670,8 +2689,10 @@ export default function NodeGraphEditor() {
     const minY = Math.min(...nodes.map((node) => node.y));
     const maxX = Math.max(...nodes.map((node) => node.x + nodeSizeOf(node).width));
     const maxY = Math.max(...nodes.map((node) => node.y + nodeSizeOf(node).height));
-    const zoom = clampNodeGraphZoom(Math.min(1, (width - 2 * FOCUS_PADDING) / (maxX - minX), (height - 2 * FOCUS_PADDING - 74) / (maxY - minY)));
-    setView({ zoom, x: (width - (maxX - minX) * zoom) / 2 - minX * zoom, y: FOCUS_PADDING + 48 - minY * zoom });
+    const bounds = { minX, minY, maxX, maxY };
+    const fitted = fittedRuleView(bounds, width, height);
+    fittedRule.current = { bounds, view: fitted };
+    setView(fitted);
   }, [canvasSize.height, canvasSize.width, nodeSizeOf]);
 
   const fitRule = useCallback((id: string, revealed: readonly string[] = []) => {

@@ -19793,7 +19793,7 @@ async function verifyRingAuthoring(sessionId, projectDir, report, prefix, timeou
   await pressNativeUndoRedo(sessionId, "y");
   await waitFor(async () => await ticks() === "6", 6000, "Ctrl+Y não recuperou 6 ticks.");
   if (await zoom() !== initialZoom) fail("A edição do tick mudou o zoom.");
-  const graphReading = await js(`
+  const readGraph = () => js(`
     const get = id => document.querySelector('[data-testid="'+id+'"]');
     const canvas = get("nodegraph-canvas").getBoundingClientRect();
     const toolbar = get("nodegraph-toolbar").getBoundingClientRect();
@@ -19807,10 +19807,20 @@ async function verifyRingAuthoring(sessionId, projectDir, report, prefix, timeou
     });
     return { cards, roles: legend?.textContent, warnings: get("nodegraph-validation-preview")?.innerText };
   `);
-  if (graphReading.cards.some(card => !card.visible || card.titlePx < 10.9) || !["Evento","Condição","Ação","Tempo","Som","Visual"].every(role => graphReading.roles?.includes(role))
-      || graphReading.warnings?.includes("sem destino")) fail("O caminho da coleta, a legenda ou os terminais divergiram: " + JSON.stringify(graphReading));
-  report.ringGraphReading = graphReading;
+  const readable = reading => reading.cards.every(card => card.visible && card.titlePx >= 10.9)
+    && ["Evento","Condição","Ação","Tempo","Som","Visual"].every(role => reading.roles?.includes(role))
+    && !reading.warnings?.includes("sem destino");
+  report.ringGraphReading = await readGraph();
+  if (!readable(report.ringGraphReading)) fail("O caminho da coleta, a legenda ou os terminais divergiram: " + JSON.stringify(report.ringGraphReading));
   await shot("05-som-selecionado");
+  if (process.env.RDS_E2E_RECORD_LAYOUT === "1") {
+    await setSessionWindowRect(sessionId, 1366, 768);
+    await waitFor(async () => {
+      report.ringCompactReading = await readGraph();
+      return readable(report.ringCompactReading);
+    }, 6000, "O caminho da coleta deixou de ser legível na janela compacta.", 150);
+    await setSessionWindowRect(sessionId, 1920, 1080);
+  }
   await clickTopBarMenuAction(sessionId, "Salvar");
   const scenePath = path.join(projectDir, "scenes/main.json");
   const savedDelay = async () => {

@@ -118,7 +118,7 @@ export default function EventSequencePanel({ panelRef, graph, palettes, targets,
   const triggers = new Set(graph.edges.filter(edge => edge.toNode === sequence?.id && edge.toPort === "exec").map(edge => edge.fromNode));
   const sourceNames = graph.nodes.filter(node => triggers.has(node.id)).map(node => node.label);
   return (
-    <details ref={panelRef} onToggle={event => { if (event.currentTarget.open && sequence) onOpen(sequence); }} data-testid="event-sequence-composer" className="max-h-[40%] shrink-0 overflow-auto border-t border-[var(--rds-border-default)] bg-[var(--rds-surface-panel)] px-3 py-1 text-[11px] text-[var(--rds-text-primary)]">
+    <details ref={panelRef} onToggle={event => { if (event.currentTarget.open && sequence) onOpen(sequence); }} data-testid="event-sequence-composer" className="max-h-[40%] [@media(max-height:800px)]:max-h-[28%] shrink-0 overflow-auto border-t border-[var(--rds-border-default)] bg-[var(--rds-surface-panel)] px-3 py-1 text-[11px] text-[var(--rds-text-primary)]">
       <summary className="cursor-pointer font-semibold text-[#89b4fa]">Compositor de eventos · régua de ticks</summary>
       <div className="mt-2 grid gap-2">
         {selected && selected.type !== "timeline_sequence" && port && (
