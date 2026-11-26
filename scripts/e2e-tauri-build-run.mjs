@@ -19083,7 +19083,7 @@ async function verifyHudExtremes(sessionId, projectDir, report, prefix, timeoutM
   addReportStep(report, "hud_extreme_values_and_fixed_core_controls", "passed", { variants, baseline, edited });
 }
 
-async function observeAdvancedAuthoringRom(sessionId, projectDir, build) {
+async function openTimedRoomProbe(sessionId, projectDir, build) {
   const symbols = parseElf32Symbols(await readFile(path.join(projectDir, "build/megadrive/out/rom.out")));
   const epoch = await invokeCoreObserveEpoch(sessionId);
   const ram = async (symbol, size = 2) => {
@@ -19135,6 +19135,37 @@ async function observeAdvancedAuthoringRom(sessionId, projectDir, build) {
     }
     return frame;
   };
+  const listen = async () => {
+    const listening = await executeAsyncScript(sessionId, `
+    const done = arguments[arguments.length - 1];
+    const api = window.__TAURI_INTERNALS__;
+    const queue = [];
+    const handler = api.transformCallback(({ payload }) => {
+      const samples = payload.samples;
+      if (samples?.length) queue.push(Math.sqrt(samples.reduce((sum, v) => sum + v * v, 0) / samples.length));
+    });
+    api.invoke('plugin:event|listen', { event: 'emulator://audio', target: { kind: 'Any' }, handler })
+      .then((id) => { window.__RDS_ADVANCED_AUDIO__ = { queue, id, handler }; done(true); }).catch(() => done(false));
+  `);
+  if (!listening) fail("O Tauri não permitiu medir o áudio do core.");
+  };
+  const audio = () => waitFor(() => executeScript(sessionId, `
+    const queue = window.__RDS_ADVANCED_AUDIO__.queue;
+    return queue.length ? { rms: queue.shift() } : null;
+  `), 5000, "O core não retornou PCM do quadro.", 50);
+  const close = async () => {
+    await executeAsyncScript(sessionId, `
+      const done = arguments[arguments.length - 1], audio = window.__RDS_ADVANCED_AUDIO__;
+      const api = window.__TAURI_INTERNALS__;
+      api.invoke('plugin:event|unlisten', { event: 'emulator://audio', eventId: audio.id })
+        .then(() => { delete window.__RDS_ADVANCED_AUDIO__; done(true); }).catch(() => done(false));
+    `);
+  };
+  return { ram, advance, input, observeRegions, listen, audio, close, symbols };
+}
+
+async function observeAdvancedAuthoringRom(sessionId, projectDir, build) {
+  const { ram, advance, input, observeRegions, listen, audio, close, symbols } = await openTimedRoomProbe(sessionId, projectDir, build);
   const control = [];
   const magenta = [];
   const marker = (crop, [left, top, width]) => {
@@ -19158,22 +19189,7 @@ async function observeAdvancedAuthoringRom(sessionId, projectDir, build) {
     control.push(createHash("sha256").update(Buffer.from(frame.crops[2])).digest("hex"));
   }
   const neutral = await ram("logic_var_marca_som", 4);
-  const listening = await executeAsyncScript(sessionId, `
-    const done = arguments[arguments.length - 1];
-    const api = window.__TAURI_INTERNALS__;
-    const queue = [];
-    const handler = api.transformCallback(({ payload }) => {
-      const samples = payload.samples;
-      if (samples?.length) queue.push(Math.sqrt(samples.reduce((sum, v) => sum + v * v, 0) / samples.length));
-    });
-    api.invoke('plugin:event|listen', { event: 'emulator://audio', target: { kind: 'Any' }, handler })
-      .then((id) => { window.__RDS_ADVANCED_AUDIO__ = { queue, id, handler }; done(true); }).catch(() => done(false));
-  `);
-  if (!listening) fail("O Tauri não permitiu medir o áudio do core.");
-  const audio = () => waitFor(() => executeScript(sessionId, `
-    const queue = window.__RDS_ADVANCED_AUDIO__.queue;
-    return queue.length ? { rms: queue.shift() } : null;
-  `), 5000, "O core não retornou PCM do quadro.", 50);
+  await listen();
   const event = [];
   const ground = [];
   const secondPress = [];
@@ -19212,14 +19228,97 @@ async function observeAdvancedAuthoringRom(sessionId, projectDir, build) {
     }
     await input();
   } finally {
-    await executeAsyncScript(sessionId, `
-      const done = arguments[arguments.length - 1], audio = window.__RDS_ADVANCED_AUDIO__;
-      const api = window.__TAURI_INTERNALS__;
-      api.invoke('plugin:event|unlisten', { event: 'emulator://audio', eventId: audio.id })
-        .then(() => { delete window.__RDS_ADVANCED_AUDIO__; done(true); }).catch(() => done(false));
-    `);
+    await close();
   }
   return { build, core, magenta, control: matchPoseCadence(control, [0, 1, 2, 1], [5, 3, 7, 2]), neutral, event, secondPress, ground };
+}
+
+async function verifyRingAuthoring(sessionId, projectDir, report, prefix, timeoutMs) {
+  const click = id => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  const enter = id => activateByTestIdWithEnter(sessionId, id);
+  const js = (script, args = []) => executeScript(sessionId, script, args);
+  const shot = async label => addReportArtifact(report, await captureScreenshot(sessionId, prefix + "-" + label + ".png"), label);
+  const open = async () => {
+    await openSavedProjectWizard(sessionId, projectDir);
+    await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir, 60000, "A sala do anel não abriu.");
+  };
+  const measure = async delay => {
+    const build = await runBuildRunAndCollect(sessionId, "anel-" + delay, timeoutMs, report, prefix + "-" + delay,
+      { nativeClick: true, framebufferTimeoutMs: 90000 });
+    await click("viewport-pause");
+    await waitFor(async () => (await readAutomationState(sessionId))?.emulPaused, 15000, "A ROM da coleta não pausou.");
+    const probe = await openTimedRoomProbe(sessionId, projectDir, build);
+    const sample = { delay, build, frames: [], regions: { ring: [111, 151, 1, 1], backdrop: [10, 110, 1, 1] } };
+    report.ringTrials.push(sample);
+    await probe.listen();
+    try {
+      let contact = -1;
+      for (let i = 0; i < 70; i++) {
+        const right = i >= 8 && contact < 0;
+        await probe.input({ right });
+        await probe.advance();
+        const frame = await probe.observeRegions(Object.values(sample.regions));
+        sample.core ??= await collectCoreIdentity(frame);
+        const count = await probe.ram("logic_var_ctr_aneis", 4);
+        sample.frames.push({ frame: frame.frames_run, right, count, rgb: frame.crops[0].slice(0, 3),
+          background: frame.crops[1].slice(0, 3), ...(await probe.audio()) });
+        if (contact < 0 && count > 0) contact = i;
+        if (contact >= 0 && i >= contact + 25) break;
+      }
+      const { frames } = sample;
+      if (contact < 8 || frames.slice(0, contact).some(f => f.count !== 0 || f.rms > 100)
+          || frames.slice(contact).some(f => f.count !== 1)) fail("Contagem ou som incorreto fora e dentro do contato.");
+      const lit = frames.flatMap((f, i) => Math.min(...f.rgb) > 220 ? [i - contact] : []);
+      const pcm = frames.findIndex(f => f.rms > 100) - contact;
+      if (lit.length !== 8 || lit.some((t, i) => t !== lit[0] + i) || pcm < delay || pcm > delay + 8
+          || frames.some(f => !isDeepStrictEqual(f.background, frames[0].background))
+          || !isDeepStrictEqual(frames.at(-1).rgb, frames[0].rgb)) fail("O brilho, o áudio ou a região de controle divergiu.");
+      Object.assign(sample, { contactFrame: frames[contact].frame, firstPcmTick: pcm, presentedFlashTicks: lit });
+      await shot("rom-anel-" + delay);
+    } finally { await probe.input(); await probe.close(); }
+    await click("workspace-rail-scene");
+    return sample;
+  };
+  await open();
+  await setSessionWindowRect(sessionId, 1920, 1080);
+  report.ringTrials = [];
+  const before = await measure(4);
+  await click("hierarchy-select-anel");
+  await click("workspace-rail-logic");
+  await click("logic-view-nodes");
+  await click("nodegraph-fit-view");
+  await shot("05-regra-completa");
+  await enter("node-heading-som");
+  const ticks = () => js(`return document.querySelector('[data-testid="event-sequence-ticks-1"]')?.value;`);
+  const zoom = () => js(`return document.querySelector('[data-testid="nodegraph-canvas"]')?.dataset.zoom;`);
+  await waitFor(async () => await ticks() === "4", 10000, "O cartão não abriu sua etapa.");
+  await enter("event-sequence-select-0");
+  await enter("event-sequence-select-1");
+  if (!(await js(`return document.querySelector('[data-testid="node-card-som"]')?.dataset.selected === 'true';`))) fail("A régua não selecionou o som.");
+  const initialZoom = await zoom();
+  await setInputByTestIdNative(sessionId, "event-sequence-ticks-1", "6");
+  await enter("event-sequence-ticks-1");
+  await pressNativeUndoRedo(sessionId, "z");
+  await waitFor(async () => await ticks() === "4", 6000, "Ctrl+Z não recuperou 4 ticks.");
+  await pressNativeUndoRedo(sessionId, "y");
+  await waitFor(async () => await ticks() === "6", 6000, "Ctrl+Y não recuperou 6 ticks.");
+  if (await zoom() !== initialZoom) fail("A edição do tick mudou o zoom.");
+  await shot("05-som-selecionado");
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  const scenePath = path.join(projectDir, "scenes/main.json");
+  const savedDelay = async () => {
+    const scene = JSON.parse(await readFile(scenePath, "utf8"));
+    const graph = JSON.parse(scene.entities.find(e => e.entity_id === "anel").components.logic.graph);
+    return graph.nodes.find(n => n.id === "tempo").params.slot_1_delay;
+  };
+  await waitFor(async () => await savedDelay() === 6, 10000, "O tick editado não foi gravado.");
+  await clickTopBarMenuAction(sessionId, "Fechar");
+  await waitFor(async () => !(await readAutomationState(sessionId))?.activeProjectDir, 15000, "A sala não fechou.");
+  await open();
+  const after = await measure(6);
+  if (before.build.rom_sha256 === after.build.rom_sha256 || after.firstPcmTick - before.firstPcmTick !== 2)
+    fail("A reabertura e recompilação não deslocaram o PCM em dois ticks.");
+  addReportStep(report, "ring_contact_once_timing_and_controls", "passed", { initialZoom });
 }
 
 async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, timeoutMs) {
@@ -19695,7 +19794,7 @@ async function verifyFloatingStudioPanels(sessionId, projectDir, report, prefix,
 async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
   const revision = process.env.RDS_POSE_PROOF || "baseline";
   const occlusionModes = ["occlusion", "occlusion-region", "occlusion-motion"];
-  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace", "linked-atlas", "asset-replace", "terrain", "seam", "wave", "hud", "guides", "lighting", "advanced", "advanced-flash", "floating", ...occlusionModes, ...indexedEffectModes].includes(revision)) {
+  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace", "linked-atlas", "asset-replace", "terrain", "seam", "wave", "hud", "guides", "lighting", "advanced", "advanced-flash", "floating", "ring", ...occlusionModes, ...indexedEffectModes].includes(revision)) {
     fail(`RDS_POSE_PROOF desconhecido: ${revision}.`);
   }
   const prefix = `pose-cadence-${artifactTimestamp()}`;
@@ -19713,6 +19812,11 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
     if (report.atlasSha256 !== "8f104172610518705021450603f04bfd4d2fc0ed997e7c71de21cdb54874c735") fail("O atlas da prova mudou.");
     const atlas = decodeWindowPng(atlasBytes);
     report.executableSha256 = createHash("sha256").update(await readFile(app)).digest("hex");
+    if (revision === "ring") {
+      await verifyRingAuthoring(sessionId, projectDir, report, prefix, timeoutMs);
+      report.status = "passed";
+      return;
+    }
     if (revision === "advanced" || revision === "advanced-flash" || revision === "floating") {
       await openSavedProjectWizard(sessionId, projectDir);
       await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir,

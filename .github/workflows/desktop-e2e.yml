@@ -520,6 +520,18 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Add-Content -Path $env:RDS_E2E_LEDGER -Value 'advanced_authoring'
 
+      - name: Check ring contact, timed sound and palette flash in the Mega Drive core
+        id: ring_collection
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'advanced-authoring' }}
+        env:
+          RDS_POSE_PROOF: ring
+        run: |
+          $project = node scripts/qa/create-pose-authoring-demo.mjs --ring
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'ring_collection'
+
       - name: Edit with native floating panels and restore the dock
         id: floating_panels
         if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'advanced-authoring' }}
@@ -601,6 +613,7 @@ jobs:
             "- Wave with camera and foreground control: ${{ steps.wave_band.outcome }}",
             "- HUD extremes and screen-space controls: ${{ steps.hud_extremes.outcome }}",
             "- Sockets, materials and events in the core: ${{ steps.advanced_authoring.outcome }}",
+            "- Ring collection, flash and sound: ${{ steps.ring_collection.outcome }}",
             "- Native floating panels: ${{ steps.floating_panels.outcome }}",
             "- Pillar, aperture and control pixel comparison: ${{ steps.point_occlusion.outcome }}",
             "- Linked atlas copy, reordering and control comparison: ${{ steps.linked_atlas.outcome }}",
