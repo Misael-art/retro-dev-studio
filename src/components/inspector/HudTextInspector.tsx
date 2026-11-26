@@ -17,7 +17,6 @@ export default function HudTextInspector({ entity }: { entity: Entity }) {
   const problems = hudProblems(hud, activeScene);
   const strikes = strikeIds(activeScene);
 
-
   const apply = (patch: Partial<HudTextComponent>) => {
     updateEntity(entity.entity_id, { components: { hud: { ...hud, ...patch } } });
   };
@@ -120,7 +119,6 @@ export default function HudTextInspector({ entity }: { entity: Entity }) {
   );
 }
 
-
 export function HudExtremes({ entity, labelDraft, onReview, testId = "inspector-hud-extremes", idPrefix = "hud-preview" }: {
   entity: Entity; labelDraft?: string | null; onReview?: () => void; testId?: string; idPrefix?: string;
 }) {
@@ -164,8 +162,9 @@ export function HudExtremes({ entity, labelDraft, onReview, testId = "inspector-
           </label>
           <div role="img" aria-label={`Prévia do HUD na coluna ${hud.column}, linha ${hud.row}: ${previewText}`}
             data-testid={idPrefix + "-frame"}
-            className={`relative aspect-[10/7] overflow-hidden rounded border font-mono [container-type:inline-size] ${preview.light ? "bg-[#e7debb] text-[#211b25]" : "bg-[#11111b] text-white"}`}
-            style={{ backgroundImage: "repeating-linear-gradient(90deg, transparent 0 15px, currentColor 15px 16px)",
+            className="relative aspect-[10/7] overflow-hidden rounded border font-mono [container-type:inline-size]"
+            style={{ backgroundColor: preview.light ? "#e7debb" : "#11111b", color: preview.light ? "#211b25" : "#ffffff",
+              backgroundImage: "repeating-linear-gradient(90deg, transparent 0 15px, currentColor 15px 16px)",
               backgroundPositionX: `-${preview.cameraX}px`, backgroundBlendMode: "soft-light" }}>
             <span className="absolute whitespace-pre" style={{ left: `${100 * hud.column / MD_TEXT_COLUMNS}%`,
               top: `${100 * hud.row / MD_TEXT_ROWS}%`, fontSize: "2.3cqw", lineHeight: 1 }}>{previewText}</span>

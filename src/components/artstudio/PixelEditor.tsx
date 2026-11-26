@@ -290,12 +290,15 @@ export default function PixelEditor({ projectDir, source, log, beforeSave, onSav
     setFuture(future.slice(1));
   }, [future]);
 
+  const compareSprite = Boolean(imagePreview && doc.target === "sprite");
   const fitCanvas = useCallback(() => {
     const stage = stageRef.current;
     if (!stage || stage.clientWidth === 0 || stage.clientHeight === 0) return;
-    const fit = Math.floor(Math.min((stage.clientWidth - 24) / doc.width, (stage.clientHeight - 24) / doc.height));
+    const availableWidth = compareSprite ? (stage.clientWidth - 32) / 2 : stage.clientWidth - 24;
+    const availableHeight = stage.clientHeight - (compareSprite ? 44 : 24);
+    const fit = Math.floor(Math.min(availableWidth / doc.width, availableHeight / doc.height));
     setFittedZoom(Math.max(1, Math.min(48, fit)));
-  }, [doc.width, doc.height]);
+  }, [compareSprite, doc.width, doc.height]);
   // First layout can be zero-sized while CSS/panels load. Fit again when the
   // actual stage becomes available, and keep oversized canvases scrollable.
   useEffect(() => {

@@ -4191,6 +4191,31 @@ async function captureScreenshot(sessionId, filename) {
         project: state?.activeProjectDir, selection: state?.selectedEntityId, focus: state?.studio?.focus };
     `);
     await writeFile(outputPath + ".json", JSON.stringify(layout));
+    const compactProof = /-(agua-borda-depois|comparacao-atlas|05-som-selecionado|faixa|sobreposicao|timeline-reencaixada|gelo-faixa|previa)\.png$/.test(filename);
+    if (compactProof && isDeepStrictEqual(layout.viewport, [1920, 1080, 1])) {
+      const endpoint = `/session/${sessionId}/window/rect`;
+      const original = (await webdriverRequest("GET", endpoint)).value;
+      try {
+        await webdriverRequest("POST", endpoint, { width: original.width - 554, height: original.height - 312 });
+        const compact = await waitFor(() => executeScript(sessionId, `
+          const rail=document.querySelector('[data-testid="workspace-activity-bar"]')?.getBoundingClientRect();
+          const state=window.__RDS_E2E__?.getState?.();
+          return innerWidth === 1366 && innerHeight === 768 && devicePixelRatio === 1 && rail?.width > 0
+            && { viewport:[innerWidth,innerHeight,devicePixelRatio], rail:rail.width, overflow:document.documentElement.scrollWidth-innerWidth,
+              selection:state?.selectedEntityId, workspace:state?.activeWorkspace };
+        `), 8000, "A mesa compacta não atingiu 1366 × 768 a 1×.");
+        if (compact.overflow > 1 || compact.selection !== layout.selection) fail("A janela compacta perdeu a seleção ou excedeu a largura.");
+        const screenshot = (await webdriverRequest("GET", `/session/${sessionId}/screenshot`)).value;
+        const bytes = Buffer.from(screenshot, "base64");
+        if (bytes.readUInt32BE(16) !== 1366 || bytes.readUInt32BE(20) !== 768) fail("Raster inesperado na janela compacta.");
+        await writeFile(outputPath.replace(/\.png$/, "-compact.png"), bytes);
+        await writeFile(outputPath + ".compact.json", JSON.stringify(compact));
+      } finally {
+        await webdriverRequest("POST", endpoint, original);
+        await waitFor(() => executeScript(sessionId, "return innerWidth===1920 && innerHeight===1080;"),
+          8000, "A mesa não recuperou as dimensões anteriores.");
+      }
+    }
   }
   return outputPath;
 }
@@ -19272,6 +19297,8 @@ async function verifyWaterTile(sessionId, projectDir, report, prefix) {
   await click("viewport-open-animation");
   await click("character-open-pixels");
   const selector = 'select[aria-label="Abrir arte vinculada da cena"]';
+  await waitFor(() => js("return !!document.querySelector(arguments[0]);", [selector + ' option[value="paisagem"]']),
+    15000, "A lista de arte vinculada não terminou de abrir.");
   const option = await findElement(sessionId, selector + ' option[value="paisagem"]');
   await clickElement(sessionId, option);
   await waitFor(() => js(`return document.querySelector('[data-testid="pixel-doc-name"]')?.value === 'agua';`), 10000, "O documento da água não abriu.");
@@ -19361,6 +19388,10 @@ async function verifyRingAuthoring(sessionId, projectDir, report, prefix, timeou
     await click("viewport-pause");
     await waitFor(async () => (await readAutomationState(sessionId))?.emulPaused, 15000, "A ROM da coleta não pausou.");
     const probe = await openTimedRoomProbe(sessionId, projectDir, build);
+    const file = path.join(validationDir, prefix + "-anel-" + delay + ".bin");
+    await copyFile(build.rom_path, file);
+    if (createHash("sha256").update(await readFile(file)).digest("hex") !== build.rom_sha256) fail("A cópia da ROM do anel divergiu da compilação.");
+    addReportArtifact(report, file, "ROM autoral do anel, atraso " + delay + " ticks");
     const sample = { delay, build, frames: [], regions: { ring: [111, 151, 1, 1], backdrop: [10, 110, 1, 1] } };
     report.ringTrials.push(sample);
     await probe.listen();
