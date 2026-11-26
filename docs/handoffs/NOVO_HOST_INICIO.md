@@ -1,3 +1,7 @@
+## Recertificação Full do Deck em 26/11/2026
+
+O Fôlego admitiu a rodada de `a1087af`. O resultado da certificação com os sete gates é `$RDS_WORK_ROOT/sessions/deformacao-sprites-9T6MGyQm/certificacao-local.json`. A sessão também guarda o executável de `881a7cf` e os ensaios de transformação de sprites nas ROMs. O binário de `1b3f4b4` repetiu arraste, ajuste numérico e Desfazer em Cena. Os hashes, o pacote portátil, a galeria e a receita de reprodução estão na [jornada de autoria](../studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#transformar-sprites-e-recertificar-o-deck).
+
 <a id="qualificacao-autoria-20261124"></a>
 
 ## Qualificação da autoria no BigLinux restaurado — 24/11/2026

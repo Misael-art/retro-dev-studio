@@ -1088,7 +1088,7 @@ O binário Linux de `1b3f4b4fe66aeb69632a4fc3443795117eb333ac` tem SHA-256 `face
 
 | Mesa | Lacuna anterior e intervenção | Exercício e observação no Tauri |
 | --- | --- | --- |
-| 01 · Cena | A imagem anterior mostrava o palco e as abas sem acompanhar uma edição até o histórico. A jornada usa o Canvas, o Inspetor e o histórico existentes. | O palco selecionou Raposa. Projeto e Camadas mantiveram o objeto. O arraste levou X de 80 a 96, o Inspetor refinou para 97 e um Desfazer voltou a 96. Y permaneceu em 136. O recibo inclui os dois tamanhos de janela. |
+| 01 · Cena | A imagem anterior mostrava o palco e as abas sem acompanhar uma edição até o histórico. A jornada usa o Canvas, o Inspetor e o histórico existentes. | O palco selecionou Raposa. Projeto e Camadas mantiveram o objeto. Na repetição de `1b3f4b4`, o arraste levou X de 64 a 80, o Inspetor refinou para 81 e Desfazer recuperou 80. Y permaneceu em 136. O recibo inclui os dois tamanhos de janela. |
 | 02 · Animação | A ampliação da pose e a cena ocupavam mesas separadas. **Ver pose na cena** abre Animar na ocorrência selecionada. | Uma ativação a partir de passo/o2 pôs a timeline e a cena na mesma mesa. O ensaio de encaixe gravou mao em (27,1) e (20,8) com X=12. Comparou a Lanterna em o2, a ausência em o3 e a Raposa de controle na ROM. [Encaixes](https://github.com/Misael-art/retro-dev-studio/actions/runs/45792447065) |
 | 03 · Arte | A referência mostrava um documento vazio. A sala nova traz água indexada e o painel de emendas identifica banco, índice e origem. | A origem (7,1) em PAL0 mudou de índice 2 para 1. Os nove pixels amostrados passaram de RGB (36,146,219) para (0,73,146). [Arte e gelo](https://github.com/Misael-art/retro-dev-studio/actions/runs/45792447065) |
 | 04 · Arquivos | O catálogo estava em repouso. A substituição mostra os dois atlas e os usos antes de confirmar. | O ensaio encontrou a incompatibilidade, cancelou, aplicou o remapeamento, desfez e reabriu. As ocorrências e a instância que compartilha a arte foram confrontadas na ROM. [Arquivos](https://github.com/Misael-art/retro-dev-studio/actions/runs/45793268665) |
@@ -1106,3 +1106,38 @@ No GitHub Actions, o fluxo **Desktop E2E** aceita os alvos `authoring` e `advanc
 Na sessão do Deck, `sessions/lapidacao-12-zwqgw7zf/baseline.json` guarda o ponto de partida das doze mesas. A rodada e o pacote de conferência ficam em `sessions/lapidacao-12-zwqgw7zf/final/`. Os arquivos `conferencia.json` e `conferencia-e-provas.zip` identificam as telas medidas, os comandos, o sistema por captura e os estados suplementares. As medidas de capacidade e os desfechos de cada tentativa permanecem na mesma sessão. Clippy, testes Rust, frontend e auditorias constam na [CI Linux e Windows de eaaf1e6](https://github.com/Misael-art/retro-dev-studio/actions/runs/45795610926). Os smokes de Mega Drive e SNES e a jornada de duração passaram no [Desktop E2E](https://github.com/Misael-art/retro-dev-studio/actions/runs/45795611050). Nesse run, o verificador de passagem ainda procurava a origem no cartão sem selecioná-lo.
 
 A versão portátil da conferência inclui a matriz dos 48 grupos, os PNGs, as doze janelas compactas, as quatro ROMs do anel e o PDF de doze páginas. O cenário de cadência nas salas simples e densa também exercita Esc, Ctrl+Enter e a entrada incompleta em Raposa/passo/o2. Ele confere o valor da timeline antes de corrigir o rascunho. A [CI Linux e Windows de 0bd2039](https://github.com/Misael-art/retro-dev-studio/actions/runs/45807018862) e a repetição integral de [autoria em Full HD](https://github.com/Misael-art/retro-dev-studio/actions/runs/45803529978) passaram.
+
+### Transformar sprites e recertificar o Deck
+
+Em 26/11/2026 o Tauri nativo do Deck repetiu a edição em Cena com o executável de `1b3f4b4` identificado acima. A Raposa permaneceu selecionada ao alternar Projeto e Camadas. O palco levou a posição de (64, 136) a (80, 136), o Inspetor a (81, 136) e Desfazer recuperou (80, 136). O recibo e as capturas acompanham a primeira tela da galeria.
+
+Para editar arte, abra a ocorrência em **Arte e tiles → Transformar seleção**. Marque a região ou escolha **Quadro inteiro**. Os botões de espelho horizontal (H), espelho vertical (V), escala (1), deformação (2) e giro de 90° (3) atuam sobre a mesma seleção na camada ativa. A escala aceita alça e campos em pixels, com proporção opcional. A deformação aceita inclinação e curvatura com sinal. A prévia usa o mesmo zoom e fundo do original. O alcance pode ser **Somente esta ocorrência** ou **Toda esta animação**.
+
+| Ensaio no Tauri | Medida na arte ou na ROM |
+| --- | --- |
+| Arrastar as alças | Uma pose de 16 × 16 passou a 12 × 14. As alças de deformação registraram curvatura de +2 e inclinação de −1 px. |
+| Reduzir a pose inteira a 1 × 1 na prévia e cancelar | A pose passou de 4 tiles ocupados a 1 e de 3 cores a 1. O atlas passou de 9 a 10 padrões únicos com 5 cores. Cancelar recuperou a arte. |
+| Reduzir a seleção de 8 × 8 em o2, aplicar, salvar e reabrir | Na ordem o1/o2/o3/o4, o Genesis Plus GX mediu **0 / 52 / 0 / 0** pixels alterados. O atlas passou de 9 a 11 padrões. |
+| Curvar a seleção em toda a animação passo | O core mediu **38 / 38 / 0 / 38** pixels alterados. A área selecionada já era transparente em o3. O atlas passou de 9 a 10 padrões. |
+
+As medições de ROM coincidiram no Deck e no Windows. As quatro ocorrências mantiveram 5, 4, 7 e 2 ticks, e a segunda Raposa conservou a arte. O indicador conta tiles 8 × 8 ocupados e índices de cor visíveis na pose. Para o atlas conta padrões únicos considerando espelhamento e os índices usados. A gravação de uma variante de ocorrência pode aumentar essa contagem mesmo quando a seleção encolhe. O editor indexado permanece Experimental. [Executável Linux de 881a7cf](https://github.com/Misael-art/retro-dev-studio/actions/runs/45829264664) · [Autoria no Windows](https://github.com/Misael-art/retro-dev-studio/actions/runs/45829269636)
+
+Sob admissão do Fôlego, o Deck concluiu a certificação Full de `a1087af` com sete gates verdes. Vitest executou 1.497 testes e pulou 14. Rust executou 1.221 e marcou 133 como ignorados. Passaram também Clippy, formatação e a prova upstream com SGDK e PVSnesLib. O driver de captura espera a seleção de 16 × 16 e confere cada dimensão após a entrada pelo teclado. O ZIP inclui a cópia exata do driver usado e as duas salas editadas para reabertura.
+
+As saídas abaixo são relativas a `$RDS_WORK_ROOT/sessions/`. A conferência contém 48 grupos sobre 12 capturas em 1920 × 1080, as 12 verificações em 1366 × 768 e o PDF de 13 páginas. A observação com artistas e o ensaio presencial em monitores de DPI diferentes permanecem pendentes.
+
+| Arquivo | Identidade |
+| --- | --- |
+| `deformacao-sprites-9T6MGyQm/bin/retro-dev-studio` | SHA-256 `9b46a48f6e0f366d448f66fe36f9a1dec89d1e43ae2d735052f334de8dbd60ba` |
+| `deformacao-sprites-9T6MGyQm/certificacao-local.json` | `certify`, Full, `READY` |
+| `conferencia-workspace-ZL2kjW/index.html` | Galeria, matriz dos 48 grupos e links para os recibos |
+| `lapidacao-12-zwqgw7zf/final/comparativo-12-telas.pdf` | SHA-256 `01b4d29a4471196411a97eec34fc42a6d634bfeac1c56a64ba2a24e8f44085de` |
+| `lapidacao-12-zwqgw7zf/final/conferencia-e-provas.zip` | SHA-256 `45bb0a88f87cf37ccc666fba1fa959c72e63235f4f467877c71930d378d8cb4d`, 226 entradas |
+| `deformacao-sprites-9T6MGyQm/conferencia-verificada.json` | Verificação das imagens, links, PDF, hashes do ZIP, ROMs e salas |
+
+Para repetir a autoria, gere as salas com `node scripts/qa/create-pose-authoring-demo.mjs --indexed-effects`. No launcher do host, use o projeto impresso para cada alcance e seu executável Tauri. Execute um cenário por vez. O pacote contém a receita de Cena para `1b3f4b4`.
+
+```bash
+RDS_POSE_PROOF=effect-deform-pose node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project "$SALA_OCORRENCIA" --app "$EXECUTAVEL"
+RDS_POSE_PROOF=effect-deform-sequence node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project "$SALA_ANIMACAO" --app "$EXECUTAVEL"
+```

@@ -18374,8 +18374,22 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
   await click(deform ? "pixel-task-deform" : mode === "effect-rotation" ? "pixel-task-image" : "pixel-task-colors");
   if (deform) {
     await click("transform-full-frame");
-    await fillInputBySelector(sessionId, 'input[name="Largura"]', "1");
-    await fillInputBySelector(sessionId, 'input[name="Altura"]', "1");
+    const measure = () => executeScript(sessionId, `
+      const p = document.querySelector('[data-testid="pixel-deformation"]');
+      return [...p.querySelectorAll('input[type="number"]')].map(input => input.value).join('×');`);
+    await waitFor(async () => await measure() === "16×16", 7000, "A seleção do quadro inteiro não apresentou as dimensões da pose.");
+    const enterDimension = async (name, value) => {
+      const element = await findElement(sessionId, `[data-testid="pixel-deformation"] input[name="${name}"]`);
+      await clickElement(sessionId, element);
+      await webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [{type:"key",id:"sprite-dimension",actions:[
+        {type:"keyDown",value:"\uE009"},{type:"keyDown",value:"a"},{type:"keyUp",value:"a"},{type:"keyUp",value:"\uE009"},
+        {type:"keyDown",value},{type:"keyUp",value},{type:"keyDown",value:"\uE004"},{type:"keyUp",value:"\uE004"},
+      ]}] });
+    };
+    await enterDimension("Largura", "1");
+    await waitFor(async () => await measure() === "1×16", 7000, "O campo Largura não reteve 1 px.");
+    await enterDimension("Altura", "1");
+    await waitFor(async () => await measure() === "1×1", 7000, "Os dois campos não retiveram 1 px.");
     await click("deform-preview");
     const probe = await waitFor(async () => {
       const text = await executeScript(sessionId, `return document.querySelector('[data-testid="transform-cost"]')?.textContent;`);
