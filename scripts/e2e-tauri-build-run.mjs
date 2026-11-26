@@ -17390,10 +17390,35 @@ async function editPoseThroughDesktop(initialSessionId, projectDir, app, report,
     const text = await readCode();
     return /\s=\s6;/.test(text ?? "") ? text : null;
   }, 15000, "O campo C vinculado não apresentou 6 ticks.", 150);
+  const sendCodeKeys = async (keys) => {
+    const element = await findElement(sessionId, '[data-testid="code-pose-duration-text"]');
+    await webdriverRequest("POST", `/session/${sessionId}/element/${element}/value`, { text: keys, value: [...keys] });
+  };
+  const incomplete = code.replace(/(\s=\s)6;/, (_, assignment) => `${assignment};`);
+  const beforeDraft = await state();
+  await input("code-pose-duration-text", incomplete);
+  await click("code-return-pose");
+  await ticks(6);
+  await click("character-open-duration-code");
+  await waitFor(async () => await readCode() === incomplete, 10000, "O retorno a o2 perdeu a edição pendente.");
+  await sendCodeKeys("\uE00C"); // Escape
+  await waitFor(async () => await readCode() === code && (await state()).undoDepth === beforeDraft.undoDepth,
+    10000, "Esc não recuperou a projeção original e o histórico de o2.");
+  await input("code-pose-duration-text", incomplete);
+  await sendCodeKeys("\uE009\uE007\uE000"); // Ctrl+Enter, release modifiers
+  const diagnostic = await waitFor(() => executeScript(sessionId, `
+    const text = document.querySelector('[data-testid="instance-code-status"]')?.textContent;
+    return text?.includes("Rascunho guardado") && text.includes("1 a 255 ticks") && text;`),
+  10000, "O editor C não identificou a entrada incompleta como rascunho de duração.");
+  await click("code-return-pose");
+  await ticks(6);
+  await click("character-open-duration-code");
+  await waitFor(async () => await readCode() === incomplete, 10000, "O rascunho de o2 não reabriu após a entrada inválida.");
+  addReportStep(report, "pose_c_pending_escape_and_invalid_draft", "passed", { validTicks: 6, diagnostic });
   const editedCode = code.replace(/(\s=\s)6;/, (_, assignment) => `${assignment}4;`);
   await input("code-pose-duration-text", editedCode);
   const beforeCode = await state();
-  await click("code-pose-duration-apply");
+  await sendCodeKeys("\uE009\uE007\uE000");
   await waitFor(async () => (await state())?.undoDepth === beforeCode.undoDepth + 1 && /\s=\s4;/.test(await readCode()),
     15000, "A edição vinculada não gravou 4 ticks como uma única operação.", 150);
   addReportStep(report, "c_o2_6_to_4", "passed");
