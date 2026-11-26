@@ -18374,6 +18374,17 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
   await click(deform ? "pixel-task-deform" : mode === "effect-rotation" ? "pixel-task-image" : "pixel-task-colors");
   if (deform) {
     await click("transform-full-frame");
+    await fillInputBySelector(sessionId, 'input[name="Largura"]', "1");
+    await fillInputBySelector(sessionId, 'input[name="Altura"]', "1");
+    await click("deform-preview");
+    const probe = await waitFor(async () => {
+      const text = await executeScript(sessionId, `return document.querySelector('[data-testid="transform-cost"]')?.textContent;`);
+      const usedColors = new Set(cels[1].filter(v => v !== 0)).size;
+      return text?.includes(`tiles ocupados 4 → 1 · cores ${usedColors} → 1`) && text;
+    }, 7000, "O custo da pose reduzida a um pixel divergiu dos tiles ou índices da arte.");
+    report.effect.costProbe = { width: 1, height: 1, beforeAndAfter: probe };
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-custo-1px.png`), "Tiles ocupados e índices usados na pose antes e depois da redução");
+    await click("pixel-cancel-image");
     await click("transform-vertical");
     const fromBottom = await colorAt(6, 13);
     await click("deform-preview");
