@@ -4403,6 +4403,9 @@ export default function ArtStudioPanel() {
             <span>Use Novo para começar um documento.</span>
           </label>}
           <PixelEditor
+            binding={importedPixelPath && selectedEntitySprite ? { animations: selectedEntitySprite.animations ?? {},
+              animation: focusedPixelAnimation ? studio.focus.animation ?? undefined : undefined,
+              occurrence: focusedPixelAnimation ? studio.focus.occurrenceId ?? undefined : undefined } : undefined}
             key={activeProjectDir ?? ""}
             projectDir={activeProjectDir}
             source={

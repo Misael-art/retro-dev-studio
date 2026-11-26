@@ -54,6 +54,7 @@ import { useEditorStore } from "../../core/store/editorStore";
 import { prepareImage } from "../../core/imageIngress";
 import { clearUnusedPixelColors, copyPixelDoc, disablePixelPalette, duplicatePixelLayer, enablePixelPalette, erasePixelRegion, fitPixelDoc, mergePixelLayerDown, type PixelEditScope } from "../../core/pixelImageOps";
 import Icon, { type IconName } from "../common/Icon";
+import type { SpriteSequenceBinding } from "../../core/pixelDeformation";
 import PixelImagePanel, { PIXEL_TASKS, type PixelTask, type PixelTileView } from "./PixelImagePanel";
 
 export type PixelTool =
@@ -119,6 +120,7 @@ export interface PixelEditorSource {
 }
 
 interface PixelEditorProps {
+  binding?: SpriteSequenceBinding;
   projectDir: string | null;
   source: PixelEditorSource | null;
   log: (level: "info" | "warn" | "error" | "success", message: string) => void;
@@ -176,7 +178,7 @@ export async function importFramesFromSheet(source: PixelEditorSource, line: num
   return { doc, warnings: result.warnings };
 }
 
-export default function PixelEditor({ projectDir, source, log, beforeSave, onSaved }: PixelEditorProps) {
+export default function PixelEditor({ projectDir, source, binding, log, beforeSave, onSaved }: PixelEditorProps) {
   const projectKey = projectDir ?? "";
   const initial = useRef(useEditorStore.getState().pixelEditorSessions[projectKey]).current;
   const [doc, setDocState] = useState<PixelDoc>(() => initial?.doc ?? createPixelDoc(32, 32));
@@ -275,18 +277,28 @@ export default function PixelEditor({ projectDir, source, log, beforeSave, onSav
     docRef.current = next;
     setDocState(next);
   }, []);
+  const undoneVariantFocus = useRef(new WeakMap<PixelDoc, string>());
   const undo = useCallback(() => {
     if (past.length === 0) return;
     setStatus(null);
-    setFuture((f) => [docRef.current, ...f]);
-    setDocState(past[past.length - 1]);
+    const current = docRef.current, previous = past[past.length - 1];
+    const selected = current.frames[frame];
+    if (selected?.variant && !previous.frames.some(f => f.id === selected.id)) {
+      const index = previous.frames.findIndex(f => f.id === selected.variant?.sourceId);
+      if (index >= 0) { undoneVariantFocus.current.set(current, selected.id); setFrameIndex(index); }
+    }
+    setFuture((f) => [current, ...f]);
+    setDocState(previous);
     setPast(past.slice(0, -1));
-  }, [past]);
+  }, [past, frame]);
   const redo = useCallback(() => {
     if (future.length === 0) return;
     setStatus(null);
-    setPast((p) => [...p, docRef.current]);
-    setDocState(future[0]);
+    const current = docRef.current, next = future[0];
+    const index = next.frames.findIndex(f => f.id === undoneVariantFocus.current.get(next));
+    if (index >= 0) setFrameIndex(index);
+    setPast((p) => [...p, current]);
+    setDocState(next);
     setFuture(future.slice(1));
   }, [future]);
 
@@ -922,7 +934,7 @@ export default function PixelEditor({ projectDir, source, log, beforeSave, onSav
 
       <nav aria-label="Tarefas de edição de imagem" className="flex shrink-0 flex-wrap gap-1 rounded-xl border border-[#313244] bg-[#111827] p-1 text-xs">
         <button type="button" data-testid="pixel-toggle-options" aria-expanded={optionsOpen} onClick={() => setOptionsOpen(v => !v)} className="rounded-lg border px-3 py-2">Opções da tarefa</button>
-        {PIXEL_TASKS.map(t => <button type="button" key={t.id} data-testid={`pixel-task-${t.id}`} aria-pressed={task === t.id} onClick={() => { setTask(t.id); setOptionsOpen(true); setTileMap(t.id === "tiles"); if (optionsRef.current) optionsRef.current.scrollTop = 0; }} className={`rounded-lg px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#7dd3fc] ${task === t.id ? "bg-[#7dd3fc]/20 font-semibold text-[#7dd3fc]" : "text-[#cdd6f4] hover:bg-[#7dd3fc]/10"}`}>{t.label}</button>)}
+        {PIXEL_TASKS.filter(t => t.id !== "deform" || doc.target === "sprite").map(t => <button type="button" key={t.id} data-testid={`pixel-task-${t.id}`} aria-pressed={task === t.id} onClick={() => { setTask(t.id); if (t.id === "deform") setTool("select"); setOptionsOpen(true); setTileMap(t.id === "tiles"); if (optionsRef.current) optionsRef.current.scrollTop = 0; }} className={`rounded-lg px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#7dd3fc] ${task === t.id ? "bg-[#7dd3fc]/20 font-semibold text-[#7dd3fc]" : "text-[#cdd6f4] hover:bg-[#7dd3fc]/10"}`}>{t.label}</button>)}
       </nav>
 
       <div className="grid min-h-0 flex-1 gap-2" style={{ gridTemplateColumns: optionsOpen ? "110px minmax(0,1fr) minmax(230px,280px)" : "110px minmax(0,1fr)" }}>
@@ -1063,7 +1075,7 @@ export default function PixelEditor({ projectDir, source, log, beforeSave, onSav
 
         {/* Coluna direita */}
         <div ref={optionsRef} hidden={!optionsOpen} inert={Boolean(transparencyPreview)} aria-label="Opções da tarefa de edição" className={`${optionsOpen ? "flex" : "hidden"} min-h-0 flex-col gap-2 overflow-y-auto pr-1 text-xs text-[#cdd6f4]`}>
-          <PixelImagePanel task={task} doc={doc} projectDir={projectDir} scope={editScope} primary={primary} assetLine={report.lineUsage[0]?.line ?? pixelLine(primary)} onPrimary={value => { setPrimary(value); setActiveLine(pixelLine(value)); }} originalAvailable={Boolean(originalPath)} onReconvert={method => void reopenOriginal(method)}
+          <PixelImagePanel binding={binding} previous={boundDocumentRef.current?.source === autoSourceIdentity ? boundDocumentRef.current.doc : undefined} onFrame={setFrameIndex} task={task} doc={doc} projectDir={projectDir} scope={editScope} primary={primary} assetLine={report.lineUsage[0]?.line ?? pixelLine(primary)} onPrimary={value => { setPrimary(value); setActiveLine(pixelLine(value)); }} originalAvailable={Boolean(originalPath)} onReconvert={method => void reopenOriginal(method)}
             onCommit={(next, base, separate) => { if (docRef.current !== base) { setStatus("A imagem mudou. Gere uma nova prévia; seu trabalho foi preservado."); return; } commit(separate && source?.autoOpen ? copyPixelDoc(next) : next); if (!enabledPixelPalettes(next).includes(activeLine)) { const line = enabledPixelPalettes(next)[0]; setActiveLine(line); setPrimary(packPixel(line, 1)); setSecondary(packPixel(line, 2)); setEditingSlot(null); } setImagePreview(null); setIsolation(null); }}
             onPreview={(next) => { if (!transparencyPreview) setImagePreview(next); }}
             onSelectLayer={setLayerIndex} onSelectTool={next => { setTool(next); setTileMap(false); }} onSelection={setSelection} onIsolation={setIsolation}

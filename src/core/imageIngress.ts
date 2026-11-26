@@ -1,4 +1,5 @@
 // Clipboard/drop transport and scene proposal over the existing art/palette writers.
+import { occurrenceIds } from "./characterTimeline";
 import { invoke } from "@tauri-apps/api/core";
 import type { AnimationDef, Entity, PaletteEntry, Scene } from "./ipc/sceneService";
 import { createSpriteEntityFromAsset, createTilemapEntityFromAsset } from "./editorEntityFactory";
@@ -130,24 +131,64 @@ export async function publishImage(projectDir: string, prepared: PreparedImage, 
   return { entity, doc, assetPath: saved.png_relative, prepared };
 }
 
-function imageAnimations(entity: Entity, doc: PixelDoc, previous?: PixelDoc) {
-  const animations = { ...entity.components.sprite?.animations };
+export function imageAnimations(definitions: Record<string, AnimationDef> | undefined, doc: PixelDoc, previous?: PixelDoc) {
+  const animations = { ...definitions };
   const previousFrames = previous?.frames ?? doc.frames;
   const nextIndices = new Map(doc.frames.map((frame, index) => [frame.id, index]));
   const ambiguous = previous && (nextIndices.size !== doc.frames.length || new Set(previousFrames.map((frame) => frame.id)).size !== previousFrames.length);
+  const originals = new Map(previousFrames.map(frame => [frame.id, frame]));
+  const variants = doc.frames.filter(frame => frame.variant && !originals.has(frame.id));
+  const scopedAtlas = previousFrames.some(frame => frame.variant) || doc.frames.some(frame => frame.variant);
   for (const [name, definition] of Object.entries(animations)) {
-    if (name === "idle" && !isAuthoredIdle(definition)) continue;
+    if (name === "idle" && !scopedAtlas && !isAuthoredIdle(definition)) continue;
     if (ambiguous) throw new Error(`A animação «${name}» usa um atlas com identidades de quadros ambíguas.`);
     const remap = (index: number) => {
-      const source = previousFrames[index];
-      const next = previous ? (source ? nextIndices.get(source.id) : undefined) : (source ? index : undefined);
+      let source = previousFrames[index];
+      const seen = new Set<string>();
+      while (source?.variant && !nextIndices.has(source.id) && !seen.has(source.id)) {
+        seen.add(source.id);
+        source = originals.get(source.variant.sourceId)!;
+      }
+      const next = source && nextIndices.get(source.id);
       if (next === undefined) throw new Error(`O quadro ${index + 1} é usado em «${name}». Restaure-o ou remapeie essa ocorrência antes de salvar.`);
       return next;
     };
-    animations[name] = remapAnimationImages(definition, remap);
+    let mapped = remapAnimationImages(definition, remap);
+    // Undoing a split can bring the two copies of a frame-wide box together.
+    if (mapped.hitboxes && definition.hitboxes && mapped !== definition && scopedAtlas) {
+      const firstSource = new Map<string, number>();
+      const restored = mapped.hitboxes.filter((box, i) => {
+        if (box.occurrence_id) return true;
+        const key = JSON.stringify([box.frame, box.kind, box.x, box.y, box.width, box.height]);
+        const oldFrame = definition.hitboxes![i].frame;
+        if (firstSource.has(key)) return firstSource.get(key) === oldFrame;
+        firstSource.set(key, oldFrame);
+        return true;
+      });
+      if (restored.length !== mapped.hitboxes.length) mapped = { ...mapped, hitboxes: restored };
+    }
+    const ids = occurrenceIds(definition);
+    for (const { id, variant } of variants) {
+      if (!variant || variant.animation !== name) continue;
+      const source = nextIndices.get(variant.sourceId);
+      const next = nextIndices.get(id)!;
+      const affected = new Set(variant.occurrences);
+      if (source === undefined || variant.occurrences.some(occ => mapped.frames[ids.indexOf(occ)] !== source)) {
+        throw new Error(`As ocorrências de «${name}» mudaram. Confira a seleção antes de salvar.`);
+      }
+      const frames = mapped.frames.map((frame, i) => affected.has(ids[i]) ? next : frame);
+      const hitboxes = mapped.hitboxes?.flatMap(box => {
+        if (box.frame !== source || (box.occurrence_id && !affected.has(box.occurrence_id))) return [box];
+        const copy = { ...box, frame: next };
+        return !box.occurrence_id && frames.includes(source) ? [box, copy] : [copy];
+      });
+      mapped = { ...mapped, frames, occurrence_ids: ids, ...(hitboxes ? { hitboxes } : {}) };
+    }
+    animations[name] = mapped;
   }
+  if (variants.some(frame => !animations[frame.variant!.animation])) throw new Error("A animação da variante deixou de existir.");
   const previousIdle = animations.idle;
-  if (previousIdle ? !isAuthoredIdle(previousIdle) : Object.keys(animations).length === 0) {
+  if (previousIdle ? !scopedAtlas && !isAuthoredIdle(previousIdle) : Object.keys(animations).length === 0) {
     animations.idle = { ...pixelDocAnimation(doc), loop: previousIdle?.loop ?? true };
   }
   return animations;
@@ -212,7 +253,7 @@ function isAuthoredIdle(definition: AnimationDef) {
 /** Checks linked, authored occurrences before the pixel writer changes any project file. */
 export function validateImageBinding(scene: Scene, id: string, doc: PixelDoc, previous?: PixelDoc): void {
   const entity = scene.entities.find((item) => item.entity_id === id);
-  if (entity?.components.sprite) imageAnimations(entity, doc, previous);
+  if (entity?.components.sprite) imageAnimations(entity.components.sprite?.animations, doc, previous);
 }
 
 export function applyImageEdits(scene: Scene, id: string, asset: string, doc: PixelDoc, previous?: PixelDoc, document?: string): Scene {
@@ -237,7 +278,7 @@ export function applyImageEdits(scene: Scene, id: string, asset: string, doc: Pi
       const mounted = tilemap && tilemap.cells?.every((cell,i) => cell === i + 1);
       return { ...entity, components: { ...entity.components,
         ...(sprite ? { sprite: { ...sprite, asset, frame_width: doc.width, frame_height: doc.height, meta_sprite: doc.width > 32 || doc.height > 32,
-          animations: imageAnimations(entity, doc, previous) } } : {}),
+          animations: imageAnimations(entity.components.sprite?.animations, doc, previous) } } : {}),
         ...(tilemap ? { tilemap: { ...tilemap, tileset: asset, ...(mounted ? { map_width: doc.width / 8, map_height: doc.height / 8, cells: Array.from({length: doc.width * doc.height / 64}, (_,i) => i+1) } : {}) } } : {}),
         ...(document ? { logic: { ...logic, logic_hints: [
           ...(logic?.logic_hints ?? []).filter((hint) => !hint.startsWith("pixel_art:document=")),

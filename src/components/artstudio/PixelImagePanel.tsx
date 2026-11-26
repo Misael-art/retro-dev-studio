@@ -3,18 +3,23 @@ import { chooseImagePath } from "../../core/sceneryImport";
 import { IMAGE_CONVERSIONS, prepareImage } from "../../core/imageIngress";
 import { addLayer, deserializePixelDoc, mdColorToCss, mdLevelTo8, packPixel, pixelLine, quantizeRgba, removePixelBackground, type PixelConversion, type PixelDoc, type PixelRect, type PixelTileReuse } from "../../core/pixelEditor";
 import { addPixelBorder, applyPixelEffect, collagePixelDoc, cropPixelDoc, ditherTransparency, effectRgb, makeColorTransparent, PIXEL_EFFECTS, rotateIndexedSelection, rotatePixelDoc, scalePixelDoc, unifyPixelPalettes, type PixelEditScope } from "../../core/pixelImageOps";
+import PixelDeformationPanel from "./PixelDeformationPanel";
+import type { SpriteSequenceBinding } from "../../core/pixelDeformation";
 import PixelSeamPreview from "./PixelSeamPreview";
 
-export type PixelTask = "draw" | "image" | "colors" | "compose" | "layers" | "tiles";
+export type PixelTask = "deform" | "draw" | "image" | "colors" | "compose" | "layers" | "tiles";
 export const PIXEL_TASKS: { id: PixelTask; label: string }[] = [
   { id: "draw", label: "Desenhar" }, { id: "image", label: "Imagem e fundo" },
-  { id: "colors", label: "Cores e filtros" }, { id: "compose", label: "Colagem e texto" },
+  { id: "deform", label: "Deformar" }, { id: "colors", label: "Cores e filtros" }, { id: "compose", label: "Colagem e texto" },
   { id: "layers", label: "Camadas" }, { id: "tiles", label: "Otimizar tiles" },
 ];
 export type PixelTileView = "repeated" | "mirrored" | "exclusive" | "conflicts";
 
 interface Props {
   task: PixelTask;
+  binding?: SpriteSequenceBinding;
+  previous?: PixelDoc;
+  onFrame: (index: number) => void;
   doc: PixelDoc;
   projectDir: string | null;
   scope: PixelEditScope;
@@ -122,6 +127,8 @@ export default function PixelImagePanel(p: Props) {
     run(() => addPixelBorder(doc, scope, value, thickness, outline), outline ? "Contorno em nova camada" : "Moldura em nova camada");
   };
 
+  if (task === "deform") return <PixelDeformationPanel doc={doc} scope={scope} binding={p.binding} previous={p.previous}
+    onFrame={p.onFrame} onSelect={() => p.onSelectTool("select")} onPreview={p.onPreview} onCommit={p.onCommit} />;
   if (task === "draw" || task === "layers") return null;
   const visibleTiles = p.tiles.filter(t => !t.empty), unique = new Set(visibleTiles.map(t => t.pattern)).size;
   const tileMatches = visibleTiles.filter(t => p.tileView === "repeated" ? t.copies > 1 : p.tileView === "mirrored" ? t.flip !== "original" : p.tileView === "exclusive" ? t.exclusiveColors > 0 : t.lines.length > 1).length;
