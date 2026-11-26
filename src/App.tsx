@@ -1793,6 +1793,7 @@ export default function App() {
   const propertiesDropClick = useRef(false);
   const [focusedShell, setFocusedShell] = useState(false);
   const [compactPanel, setCompactPanel] = useState<"hierarchy" | "canvas" | "inspector">("canvas");
+  const [materialDock, setMaterialDock] = useState<HTMLDivElement | null>(null);
   const [hiddenSidePanels, setHiddenSidePanels] = useState({ left: false, right: false });
   const [shellWidth, setShellWidth] = useState(
     typeof window !== "undefined"
@@ -2872,35 +2873,6 @@ export default function App() {
           title: getShortcutTitle("scene.save", "Salvar cena ativa", shortcuts),
         },
         {
-          label: "Revisar projeto",
-          onClick: () => setShowDelivery(true),
-          disabled: !activeProjectDir,
-          title: "Revisar problemas, conferir a ROM no destino e exportar (Experimental)",
-          testId: "menu-action-review",
-        },
-        {
-          label: "Desfazer",
-          onClick: () => executeAppCommand("edit.undo"),
-          disabled: !activeProjectDir,
-          shortcut: getShortcutLabel("edit.undo", shortcuts),
-          title: getShortcutTitle("edit.undo", "Desfazer a ultima alteracao (inclui a selecao daquele momento)", shortcuts),
-          testId: "menu-action-undo",
-        },
-        {
-          label: "Refazer",
-          onClick: () => executeAppCommand("edit.redo"),
-          disabled: !activeProjectDir,
-          shortcut: getShortcutLabel("edit.redo", shortcuts),
-          title: getShortcutTitle("edit.redo", "Refazer a alteracao desfeita", shortcuts),
-          testId: "menu-action-redo",
-        },
-        {
-          label: "Histórico da cena",
-          onClick: () => setShowSceneHistory(true),
-          disabled: !activeProjectDir,
-          testId: "menu-action-scene-history",
-        },
-        {
           label: "Relatorio MUGEN",
           onClick: () => {
             if (activeProjectDir) void showMugenCompatibility(activeProjectDir, true);
@@ -2927,8 +2899,57 @@ export default function App() {
       ],
     },
     {
-      title: "Ferramentas",
+      title: "Editar",
       actions: [
+        {
+          label: "Desfazer",
+          onClick: () => executeAppCommand("edit.undo"),
+          disabled: !activeProjectDir,
+          shortcut: getShortcutLabel("edit.undo", shortcuts),
+          title: getShortcutTitle("edit.undo", "Desfazer a ultima alteracao (inclui a selecao daquele momento)", shortcuts),
+          testId: "menu-action-undo",
+        },
+        {
+          label: "Refazer",
+          onClick: () => executeAppCommand("edit.redo"),
+          disabled: !activeProjectDir,
+          shortcut: getShortcutLabel("edit.redo", shortcuts),
+          title: getShortcutTitle("edit.redo", "Refazer a alteracao desfeita", shortcuts),
+          testId: "menu-action-redo",
+        },
+        {
+          label: "Histórico da cena",
+          onClick: () => setShowSceneHistory(true),
+          disabled: !activeProjectDir,
+          testId: "menu-action-scene-history",
+        },
+        {
+          label: "Copiar",
+          onClick: handleCopyEntity,
+          disabled: !selectedEntityId || selectedEntityId.startsWith("layer::"),
+          shortcut: getShortcutLabel("entity.copy", shortcuts),
+          title: getShortcutTitle("entity.copy", "Copiar entidade selecionada", shortcuts),
+        },
+        {
+          label: "Colar",
+          onClick: () => void handlePasteEntity(),
+          disabled: !copiedEntity || !activeProjectDir,
+          shortcut: getShortcutLabel("entity.paste", shortcuts),
+          title: getShortcutTitle("entity.paste", "Colar entidade copiada", shortcuts),
+        },
+      ],
+    },
+    {
+      title: "Compilar, testar e entregar",
+      actions: [
+        {
+          label: "Revisar projeto",
+          onClick: () => setShowDelivery(true),
+          disabled: !activeProjectDir,
+          title: "Revisar problemas, conferir a ROM no destino e exportar (Experimental)",
+          testId: "menu-action-review",
+        },
+
         {
           label: "Abrir ROM externa…",
           onClick: () => void handleEmulatorLoadRom(),
@@ -2949,20 +2970,6 @@ export default function App() {
           disabled: !activeProjectDir,
           shortcut: getShortcutLabel("code.generate", shortcuts),
           title: getShortcutTitle("code.generate", "Gerar codigo C para a cena ativa", shortcuts),
-        },
-        {
-          label: "Copiar",
-          onClick: handleCopyEntity,
-          disabled: !selectedEntityId || selectedEntityId.startsWith("layer::"),
-          shortcut: getShortcutLabel("entity.copy", shortcuts),
-          title: getShortcutTitle("entity.copy", "Copiar entidade selecionada", shortcuts),
-        },
-        {
-          label: "Colar",
-          onClick: () => void handlePasteEntity(),
-          disabled: !copiedEntity || !activeProjectDir,
-          shortcut: getShortcutLabel("entity.paste", shortcuts),
-          title: getShortcutTitle("entity.paste", "Colar entidade copiada", shortcuts),
         },
       ],
     },
@@ -5170,6 +5177,8 @@ export default function App() {
       title={getShortcutTitle("emulator.stop", "Parar emulação", shortcuts)} testId="toolbar-emulator-stop"
       onClick={() => void handleEmulatorStop()} disabled={!emulatorLoaded} />
   );
+  const useMaterialDock = activeWorkspace === "scene" && !compactShell && !focusedShell
+    && !hiddenSidePanels[propertiesLeft ? "left" : "right"] && !floating.open.properties && rightPanelMode === "inspector";
   const workspaceEditor = activeWorkspace === "explorer" ? (
     <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Explorer..." />}>
       <ExplorerWorkspace
@@ -5179,7 +5188,8 @@ export default function App() {
     </Suspense>
   ) : (
     <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Workspace..." />}>
-      <ViewportPanel showWorkspaceTabs={false} compactTools={splitTimeline} stopSessionButton={transportAtGame ? stopSessionButton : undefined} />
+      <ViewportPanel showWorkspaceTabs={false} compactTools={splitTimeline}
+        materialDock={useMaterialDock ? materialDock : null} stopSessionButton={transportAtGame ? stopSessionButton : undefined} />
     </Suspense>
   );
   const animationActor = splitTimeline || floating.open.timeline
@@ -5315,6 +5325,7 @@ export default function App() {
           </div>
         ) : null}
       </div>
+      <div ref={setMaterialDock} className="rds-material-dock" />
       <div className="min-h-0 flex-1 overflow-hidden">
         {rightPanelMode === "tools" ? (
           <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Tools..." />}>

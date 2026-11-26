@@ -337,10 +337,12 @@ export default function ViewportPanel({
   showWorkspaceTabs = true,
   compactTools = false,
   stopSessionButton,
+  materialDock,
 }: {
   showWorkspaceTabs?: boolean;
   compactTools?: boolean;
   stopSessionButton?: ReactNode;
+  materialDock?: HTMLElement | null;
 }) {
   const {
     activeViewportTab,
@@ -5426,7 +5428,7 @@ export default function ViewportPanel({
             ) : null}
             <div className="flex min-h-0 flex-1">
             {editorMode === "collision" && activeTarget === "megadrive" && showMaterialBrush && activeScene?.collision_map && (
-              <MaterialBrushPanel map={activeScene.collision_map} entities={activeScene.entities}
+              <MaterialBrushPanel dock={materialDock} map={activeScene.collision_map} entities={activeScene.entities}
                 brush={materialBrush} onBrush={setMaterialBrush}
                 onSave={(material) => {
                   const map = useEditorStore.getState().activeScene?.collision_map;

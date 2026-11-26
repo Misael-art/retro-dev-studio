@@ -126,7 +126,7 @@ export default function MotionTracePanel({ renderedFrames, paused }: { renderedF
   return <details data-testid="viewport-motion-trace" className="rounded border border-[var(--rds-border-subtle)] p-2 text-xs">
     <summary className="cursor-pointer font-semibold">Traço de movimento <span className="text-[var(--rds-text-secondary)]">Experimental</span></summary>
     <div className="max-h-[190px] overflow-auto">
-    <div className="mt-2 flex flex-wrap gap-2">
+    <div role="group" aria-label="Gravar e comparar movimentos" className="mt-2 flex flex-wrap gap-2">
       <button type="button" className={button} data-testid="motion-trace-start-a" disabled={!eligible || !!slot || starting} onClick={() => void start("a")}>Gravar A</button>
       <button type="button" className={button} data-testid="motion-trace-start-b" disabled={!eligible || !!slot || starting} onClick={() => void start("b")}>Gravar B</button>
       <button type="button" className={button} data-testid="motion-trace-stop" disabled={!slot} onClick={() => update((current) => current ? { ...current, recording: null } : current)}>Parar traço</button>

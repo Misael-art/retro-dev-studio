@@ -1,8 +1,10 @@
+import { createPortal } from "react-dom";
 import { useState } from "react";
 import type { CollisionMap, Entity, SurfaceMaterial } from "../../core/ipc/sceneService";
 
 type Props = {
   map: CollisionMap;
+  dock?: HTMLElement | null;
   entities: readonly Entity[];
   brush?: string | null;
   onBrush: (material: string | null | undefined) => void;
@@ -12,7 +14,7 @@ type Props = {
 
 const control = "rounded border border-[#45475a] bg-[#11111b] px-1 py-0.5";
 
-export default function MaterialBrushPanel({ map, entities, brush, onBrush, onSave, onCell }: Props) {
+export default function MaterialBrushPanel({ dock, map, entities, brush, onBrush, onSave, onCell }: Props) {
   const materials = map.materials ?? [];
   const sounds = [...new Set(entities.flatMap((entity) => Object.keys(entity.components.audio?.sfx ?? {})))].sort();
   const [selected, select] = useState("");
@@ -41,7 +43,7 @@ export default function MaterialBrushPanel({ map, entities, brush, onBrush, onSa
     setSound(item?.step_sound ?? "");
   }
 
-  return (
+  const panel = (
     <section data-testid="material-brush-panel" aria-label="Materiais de superfície" className="rds-material-inspector">
       <label className="grid">Regra da superfície
         <select data-testid="material-rule" className={control} value={selected} onChange={(event) => load(event.target.value)}>
@@ -94,4 +96,5 @@ export default function MaterialBrushPanel({ map, entities, brush, onBrush, onSa
       </fieldset>
     </section>
   );
+  return dock ? createPortal(panel, dock) : panel;
 }

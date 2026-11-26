@@ -846,3 +846,10 @@
 .rds-material-inspector > [role="status"] { display: block; }
 .rds-material-fields { min-width: 0; border-top: 1px solid var(--rds-border-subtle); }
 .rds-material-fields legend { font-weight: 600; padding-block: 0.375rem; }
+
+.rds-material-dock { max-height: 48%; overflow: auto; }
+.rds-material-dock:empty { display: none; }
+.rds-material-dock .rds-material-inspector {
+  border-inline-end: 0;
+  border-bottom: 1px solid var(--rds-border-subtle);
+}

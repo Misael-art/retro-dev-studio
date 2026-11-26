@@ -2591,6 +2591,21 @@ describe("App build flow", () => {
     expect(localStorage.getItem("retrodev-workspace-guide-expanded")).toBe("false");
   });
 
+  it("keeps contextual help out of the stage and identifies edit, delivery and layout commands", async () => {
+    const trigger = container.querySelector<HTMLButtonElement>("[data-testid='workspace-guide-open']");
+    expect(trigger?.getAttribute("popovertarget")).toBe("studio-workspace-help");
+    const guide = container.querySelector("#studio-workspace-help");
+    expect(guide?.getAttribute("popover")).toBe("auto");
+    expect(guide?.querySelector("[data-testid='workspace-guide']")).toBeTruthy();
+    await act(async () => { findButton(container, "Menu").click(); await flush(); });
+    const menu = container.querySelector("#studio-main-menu") as HTMLElement;
+    const section = (label: string) => [...menu.children].find(group => group.firstElementChild?.textContent === label);
+    expect(section("Editar")?.textContent).toMatch(/Desfazer.*Refazer.*Histórico.*Copiar.*Colar/);
+    expect(section("Compilar, testar e entregar")?.textContent).toMatch(/Revisar projeto.*Abrir ROM externa.*Validar.*Gerar C/);
+    expect(section("Disposição")?.querySelector("[data-testid='workspace-preset-animate']")).toBeTruthy();
+    expect(container.querySelector("[data-testid='toolbar-save']")?.getAttribute("data-tool-hint")).toContain("Ctrl+S");
+  });
+
   it("opens the unified top bar menu and reaches the About dialog", async () => {
     await act(async () => {
       findButton(container, "Menu").click();

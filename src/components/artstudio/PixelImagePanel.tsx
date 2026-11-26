@@ -166,6 +166,7 @@ export default function PixelImagePanel(p: Props) {
       <button type="button" disabled={!p.originalAvailable} className={button} data-testid="pixel-reconvert" onClick={() => p.onReconvert(conversion)}>Reconverter original preservado</button>
     </div>}
     {task === "colors" && <div className="flex flex-col gap-3">
+      <fieldset className="grid min-w-0 gap-2"><legend className="font-semibold">Transparência e isolamento</legend>
       <div className="grid grid-cols-2 gap-2" aria-label="Cor transparente" role="group">
         <button type="button" className={button} data-testid="pixel-transparent-island" onClick={() => p.onSelectTool("transparent")}>Cor transparente · ilha</button>
         <button type="button" className={button} data-testid="pixel-transparent-color" disabled={p.primary % 16 === 0}
@@ -189,11 +190,14 @@ export default function PixelImagePanel(p: Props) {
       ) : null}
       <div className="grid grid-cols-2 gap-2"><button type="button" className={button} data-testid="pixel-isolate-color" onClick={() => p.onIsolation(p.primary)}>Isolar cor escolhida</button><button type="button" className={button} onClick={() => p.onIsolation(null)}>Mostrar todas</button></div>
       <p className="text-[#a6adc8]">As outras cores ficam esmaecidas e protegidas. Combine com Seleção para editar só uma região. A prévia e o PNG final conservam todas as cores.</p>
+      </fieldset>
+      <fieldset className="grid min-w-0 gap-2"><legend className="font-semibold">Ajustar cor e iluminação</legend>
       <label>Brilho: {brightness}<input type="range" aria-label="Brilho" min={-100} max={100} value={brightness} onChange={e => setBrightness(Number(e.target.value))} className="block w-full" /></label>
       <label>Contraste: {contrast}<input type="range" aria-label="Contraste" min={-100} max={100} value={contrast} onChange={e => setContrast(Number(e.target.value))} className="block w-full" /></label>
       <button type="button" className={button} data-testid="pixel-preview-adjust" onClick={() => effect("adjust")}>Visualizar ajustes</button>
       <div className="grid grid-cols-2 gap-2">{PIXEL_EFFECTS.map(f => <button type="button" key={f.id} className={button} title={f.hint} data-testid={`pixel-filter-${f.id}`} onClick={() => effect(f.id)}><span className="mb-1 flex overflow-hidden rounded" aria-hidden>{[0, 64, 128, 192, 255].map(n => <span key={n} className="h-2 flex-1" style={{ backgroundColor: `rgb(${effectRgb([n, n * .7, n * .4], f.id).map(v => Math.round(Math.max(0, Math.min(255, v)))).join(",")})` }} />)}</span>{f.name}</button>)}</div>
       <p className="text-[#a6adc8]">Cores e efeitos são adaptados a 15 cores por paleta. Edições locais preservam as cores usadas nas outras regiões, camadas e quadros; a prévia informa aproximações.</p>
+      </fieldset>
       <button type="button" className={button} onClick={() => run(() => unifyPixelPalettes(doc), "Unificar paletas do recurso inteiro")}>Unificar paletas</button>
       <p className="text-[#a6adc8]">Converte todas as camadas, inclusive ocultas, e todos os quadros para uma paleta comum de até 15 cores + transparência. A redução pode aproximar cores; confira antes de aplicar. Necessário para salvar PNG quando a arte mistura paletas incompatíveis.</p>
     </div>}

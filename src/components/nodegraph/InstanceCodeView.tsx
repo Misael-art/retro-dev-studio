@@ -187,13 +187,13 @@ export function InstanceCodeView() {
 
   return (
     <div data-testid="instance-code-view" className="flex h-full w-full flex-col overflow-hidden bg-[#11111b] text-xs text-[#cdd6f4]">
-      <header className="shrink-0 border-b border-[#313244] px-3 py-2">
+      <header className="flex shrink-0 flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-[#313244] px-3 py-1">
         <p className="font-semibold">
           Código da instância <span className="rounded bg-[#f9e2af]/15 px-1 text-[10px] text-[#f9e2af]">Experimental</span>
         </p>
-        <p className="mt-0.5 text-[11px] text-[#a6adc8]">
+        <p className="text-[11px] text-[#a6adc8]">
           Cena <strong>{activeScene?.display_name ?? activeScene?.scene_id ?? "—"}</strong> · Instância{" "}
-          <strong data-testid="instance-code-entity">{entity ? getEntityDisplayName(entity) : "nenhuma"}</strong> · O modelo da cena governa o build; este código é a projeção editável dele.
+          <strong data-testid="instance-code-entity">{entity ? getEntityDisplayName(entity) : "nenhuma"}</strong>
         </p>
         {sharedUses.length > 0 ? (
           <label className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
@@ -227,7 +227,7 @@ export function InstanceCodeView() {
         )) : null}
       </div>
       <p role="status" aria-live="polite" data-testid="instance-code-status" className="shrink-0 border-t border-[#313244] px-3 py-1 text-[11px] text-[#a6adc8]">
-        {message || "Alterações representáveis atualizam os nós; lógica livre vira um nó de código; texto incompleto fica como rascunho."}
+        {message || "O build usa o modelo da cena. Alterações representáveis atualizam os nós; lógica livre vira um nó de código; texto incompleto fica como rascunho."}
       </p>
     </div>
   );
