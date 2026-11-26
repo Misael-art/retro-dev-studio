@@ -145,7 +145,16 @@ if (input !== "--referencias") {
     const related = [];
     for (const item of row.related ?? []) {
       const filePath = path.resolve(path.dirname(file), required(item.path, "related.path"));
-      related.push({ path: filePath, label: required(item.label, "related.label"), size: await pngSize(filePath), sha256: await sha256(filePath) });
+      const artifact = { path: filePath, label: required(item.label, "related.label"), sha256: await sha256(filePath) };
+      if (path.extname(filePath).toLowerCase() === ".json") {
+        const evidence = JSON.parse(await readFile(filePath, "utf8"));
+        if (!evidence || typeof evidence !== "object" || (evidence.status && evidence.status !== "passed")) {
+          throw new Error(`Recibo complementar inválido: ${filePath}`);
+        }
+      } else {
+        artifact.size = await pngSize(filePath);
+      }
+      related.push(artifact);
     }
     captures.set(row.name, { path: capture, sha256: digest, size, gesture: required(row.gesture, "gesture"),
       observation: required(row.observation, "observation"), project: row.project, selection: row.selection, problem: row.problem, change: row.change,

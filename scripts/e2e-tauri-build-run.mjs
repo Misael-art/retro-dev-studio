@@ -12227,13 +12227,17 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     "Editor nao expos o limiar autoral de score com source mapping.",
     250
   );
-  await activateByTestIdWithEnter(sessionId, "node-heading-score_threshold");
-  await waitFor(() => executeScript(sessionId,
-    "return document.querySelector('[data-testid=\"node-origin-score_threshold\"]')?.textContent.includes('authored_builtin_reference_platformer');"),
-  10000, "Selecionar o cartão precisa revelar a origem autoral do limiar.");
+  const revealGoalMapping = async () => {
+    await activateByTestIdWithEnter(sessionId, "node-heading-score_threshold");
+    return waitFor(() => executeScript(sessionId, `
+      const origin = document.querySelector('[data-testid="node-origin-score_threshold"]');
+      return origin?.textContent.includes("authored_builtin_reference_platformer")
+        && origin.closest('[data-testid="node-card-score_threshold"]')?.textContent;
+    `), 10000, "Selecionar o cartão precisa revelar a origem autoral do limiar.");
+  };
+  const sourceMappingVisible = await revealGoalMapping();
   const thresholdInput = await executeScript(sessionId, "return document.querySelector('[data-testid=\"node-param-score_threshold-b\"]')?.value ?? null;");
   const thresholdLabel = await executeScript(sessionId, "return document.querySelector('[data-testid=\"node-param-score_threshold-b\"]')?.parentElement?.querySelector('span')?.textContent ?? '';" );
-  const sourceMappingVisible = await executeScript(sessionId, "return document.querySelector('[data-testid=\"node-card-score_threshold\"]')?.textContent ?? '';" );
   if (thresholdInput !== "6" || thresholdLabel !== "Pontos para abrir passagem" || !String(sourceMappingVisible).includes("Source mapped") || !String(sourceMappingVisible).includes("authored_builtin_reference_platformer")) {
     fail(`Editor nao comprovou semantica do limiar/origem/source mapping autorais: ${JSON.stringify({ thresholdInput, thresholdLabel, sourceMappingVisible })}`);
   }
@@ -12317,7 +12321,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     "Limiar 12 nao persistiu/reabriu pela interface.",
     250
   );
-  const reopenedGoalMapping = await executeScript(sessionId, "return document.querySelector('[data-testid=\"node-card-score_threshold\"]')?.textContent ?? '';" );
+  const reopenedGoalMapping = await revealGoalMapping();
   if (!String(reopenedGoalMapping).includes("Source mapped") || !String(reopenedGoalMapping).includes("authored_builtin_reference_platformer")) {
     fail(`Source mapping/origem autoral nao persistiu na reabertura: ${reopenedGoalMapping}`);
   }
@@ -12980,16 +12984,17 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     "Inspector nao posicionou o segundo bloqueador em x=120.",
     200
   );
-  // Etapa 3 in the same authoring session: erase the floor collision of a 2x2 region
-  // (cols 10-11, rows 26-27), repaint its visual tiles as empty and set idle to 12 fps.
   // One-cell hole: with side walls a wider/deeper pit is a trap for the template jump.
   const pitCells = [[10, 26]];
   const sceneStateForPit = await readAutomationState(sessionId);
-  const pitBounds = sceneStateForPit?.activeScene?.worldBounds;
-  const cellPoint = (col, row) => ({
-    x: ((col * 8 + 4) - Number(pitBounds?.minX ?? 0)) / Math.max(1, Number(pitBounds?.maxX ?? 320) - Number(pitBounds?.minX ?? 0)),
-    y: ((row * 8 + 4) - Number(pitBounds?.minY ?? 0)) / Math.max(1, Number(pitBounds?.maxY ?? 224) - Number(pitBounds?.minY ?? 0)),
-  });
+  const pitMap = sceneStateForPit.activeScene.entities.find((entity) => entity.id === "reference_tilemap");
+  const pitOverlay = "[data-testid='viewport-scene-overlay']";
+  const cellPoint = (col, row) => executeScript(sessionId, `
+    const bounds = document.querySelector(arguments[0]).dataset;
+    return {
+      x: (arguments[1] - Number(bounds.worldMinX)) / Number(bounds.worldWidth),
+      y: (arguments[2] - Number(bounds.worldMinY)) / Number(bounds.worldHeight)
+    };`, [pitOverlay, pitMap.x + (col + 0.5) * tilemapTileWidth, pitMap.y + (row + 0.5) * tilemapTileHeight]);
   const solidBeforePit = Number(sceneStateForPit?.activeScene?.collisionSolidCount ?? 0);
   await clickButtonByTestIdNative(sessionId, "hierarchy-tilemap-edit-reference_tilemap", "abrir tilemap para o fosso");
   await waitFor(async () => executeScript(sessionId, "return Boolean(document.querySelector('[data-testid=\"viewport-tile-paint-flow-strip\"]'));"), 15000, "Pintura de tilemap indisponivel para o fosso.", 250);
@@ -12999,16 +13004,27 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   await waitFor(async () => executeScript(sessionId, "return Boolean(document.querySelector('[data-testid=\"tile-palette-empty\"]'));"), 15000, "Celula vazia nao carregou na paleta do fosso.", 100);
   // Explicitly empty cell (distinct from 0 = base map).
   await clickByTestId(sessionId, "tile-palette-empty");
+  await waitFor(() => executeScript(sessionId, `return document.querySelector('[data-testid="viewport-tile-paint-flow-strip"]')?.textContent.includes("#4294967295");`),
+    5000, "A paleta não confirmou a seleção da célula vazia.");
   await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-tile-flow-toggle", "recolher paleta para pintar o fosso");
-  const pitOverlay = "[data-testid='viewport-scene-overlay']";
   const fitPit = async () => {
     await clickElement(sessionId, await findElement(sessionId, 'button[title="Resetar vista (zoom + pan)"]'));
-    const cellsVisible = async () => (await Promise.all(pitCells.map(([col, row]) => {
-      const point = cellPoint(col, row);
+    const locate = () => Promise.all(pitCells.map(async ([col, row]) => {
+      const point = await cellPoint(col, row);
       return nativeCanvasPoint(sessionId, pitOverlay, point.x, point.y);
-    }))).every((point) => point?.unobstructed);
+    }));
     for (let step = 0; step < 12; step += 1) {
-      if (await cellsVisible()) return;
+      const points = await locate();
+      if (points.every((point) => point?.unobstructed)) {
+        let previous = points;
+        await waitFor(async () => {
+          const current = await locate();
+          const settled = current.every((point, i) => point?.unobstructed && point.x === previous[i]?.x && point.y === previous[i]?.y);
+          previous = current;
+          return settled;
+        }, 5000, "O centro da célula não estabilizou no Canvas.", 150);
+        return;
+      }
       const before = (await readAutomationState(sessionId))?.viewportZoom;
       if (await executeScript(sessionId, `return document.querySelector('[data-testid="viewport-zoom-out"]')?.disabled;`)) return;
       await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-zoom-out", "expor o piso no Canvas");
@@ -13018,14 +13034,14 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   };
   await fitPit();
   for (const [col, row] of pitCells) {
-    const point = cellPoint(col, row);
+    const point = await cellPoint(col, row);
     await clickCanvasPointNatively(sessionId, pitOverlay, point.x, point.y, `apagar visual ${col},${row}`);
   }
   await waitFor(
     async () => {
       const state = await readAutomationState(sessionId);
       const cells = state?.activeScene?.entities?.find((candidate) => candidate.id === "reference_tilemap")?.tilemap?.cells ?? [];
-      return pitCells.every(([col, row]) => Number(cells[row * 40 + col]) === 4294967295) ? true : false;
+      return pitCells.every(([col, row]) => Number(cells[row * tilemapWidth + col]) === 4294967295);
     },
     10000, "Visual do fosso nao foi pintado no tilemap.", 150
   );
@@ -13037,7 +13053,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   }
   await fitPit();
   for (const [col, row] of pitCells) {
-    const point = cellPoint(col, row);
+    const point = await cellPoint(col, row);
     await clickCanvasPointNatively(sessionId, pitOverlay, point.x, point.y, `apagar colisao ${col},${row}`, 2);
   }
   const solidAfterPit = await waitFor(
